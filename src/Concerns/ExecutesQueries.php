@@ -555,9 +555,9 @@ trait ExecutesQueries
      */
     protected function createModelInstance(array $document): Model
     {
-        $data = $document[Query::FIELD_SOURCE] ?? [];
+        $data = $this->flattenValues($document[Query::$getDataFrom] ?? []);
         $metadata = array_diff_key($document, array_flip([
-            Query::FIELD_SOURCE,
+            Query::$getDataFrom,
         ]));
 
         return $this->getModel()->newInstance(
@@ -666,4 +666,32 @@ trait ExecutesQueries
 
         return $params;
     }
+
+    /**
+     * ES always returns an array when using "fields" to select columns
+     * This method turns single element arrays into strings
+     *
+     * @param array<string, mixed> $params Recieved values
+     *
+     * @return array<string, mixed> Flattened values
+     */
+    private function flattenValues(array $values): ?array
+    {
+        if (Query::$getDataFrom == Query::FIELD_SOURCE) {
+            return $values;
+        }
+
+        $flattened = [];
+
+        foreach ($values as $key => $value) {
+            if (is_array($value) && count($value) == 1) {
+                $flattened[$key] = $value[0];
+            } else {
+                $flattened[$key] = $value;
+            }
+        }
+
+        return $flattened;
+    }
+
 }

@@ -274,6 +274,13 @@ trait BuildsFluentQueries
     protected $source;
 
     /**
+     * Query returned fields list
+     *
+     * @var array|null
+     */
+    protected $fields;
+
+    /**
      * Mapping type
      * ============
      * Each document indexed is associated with a `_type` and an `_id`.
@@ -923,19 +930,27 @@ trait BuildsFluentQueries
     {
         $fields = $this->flattenArgs($args);
 
-        $this->source[Query::SOURCE_INCLUDES] = array_values(array_unique(array_merge(
-            $this->source[Query::SOURCE_INCLUDES] ?? [],
-            $fields
-        )));
-
-        $this->source[Query::SOURCE_EXCLUDES] = array_values(array_filter(
-            $this->source[Query::SOURCE_EXCLUDES] ?? [], function ($field) {
-            return ! in_array(
-                $field,
+        if (Query::$getDataFrom == Query::FIELD_FIELDS) {
+            $this->fields = array_values(array_unique(array_merge(
                 $this->source[Query::SOURCE_INCLUDES] ?? [],
-                false
-            );
-        }));
+                $fields
+            )));
+        }
+        else {
+            $this->source[Query::SOURCE_INCLUDES] = array_values(array_unique(array_merge(
+                $this->source[Query::SOURCE_INCLUDES] ?? [],
+                $fields
+            )));
+
+            $this->source[Query::SOURCE_EXCLUDES] = array_values(array_filter(
+                $this->source[Query::SOURCE_EXCLUDES] ?? [], function ($field) {
+                return !in_array(
+                    $field,
+                    $this->source[Query::SOURCE_INCLUDES] ?? [],
+                    false
+                );
+            }));
+        }
 
         return $this;
     }
@@ -1364,6 +1379,16 @@ trait BuildsFluentQueries
             );
         }
 
+        if ($this->fields !== null) {
+            $fields = $body[Query::FIELD_FIELDS] ?? [];
+
+            $body[Query::FIELD_FIELDS] = array_merge(
+                $fields,
+                $this->fields
+            );
+            $body[Query::FIELD_SOURCE] = false;
+        }
+
         $body[self::FIELD_QUERY] = $body[self::FIELD_QUERY] ?? [];
 
         if (count($this->must)) {
@@ -1512,4 +1537,19 @@ trait BuildsFluentQueries
 
         return implode('|', $stringFlags);
     }
+
+    public function selectFromSource(): self
+    {
+        Query::$getDataFrom = Query::FIELD_SOURCE;
+
+        return $this;
+    }
+
+    public function selectFromFields(): self
+    {
+        Query::$getDataFrom = Query::FIELD_FIELDS;
+
+        return $this;
+    }
+
 }
