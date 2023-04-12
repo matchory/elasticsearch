@@ -83,7 +83,8 @@
             "php": "7.3.28"
         },
         "allow-plugins": {
-            "composer/package-versions-deprecated": true
+            "composer/package-versions-deprecated": true,
+            "php-http/discovery": true
         }
     },
     "replace": {
