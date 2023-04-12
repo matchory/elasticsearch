@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Matchory\Elasticsearch\Concerns;
 
+use Closure;
 use InvalidArgumentException;
 use JetBrains\PhpStorm\Deprecated;
 use Matchory\Elasticsearch\Classes\Search;
@@ -459,7 +460,7 @@ trait BuildsFluentQueries
      */
     public function distance($name, $value, string $distance): self
     {
-        if (is_callable($name)) {
+        if ($name instanceof Closure) {
             return tap($this, $name);
         }
 
@@ -1085,7 +1086,7 @@ trait BuildsFluentQueries
         $operator = Query::OPERATOR_EQUAL,
         $value = null
     ): self {
-        if (is_callable($name)) {
+        if ($name instanceof Closure) {
             $name($this);
 
             return $this;
@@ -1209,7 +1210,7 @@ trait BuildsFluentQueries
      */
     public function whereIn($name, $value = []): self
     {
-        if (is_callable($name)) {
+        if ($name instanceof Closure) {
             return tap($this, $name);
         }
 
@@ -1230,7 +1231,7 @@ trait BuildsFluentQueries
         string $operator = Query::OPERATOR_EQUAL,
         $value = null
     ): self {
-        if (is_callable($name)) {
+        if ($name instanceof Closure) {
             return tap($this, $name);
         }
 
@@ -1318,7 +1319,7 @@ trait BuildsFluentQueries
      */
     public function whereNotIn($name, $value = []): self
     {
-        if (is_callable($name)) {
+        if ($name instanceof Closure) {
             return tap($this, $name);
         }
 
