@@ -63,7 +63,7 @@ class Collection extends BaseCollection
     /**
      * Collection constructor.
      *
-     * @param array         $items
+     * @param iterable      $items
      * @param int|null      $total
      * @param int|null      $maxScore
      * @param float|null    $duration
@@ -74,7 +74,7 @@ class Collection extends BaseCollection
      * @param array|null    $aggregations
      */
     public function __construct(
-        array $items = [],
+        iterable $items = [],
         ?int $total = null,
         ?float $maxScore = null,
         ?float $duration = null,
@@ -86,7 +86,6 @@ class Collection extends BaseCollection
     ) {
         parent::__construct($items);
 
-        $this->items = $items;
         $this->total = $total;
         $this->maxScore = $maxScore;
         $this->duration = $duration;
