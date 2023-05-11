@@ -47,21 +47,22 @@
         }
     },
     "require": {
-        "php": ">=7.3|^8.0",
+        "php": "^8.2",
         "ext-json": "*",
-        "elasticsearch/elasticsearch": "^7.11",
-        "illuminate/pagination": "*",
-        "illuminate/support": "*",
+        "elasticsearch/elasticsearch": "^7",
+        "illuminate/pagination": "^9|^10",
+        "illuminate/support": "^9|^10",
         "monolog/monolog": "*",
         "symfony/var-dumper": "*"
     },
     "require-dev": {
-        "illuminate/contracts": "^8.5",
-        "illuminate/database": "^8.5",
+        "illuminate/contracts": "^9|^10",
+        "illuminate/database": "^9|^10",
         "jetbrains/phpstorm-attributes": "^1.0",
-        "laravel/lumen-framework": "^8.2",
-        "laravel/scout": "^8.3",
-        "orchestra/testbench": "^6.9",
+        "laravel/lumen-framework": "^9|^10",
+        "laravel/scout": "^9|^10",
+        "matchory/laravel-server-timing": "^1.1",
+        "orchestra/testbench": "*",
         "phpunit/phpunit": "^9.3",
         "sentry/sentry-laravel": "^2|^3",
         "vimeo/psalm": "^4.6"
@@ -79,9 +80,6 @@
     },
     "config": {
         "sort-packages": true,
-        "platform": {
-            "php": "7.3.28"
-        },
         "allow-plugins": {
             "composer/package-versions-deprecated": true,
             "php-http/discovery": true
