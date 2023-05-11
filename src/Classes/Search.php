@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Matchory\Elasticsearch\Classes;
 
 use Matchory\Elasticsearch\Query;
@@ -13,39 +15,39 @@ use function is_callable;
  */
 class Search
 {
-    public const PARAMETER_BOOST = "boost";
+    public const PARAMETER_BOOST = 'boost';
 
-    public const PARAMETER_FIELDS = "fields";
+    public const PARAMETER_FIELDS = 'fields';
 
-    public const PARAMETER_QUERY = "query";
-
-    /**
-     * The query object
-     *
-     * @var Query
-     */
-    public $query;
-
-    /**
-     * The search query string
-     *
-     * @var string
-     */
-    public $queryString;
+    public const PARAMETER_QUERY = 'query';
 
     /**
      * The search query boost factor
      *
      * @var int|null
      */
-    public $boost = null;
+    public int|null $boost = null;
 
     /**
      * The search fields
      *
      * @var array
      */
-    public $fields = [];
+    public array $fields = [];
+
+    /**
+     * The query object
+     *
+     * @var Query
+     */
+    public Query $query;
+
+    /**
+     * The search query string
+     *
+     * @var string
+     */
+    public string $queryString;
 
     /**
      * @var array|callable|null
@@ -60,7 +62,7 @@ class Search
     public function __construct(
         Query $query,
         string $queryString,
-        $settings = null
+        callable|array $settings = null
     ) {
         $this->query = $query;
         $this->queryString = $queryString;
@@ -71,27 +73,6 @@ class Search
 
         // TODO: What is the purpose of this property?
         $this->settings = $settings;
-    }
-
-    /**
-     * Set searchable fields
-     *
-     * @param array $fields
-     *
-     * @return $this
-     */
-    public function fields(array $fields = []): self
-    {
-        $searchable = [];
-
-        foreach ($fields as $field => $weight) {
-            $weight_suffix = $weight > 1 ? "^$weight" : "";
-            $searchable[] = $field . $weight_suffix;
-        }
-
-        $this->fields = $searchable;
-
-        return $this;
     }
 
     /**
@@ -113,20 +94,41 @@ class Search
      */
     public function build(): void
     {
-        $query_params = [
+        $queryParams = [
             self::PARAMETER_QUERY => $this->queryString,
         ];
 
         if ($this->boost > 1) {
-            $query_params[self::PARAMETER_BOOST] = $this->boost;
+            $queryParams[self::PARAMETER_BOOST] = $this->boost;
         }
 
         if (count($this->fields)) {
-            $query_params[self::PARAMETER_FIELDS] = $this->fields;
+            $queryParams[self::PARAMETER_FIELDS] = $this->fields;
         }
 
         $this->query->must[] = [
-            "query_string" => $query_params,
+            'query_string' => $queryParams,
         ];
+    }
+
+    /**
+     * Set searchable fields
+     *
+     * @param array $fields
+     *
+     * @return $this
+     */
+    public function fields(array $fields = []): self
+    {
+        $searchable = [];
+
+        foreach ($fields as $field => $weight) {
+            $weightSuffix = $weight > 1 ? "^{$weight}" : '';
+            $searchable[] = $field . $weightSuffix;
+        }
+
+        $this->fields = $searchable;
+
+        return $this;
     }
 }

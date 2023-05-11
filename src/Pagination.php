@@ -25,7 +25,6 @@ class Pagination extends LengthAwarePaginator
      * @param array       $data
      *
      * @return Htmlable
-     * @noinspection PhpUnusedLocalVariableInspection
      */
     public function links($view = 'default', $data = []): Htmlable
     {

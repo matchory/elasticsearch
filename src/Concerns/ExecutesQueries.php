@@ -16,7 +16,6 @@ use Matchory\Elasticsearch\Pagination;
 use Matchory\Elasticsearch\Query;
 use Psr\SimpleCache\CacheInterface;
 use Psr\SimpleCache\InvalidArgumentException;
-use Throwable;
 
 use function array_diff_key;
 use function array_flip;
@@ -29,6 +28,9 @@ use function serialize;
 
 use const PHP_SAPI;
 
+/**
+ * @template T of Model
+ */
 trait ExecutesQueries
 {
     /**
@@ -36,21 +38,21 @@ trait ExecutesQueries
      *
      * @var string|null
      */
-    protected $cacheKey;
+    protected string|null $cacheKey = null;
 
     /**
      * A cache prefix.
      *
      * @var string
      */
-    protected $cachePrefix = Query::DEFAULT_CACHE_PREFIX;
+    protected string $cachePrefix = Query::DEFAULT_CACHE_PREFIX;
 
     /**
      * The number of seconds to cache the query.
      *
      * @var DateTime|int|null
      */
-    protected $cacheTtl;
+    protected int|null|DateTime $cacheTtl = null;
 
     /**
      * Get the collection of results
@@ -59,7 +61,7 @@ trait ExecutesQueries
      *
      * @return Collection
      */
-    public function get(?string $scrollId = null): Collection
+    public function get(string|null $scrollId = null): Collection
     {
         $result = $this->getResult($scrollId);
 
@@ -85,14 +87,13 @@ trait ExecutesQueries
     /**
      * Insert multiple documents at once.
      *
-     * @param array|callable $data Dictionary of [id => data] pairs
+     * @param callable|array $data Dictionary of [id => data] pairs
      *
      * @return object
      */
-    public function bulk($data): object
+    public function bulk(callable|array $data): object
     {
         if (is_callable($data)) {
-            /** @var Query $this */
             $bulk = new Bulk($this);
 
             $data($bulk);
@@ -128,7 +129,7 @@ trait ExecutesQueries
      *
      * @return $this
      */
-    public function cachePrefix(string $prefix): self
+    public function cachePrefix(string $prefix): static
     {
         $this->cachePrefix = $prefix;
 
@@ -142,7 +143,7 @@ trait ExecutesQueries
      *
      * @return Collection
      */
-    public function clear(?string $scrollId = null): Collection
+    public function clear(string|null $scrollId = null): Collection
     {
         $scrollId = $scrollId ?? $this->getScrollId();
 
@@ -199,7 +200,7 @@ trait ExecutesQueries
      *
      * @return object
      */
-    public function delete(?string $id = null): object
+    public function delete(string|null $id = null): object
     {
         if ($id) {
             $this->id($id);
@@ -222,9 +223,9 @@ trait ExecutesQueries
      *
      * @param string|null $scrollId
      *
-     * @return Model|null
+     * @return T|null
      */
-    public function first(?string $scrollId = null): ?Model
+    public function first(string|null $scrollId = null): Model|null
     {
         $this->take(1);
 
@@ -240,15 +241,16 @@ trait ExecutesQueries
     /**
      * Get the first result or call a callback.
      *
-     * @param null          $scrollId
-     * @param callable|null $callback
+     * @param callable|string|null $scrollId
+     * @param callable|null        $callback
      *
-     * @return Model|null
+     * @return T|null
+     * @throws InvalidArgumentException
      */
     public function firstOr(
-        $scrollId = null,
-        ?callable $callback = null
-    ): ?Model {
+        callable|string $scrollId = null,
+        callable|null $callback = null
+    ): Model|null {
         if (is_callable($scrollId)) {
             $callback = $scrollId;
             $scrollId = null;
@@ -266,10 +268,10 @@ trait ExecutesQueries
      *
      * @param string|null $scrollId
      *
-     * @return Model
+     * @return T
      * @throws DocumentNotFoundException
      */
-    public function firstOrFail(?string $scrollId = null): Model
+    public function firstOrFail(string|null $scrollId = null): Model
     {
         if ( ! is_null($model = $this->first($scrollId))) {
             return $model;
@@ -292,7 +294,7 @@ trait ExecutesQueries
     {
         try {
             return md5($this->toJson());
-        } catch (JsonException $e) {
+        } catch (JsonException) {
             return md5(serialize($this));
         }
     }
@@ -320,7 +322,7 @@ trait ExecutesQueries
      *
      * @return object
      */
-    public function insert(array $attributes, ?string $id = null): object
+    public function insert(array $attributes, string|null $id = null): object
     {
         if ($id) {
             $this->id($id);
@@ -356,12 +358,12 @@ trait ExecutesQueries
     public function paginate(
         int $perPage = 10,
         string $pageName = 'page',
-        ?int $page = null
+        int|null $page = null
     ): Pagination {
+        $this->take($perPage);
+
         // Check if the request from PHP CLI
         if (PHP_SAPI === 'cli') {
-            $this->take($perPage);
-
             $page = $page ?: 1;
 
             $this->skip(($page * $perPage) - $perPage);
@@ -375,8 +377,6 @@ trait ExecutesQueries
                 $page
             );
         }
-
-        $this->take($perPage);
 
         $page = $page ?: Request::get($pageName, 1);
 
@@ -401,10 +401,9 @@ trait ExecutesQueries
      *
      * @param string|null $scrollId
      *
-     * @return array
-     * @throws InvalidArgumentException
+     * @return array|null
      */
-    public function performSearch(?string $scrollId = null): ?array
+    public function performSearch(string|null $scrollId = null): array|null
     {
         $scrollId = $scrollId ?? $this->getScrollId();
 
@@ -424,13 +423,16 @@ trait ExecutesQueries
         // We attempt to cache the results if we have a cache instance, and the
         // TTl is truthy. This allows to use values such as `-1` to flush it.
         if ($this->cacheTtl && ($cache = $this->getCache())) {
-            $cache->set(
-                $this->getCacheKey(),
-                $result,
-                $this->cacheTtl instanceof DateTime
-                    ? $this->cacheTtl->getTimestamp()
-                    : $this->cacheTtl
-            );
+            try {
+                $cache->set(
+                    $this->getCacheKey(),
+                    $result,
+                    $this->cacheTtl instanceof DateTime
+                        ? $this->cacheTtl->getTimestamp()
+                        : $this->cacheTtl
+                );
+            } catch (InvalidArgumentException) {
+            }
         }
 
         return $result;
@@ -458,7 +460,7 @@ trait ExecutesQueries
      *
      * @return $this
      */
-    public function remember($ttl, ?string $key = null): self
+    public function remember(DateTime|int $ttl, string|null $key = null): static
     {
         $this->cacheTtl = $ttl;
         $this->cacheKey = $key;
@@ -473,7 +475,7 @@ trait ExecutesQueries
      *
      * @return $this
      */
-    public function rememberForever(?string $key = null): self
+    public function rememberForever(string|null $key = null): static
     {
         return $this->remember(-1, $key);
     }
@@ -486,7 +488,7 @@ trait ExecutesQueries
      *
      * @return object
      */
-    public function script($script, array $params = []): object
+    public function script(mixed $script, array $params = []): object
     {
         $parameters = [
             'id' => $this->getId(),
@@ -510,14 +512,16 @@ trait ExecutesQueries
      * Update a document
      *
      * @param array           $attributes
-     * @param string|int|null $id
+     * @param int|string|null $id
      *
      * @return object
      */
-    public function update(array $attributes, $id = null): object
-    {
+    public function update(
+        array $attributes,
+        int|string $id = null
+    ): object {
         if ($id) {
-            $this->id($id);
+            $this->id((string)$id);
         }
 
         unset(
@@ -551,7 +555,7 @@ trait ExecutesQueries
      * @param array<string, mixed> $document Raw document to create a model
      *                                       instance from
      *
-     * @return Model Model instance representing the source document
+     * @return T Model instance representing the source document
      */
     protected function createModelInstance(array $document): Model
     {
@@ -572,7 +576,7 @@ trait ExecutesQueries
     /**
      * @return CacheInterface|null
      */
-    protected function getCache(): ?CacheInterface
+    protected function getCache(): CacheInterface|null
     {
         return $this->getConnection()->getCache();
     }
@@ -583,9 +587,8 @@ trait ExecutesQueries
      * @param string|null $scrollId
      *
      * @return array|null
-     * @throws InvalidArgumentException
      */
-    protected function getResult(?string $scrollId = null): ?array
+    protected function getResult(string|null $scrollId = null): array|null
     {
         if ( ! $this->cacheTtl) {
             return $this->performSearch($scrollId);
@@ -594,7 +597,7 @@ trait ExecutesQueries
         if ($cache = $this->getCache()) {
             try {
                 return $cache->get($this->getCacheKey());
-            } catch (Throwable|InvalidArgumentException $exception) {
+            } catch (InvalidArgumentException) {
                 // If the cache didn't like our cache key (which should be
                 // impossible), we regard it as a cache failure and perform a
                 // normal search instead.
@@ -631,10 +634,10 @@ trait ExecutesQueries
      *
      * @param array[] $response Response to extract the first document from
      *
-     * @return Model|null Model instance if any documents were found in the
+     * @return T|null Model instance if any documents were found in the
      *                    response, `null` otherwise
      */
-    protected function transformIntoModel(array $response = []): ?Model
+    protected function transformIntoModel(array $response = []): Model|null
     {
         if ( ! isset(
             $response[Query::FIELD_HITS][Query::FIELD_NESTED_HITS][0]

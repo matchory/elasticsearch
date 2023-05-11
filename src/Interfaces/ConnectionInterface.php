@@ -20,7 +20,7 @@ interface ConnectionInterface
      *
      * @return CacheInterface|null
      */
-    public function getCache(): ?CacheInterface;
+    public function getCache(): CacheInterface|null;
 
     /**
      * Retrieves the Elasticsearch client.

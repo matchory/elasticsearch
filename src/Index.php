@@ -11,6 +11,7 @@ use Matchory\Elasticsearch\Interfaces\ConnectionInterface;
 use TypeError;
 
 use function array_unique;
+use function assert;
 use function count;
 use function is_array;
 use function is_string;
@@ -46,19 +47,19 @@ class Index
      * @var callable|null
      * @deprecated Will be made private in the next major release.
      */
-    #[Deprecated()]
+    #[Deprecated]
     public $callback;
 
     /**
      * Native elasticsearch client instance
      *
-     * @var ConnectionInterface
+     * @var ConnectionInterface|null
      * @deprecated Will be made private in the next major release. Use the
      *             method accessor instead.
      * @see        Index::getConnection()
      */
     #[Deprecated(replacement: '%class%::getConnection()')]
-    public $connection;
+    public ConnectionInterface|null $connection = null;
 
     /**
      * Ignored HTTP errors
@@ -69,7 +70,7 @@ class Index
      * @see        Index::ignore()
      */
     #[Deprecated(replacement: '%class%::ignore()')]
-    public $ignores = [];
+    public array $ignores = [];
 
     /**
      * Mappings the index shall be configured with.
@@ -80,17 +81,7 @@ class Index
      * @see        Index::mapping()
      */
     #[Deprecated(replacement: '%class%::mapping()')]
-    public $mappings = [];
-
-    /**
-     * Index name
-     *
-     * @var string
-     * @deprecated Will be made private in the next major release. Use the
-     *             method accessor instead.
-     * @see        Index::getName()
-     */
-    public $name;
+    public array $mappings = [];
 
     /**
      * The number of replicas the index shall be configured with.
@@ -101,7 +92,7 @@ class Index
      * @see        Index::replicas()
      */
     #[Deprecated(replacement: '%class%::replicas()')]
-    public $replicas = 0;
+    public int $replicas = 0;
 
     /**
      * The number of shards the index shall be configured with.
@@ -112,14 +103,14 @@ class Index
      * @see        Index::shards()
      */
     #[Deprecated(replacement: '%class%::shards()')]
-    public $shards = 5;
+    public int $shards = 5;
 
     /**
      * Aliases the index shall be configured with.
      *
      * @var array<string, array<string, mixed>|string|ArrayObject>
      */
-    protected $aliases = [];
+    protected array $aliases = [];
 
     /**
      * Creates a new index instance.
@@ -129,9 +120,8 @@ class Index
      *                                is created. This allows to add additional
      *                                options like shards, replicas or mappings.
      */
-    public function __construct(string $name, ?callable $callback = null)
+    public function __construct(public string $name, ?callable $callback = null)
     {
-        $this->name = $name;
         $this->callback = $callback;
     }
 
@@ -154,6 +144,8 @@ class Index
      */
     public function getConnection(): ConnectionInterface
     {
+        assert($this->connection !== null);
+
         return $this->connection;
     }
 
@@ -202,7 +194,7 @@ class Index
      * @see https://www.elastic.co/guide/en/elasticsearch/reference/master/indices-aliases.html
      * @see https://www.elastic.co/guide/en/elasticsearch/reference/current/indices-create-index.html#create-index-aliases
      */
-    public function alias(string $alias, $options = null): self
+    public function alias(string $alias, mixed $options = null): self
     {
         if (
             $options !== null &&

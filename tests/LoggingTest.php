@@ -12,6 +12,7 @@ namespace Matchory\Elasticsearch\Tests;
 
 use Elasticsearch\ClientBuilder;
 use Matchory\Elasticsearch\Connection;
+use Monolog\Level;
 use PHPUnit\Framework\TestCase;
 
 class LoggingTest extends TestCase
@@ -23,7 +24,7 @@ class LoggingTest extends TestCase
         $newClientBuilder = Connection::configureLogging($client, [
             'logging' => [
                 'enabled' => true,
-                'level' => 'all',
+                'level' => Level::Debug,
                 'location' => '../src/storage/logs/elasticsearch.log',
             ],
         ]);

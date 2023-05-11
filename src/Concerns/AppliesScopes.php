@@ -23,23 +23,23 @@ trait AppliesScopes
     /**
      * Holds all scopes removed from the query.
      *
-     * @var array<array-key, string>
+     * @var list<string>
      */
-    protected $removedScopes;
+    protected array $removedScopes = [];
 
     /**
      * Holds all scopes applied to the query.
      *
      * @var array<string, Closure|ScopeInterface>
      */
-    protected $scopes;
+    protected array $scopes = [];
 
     /**
      * Apply the scopes to the Elasticsearch query instance and return it.
      *
      * @return $this
      */
-    public function applyScopes(): self
+    public function applyScopes(): static
     {
         if ( ! $this->scopes) {
             return $this;
@@ -101,7 +101,7 @@ trait AppliesScopes
      *
      * @return $this
      */
-    public function scopes($scopes): self
+    public function scopes(array|string $scopes): static
     {
         $query = $this;
 
@@ -131,12 +131,14 @@ trait AppliesScopes
      * Register a new global scope.
      *
      * @param string                 $identifier
-     * @param ScopeInterface|Closure $scope
+     * @param Closure|ScopeInterface $scope
      *
      * @return $this
      */
-    public function withGlobalScope(string $identifier, $scope): self
-    {
+    public function withGlobalScope(
+        string $identifier,
+        ScopeInterface|Closure $scope
+    ): static {
         $this->scopes[$identifier] = $scope;
 
         if (method_exists($scope, 'extend')) {
@@ -149,11 +151,11 @@ trait AppliesScopes
     /**
      * Remove a registered global scope.
      *
-     * @param ScopeInterface|string $scope
+     * @param string|ScopeInterface $scope
      *
      * @return $this
      */
-    public function withoutGlobalScope($scope): self
+    public function withoutGlobalScope(ScopeInterface|string $scope): static
     {
         if ( ! is_string($scope)) {
             $scope = get_class($scope);
@@ -173,7 +175,7 @@ trait AppliesScopes
      *
      * @return $this
      */
-    public function withoutGlobalScopes(array $scopes = null): self
+    public function withoutGlobalScopes(array $scopes = null): static
     {
         if ( ! is_array($scopes)) {
             $scopes = array_keys($this->scopes);
@@ -197,7 +199,7 @@ trait AppliesScopes
     protected function callNamedScope(
         string $scope,
         array $parameters = []
-    ): self {
+    ): static {
         return $this->callScope(function (...$parameters) use ($scope) {
             return $this->getModel()->callNamedScope(
                 $scope,
@@ -214,11 +216,11 @@ trait AppliesScopes
      *
      * @return $this
      */
-    protected function callScope(callable $scope, array $parameters = []): self
+    protected function callScope(callable $scope, array $parameters = []): static
     {
         array_unshift($parameters, $this);
 
-        $scope(...array_values($parameters)) ?? $this;
+            $scope(...array_values($parameters)) ?? $this;
 
         return $this;
     }

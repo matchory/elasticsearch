@@ -17,7 +17,7 @@ trait ExplainsQueries
      * > **Note:** If the Elasticsearch security features are enabled, you must
      * > have the read index privilege for the target index.
      *
-     * @param string|null $id      Document ID. Defaults to the ID in the query.
+     * @param string|null $id Document ID. Defaults to the ID in the query.
      * @param bool        $lenient If `true`, format-based query failures (such
      *                             as providing text to a numeric field) will be
      *                             ignored. Defaults to `false`.
@@ -25,8 +25,10 @@ trait ExplainsQueries
      * @return array|null
      * @see https://www.elastic.co/guide/en/elasticsearch/reference/current/search-explain.html
      */
-    public function explain(?string $id = null, bool $lenient = false): ?array
-    {
+    public function explain(
+        string|null $id = null,
+        bool $lenient = false
+    ): array|null {
         $body = $this->getBody();
         $query = $body['body'] ?? null;
         $source = $body['source'] ?? null;

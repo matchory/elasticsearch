@@ -11,6 +11,7 @@
         <ignoreFiles>
             <directory name="vendor"/>
             <directory name="src/pagination"/>
+            <directory name="src/Commands"/>
         </ignoreFiles>
     </projectFiles>
 
@@ -18,7 +19,7 @@
 
         <!--
          Thanks to the ridiculous PSR-6 spec which refuses to just use proper exceptions for bogus reasons, we'll have
-         have to fix this in Psalm.
+         to fix this in Psalm.
          -->
         <InvalidThrow>
             <errorLevel type="suppress">

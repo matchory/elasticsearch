@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Matchory\Elasticsearch;
 
 use Elasticsearch\Client as Elastic;
@@ -10,22 +12,24 @@ use Laravel\Scout\Engines\Engine;
 
 use function array_filter;
 use function array_merge;
+use function assert;
 use function collect;
 use function count;
+use function is_array;
 
 class ScoutEngine extends Engine
 {
+    /**
+     * @var Elastic
+     */
+    protected Elastic $elastic;
+
     /**
      * Index where the models will be saved.
      *
      * @var string
      */
-    protected $index;
-
-    /**
-     * @var Elastic
-     */
-    protected $elastic;
+    protected string $index;
 
     /**
      * ScoutEngine constructor.
@@ -125,11 +129,9 @@ class ScoutEngine extends Engine
 
         $collection = new Collection($results['hits']['hits']);
 
-        return $collection->map(static function (
+        return $collection->map(static fn(
             array $hit
-        ) use ($models) {
-            return $models[$hit['_id']];
-        });
+        ) => $models[$hit['_id']]);
     }
 
     /**
@@ -149,15 +151,17 @@ class ScoutEngine extends Engine
      * @param int     $perPage
      * @param int     $page
      *
-     * @return mixed
+     * @return array|callable
      */
-    public function paginate(Builder $builder, $perPage, $page)
+    public function paginate(Builder $builder, $perPage, $page): array|callable
     {
         $result = $this->performSearch($builder, [
             'numericFilters' => $this->filters($builder),
             'from' => (($page * $perPage) - $perPage),
             'size' => $perPage,
         ]);
+
+        assert(is_array($result));
 
         $result['nbPages'] = $result['hits']['total'] / $perPage;
 
@@ -169,9 +173,9 @@ class ScoutEngine extends Engine
      *
      * @param Builder $builder
      *
-     * @return mixed
+     * @return array|callable
      */
-    public function search(Builder $builder)
+    public function search(Builder $builder): array|callable
     {
         return $this->performSearch($builder, array_filter([
             'numericFilters' => $this->filters($builder),
@@ -211,15 +215,41 @@ class ScoutEngine extends Engine
     }
 
     /**
+     * Get the filter array for the query.
+     *
+     * @param Builder $builder
+     *
+     * @return array
+     */
+    protected function filters(Builder $builder): array
+    {
+        return collect($builder->wheres)
+            ->map(
+            /**
+             * @param mixed      $value
+             * @param int|string $key
+             *
+             * @return array
+             */
+                static fn(mixed $value, int|string $key): array => [
+                    'match_phrase' => [$key => $value],
+                ])
+            ->values()
+            ->all();
+    }
+
+    /**
      * Perform the given search on the engine.
      *
      * @param Builder $builder
      * @param array   $options
      *
-     * @return mixed
+     * @return array|callable
      */
-    protected function performSearch(Builder $builder, array $options = [])
-    {
+    protected function performSearch(
+        Builder $builder,
+        array $options = []
+    ): callable|array {
         /** @noinspection PhpUndefinedMethodInspection */
         $params = [
             'index' => $this->index,
@@ -258,29 +288,5 @@ class ScoutEngine extends Engine
         }
 
         return $this->elastic->search($params);
-    }
-
-    /**
-     * Get the filter array for the query.
-     *
-     * @param Builder $builder
-     *
-     * @return array
-     */
-    protected function filters(Builder $builder): array
-    {
-        return collect($builder->wheres)
-            ->map(
-            /**
-             * @param mixed      $value
-             * @param string|int $key
-             *
-             * @return array
-             */
-                static function ($value, $key): array {
-                    return ['match_phrase' => [$key => $value]];
-                })
-            ->values()
-            ->all();
     }
 }

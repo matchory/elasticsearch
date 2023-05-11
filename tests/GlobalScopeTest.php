@@ -21,7 +21,18 @@ use Matchory\Elasticsearch\Query;
 use Matchory\Elasticsearch\Tests\Traits\ESQueryTrait;
 use PHPUnit\Framework\Exception;
 use PHPUnit\Framework\ExpectationFailedException;
+use PHPUnit\Framework\MockObject\ClassAlreadyExistsException;
+use PHPUnit\Framework\MockObject\ClassIsFinalException;
+use PHPUnit\Framework\MockObject\ClassIsReadonlyException;
+use PHPUnit\Framework\MockObject\DuplicateMethodException;
+use PHPUnit\Framework\MockObject\InvalidMethodNameException;
+use PHPUnit\Framework\MockObject\OriginalConstructorInvocationRequiredException;
+use PHPUnit\Framework\MockObject\ReflectionException;
+use PHPUnit\Framework\MockObject\RuntimeException;
+use PHPUnit\Framework\MockObject\UnknownTypeException;
 use PHPUnit\Framework\TestCase;
+
+use function assert;
 
 class GlobalScopeTest extends TestCase
 {
@@ -29,17 +40,30 @@ class GlobalScopeTest extends TestCase
 
     /**
      * @test
-     * @throws InvalidArgumentException
+     * @throws ClassAlreadyExistsException
+     * @throws ClassIsFinalException
+     * @throws ClassIsReadonlyException
+     * @throws DuplicateMethodException
      * @throws ExpectationFailedException
+     * @throws InvalidArgumentException
+     * @throws InvalidMethodNameException
+     * @throws OriginalConstructorInvocationRequiredException
+     * @throws ReflectionException
+     * @throws RuntimeException
+     * @throws UnknownTypeException
+     * @throws \PHPUnit\Framework\InvalidArgumentException
+     * @throws \SebastianBergmann\RecursionContext\InvalidArgumentException
      */
     public function getGlobalScope(): void
     {
         $model = new class extends Model {
-            public static $connection = null;
+            public static ConnectionInterface|null $connection = null;
 
             public static function resolveConnection(
-                ?string $connection = null
+                string|null $connection = null
             ): ConnectionInterface {
+                assert(static::$connection !== null);
+
                 return static::$connection;
             }
         };
@@ -59,18 +83,31 @@ class GlobalScopeTest extends TestCase
 
     /**
      * @test
-     * @throws InvalidArgumentException
-     * @throws ExpectationFailedException
+     * @throws ClassAlreadyExistsException
+     * @throws ClassIsFinalException
+     * @throws ClassIsReadonlyException
+     * @throws DuplicateMethodException
      * @throws Exception
+     * @throws ExpectationFailedException
+     * @throws InvalidArgumentException
+     * @throws InvalidMethodNameException
+     * @throws OriginalConstructorInvocationRequiredException
+     * @throws ReflectionException
+     * @throws RuntimeException
+     * @throws UnknownTypeException
+     * @throws \PHPUnit\Framework\InvalidArgumentException
+     * @throws \SebastianBergmann\RecursionContext\InvalidArgumentException
      */
     public function getGlobalScopes(): void
     {
         $model = new class extends Model {
-            public static $connection = null;
+            public static ConnectionInterface|null $connection = null;
 
             public static function resolveConnection(
-                ?string $connection = null
+                string|null $connection = null
             ): ConnectionInterface {
+                assert(static::$connection !== null);
+
                 return static::$connection;
             }
         };
@@ -85,8 +122,18 @@ class GlobalScopeTest extends TestCase
     }
 
     /**
+     * @throws ClassAlreadyExistsException
+     * @throws ClassIsFinalException
+     * @throws ClassIsReadonlyException
+     * @throws DuplicateMethodException
      * @throws ExpectationFailedException
      * @throws InvalidArgumentException
+     * @throws InvalidMethodNameException
+     * @throws OriginalConstructorInvocationRequiredException
+     * @throws ReflectionException
+     * @throws RuntimeException
+     * @throws UnknownTypeException
+     * @throws \PHPUnit\Framework\InvalidArgumentException
      * @throws \SebastianBergmann\RecursionContext\InvalidArgumentException
      * @test
      */
@@ -100,17 +147,30 @@ class GlobalScopeTest extends TestCase
 
     /**
      * @test
-     * @throws InvalidArgumentException
+     * @throws ClassAlreadyExistsException
+     * @throws ClassIsFinalException
+     * @throws ClassIsReadonlyException
+     * @throws DuplicateMethodException
      * @throws ExpectationFailedException
+     * @throws InvalidArgumentException
+     * @throws InvalidMethodNameException
+     * @throws OriginalConstructorInvocationRequiredException
+     * @throws ReflectionException
+     * @throws RuntimeException
+     * @throws UnknownTypeException
+     * @throws \PHPUnit\Framework\InvalidArgumentException
+     * @throws \SebastianBergmann\RecursionContext\InvalidArgumentException
      */
     public function hasGlobalScope(): void
     {
         $model = new class extends Model {
-            public static $connection = null;
+            public static ConnectionInterface|null $connection = null;
 
             public static function resolveConnection(
-                ?string $connection = null
+                string|null $connection = null
             ): ConnectionInterface {
+                assert(static::$connection !== null);
+
                 return static::$connection;
             }
         };
@@ -126,18 +186,31 @@ class GlobalScopeTest extends TestCase
 
     /**
      * @test
-     * @throws InvalidArgumentException
-     * @throws ExpectationFailedException
+     * @throws ClassAlreadyExistsException
+     * @throws ClassIsFinalException
+     * @throws ClassIsReadonlyException
+     * @throws DuplicateMethodException
      * @throws Exception
+     * @throws ExpectationFailedException
+     * @throws InvalidArgumentException
+     * @throws InvalidMethodNameException
+     * @throws OriginalConstructorInvocationRequiredException
+     * @throws ReflectionException
+     * @throws RuntimeException
+     * @throws UnknownTypeException
+     * @throws \PHPUnit\Framework\InvalidArgumentException
+     * @throws \SebastianBergmann\RecursionContext\InvalidArgumentException
      */
     public function withoutGlobalScope(): void
     {
         $model = new class extends Model {
-            public static $connection = null;
+            public static ConnectionInterface|null $connection = null;
 
             public static function resolveConnection(
-                ?string $connection = null
+                string|null $connection = null
             ): ConnectionInterface {
+                assert(static::$connection !== null);
+
                 return static::$connection;
             }
         };
@@ -156,18 +229,31 @@ class GlobalScopeTest extends TestCase
 
     /**
      * @test
-     * @throws InvalidArgumentException
-     * @throws ExpectationFailedException
+     * @throws ClassAlreadyExistsException
+     * @throws ClassIsFinalException
+     * @throws ClassIsReadonlyException
+     * @throws DuplicateMethodException
      * @throws Exception
+     * @throws ExpectationFailedException
+     * @throws InvalidArgumentException
+     * @throws InvalidMethodNameException
+     * @throws OriginalConstructorInvocationRequiredException
+     * @throws ReflectionException
+     * @throws RuntimeException
+     * @throws UnknownTypeException
+     * @throws \PHPUnit\Framework\InvalidArgumentException
+     * @throws \SebastianBergmann\RecursionContext\InvalidArgumentException
      */
     public function withoutGlobalScopes(): void
     {
         $model = new class extends Model {
-            public static $connection = null;
+            public static ConnectionInterface|null $connection = null;
 
             public static function resolveConnection(
-                ?string $connection = null
+                string|null $connection = null
             ): ConnectionInterface {
+                assert(static::$connection !== null);
+
                 return static::$connection;
             }
         };
@@ -190,34 +276,44 @@ class GlobalScopeTest extends TestCase
     }
 
     /**
-     * @param      $name
-     * @param      $value
+     * @param string $name
+     * @param mixed  $value
      *
      * @return array
      * @throws InvalidArgumentException
+     * @throws \PHPUnit\Framework\InvalidArgumentException
+     * @throws ClassAlreadyExistsException
+     * @throws ClassIsFinalException
+     * @throws ClassIsReadonlyException
+     * @throws DuplicateMethodException
+     * @throws InvalidMethodNameException
+     * @throws OriginalConstructorInvocationRequiredException
+     * @throws ReflectionException
+     * @throws RuntimeException
+     * @throws UnknownTypeException
      */
-    protected function getActual($name, $value): array
+    protected function getActual(string $name, mixed $value): array
     {
         $model = new class extends Model {
-            public static $connection = null;
+            public static ConnectionInterface|null $connection = null;
 
             public static function resolveConnection(
-                ?string $connection = null
+                string|null $connection = null
             ): ConnectionInterface {
+                assert(static::$connection !== null);
+
                 return static::$connection;
             }
         };
         $model::$connection = $this->getConnection();
-        $model::addGlobalScope('foo', function (
+        $model::addGlobalScope('foo', fn(
             Query $query
-        ) use ($name, $value) {
-            return $query->where($name, $value);
-        });
+        ) => $query->where($name, $value));
 
         return $this->getQueryObject($model->newQuery())->toArray();
     }
 
-    protected function getExpected($name, $value): array
+    protected function getExpected(string $name, mixed $value): array
     {
         return $this->getQueryArray([
             'query' => [

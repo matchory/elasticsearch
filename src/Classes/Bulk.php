@@ -19,58 +19,57 @@ class Bulk
      *
      * @var string|null
      */
-    public $_id;
+    public string|null $_id = null;
 
     /**
      * Operation count which will trigger autocommit
      *
      * @var int
      */
-    public $autocommitAfter = 0;
+    public int $autocommitAfter = 0;
 
     /**
      * Bulk body
      *
      * @var array
      */
-    public $body = [];
+    public array $body = [];
 
     /**
      * The index name
      *
      * @var string|null
      */
-    public $index;
+    public string|null $index = null;
 
     /**
      * Number of pending operations
      *
      * @var int
      */
-    public $operationCount = 0;
+    public int $operationCount = 0;
 
     /**
      * The query object
      *
      * @var Query
      */
-    public $query;
+    public Query $query;
 
     /**
      * The type name
      *
      * @var string|null
      */
-    public $type;
+    public string|null $type = null;
 
     /**
      * @param Query    $query
      * @param int|null $autocommitAfter
      */
-    public function __construct(Query $query, ?int $autocommitAfter = null)
+    public function __construct(Query $query, int|null $autocommitAfter = null)
     {
         $this->query = $query;
-
         $this->autocommitAfter = (int)$autocommitAfter;
     }
 
@@ -81,7 +80,7 @@ class Bulk
      *
      * @return $this
      */
-    public function _id(?string $_id = null): self
+    public function _id(string|null $_id = null): self
     {
         $this->_id = $_id;
 
@@ -176,7 +175,7 @@ class Bulk
      *
      * @return $this
      */
-    public function id(?string $_id = null): self
+    public function id(string|null $_id = null): self
     {
         return $this->_id($_id);
     }
@@ -188,7 +187,7 @@ class Bulk
      *
      * @return $this
      */
-    public function index(?string $index = null): self
+    public function index(string|null $index = null): self
     {
         $this->index = $index;
 
@@ -224,8 +223,11 @@ class Bulk
      * @param string|null $type
      *
      * @return $this
+     * @deprecated Mapping types are deprecated as of Elasticsearch 7.0.0
+     * @see        https://www.elastic.co/guide/en/elasticsearch/reference/7.10/removal-of-types.html
      */
-    public function type(?string $type = null): self
+    #[Deprecated(reason: 'Mapping types are deprecated as of Elasticsearch 7.0.0')]
+    public function type(string|null $type = null): self
     {
         $this->type = $type;
 
@@ -249,7 +251,7 @@ class Bulk
      *
      * @return string|null
      */
-    protected function getIndex(): ?string
+    protected function getIndex(): string|null
     {
         return $this->index ?: $this->query->getIndex();
     }
@@ -262,7 +264,7 @@ class Bulk
      * @see        https://www.elastic.co/guide/en/elasticsearch/reference/7.10/removal-of-types.html
      */
     #[Deprecated(reason: 'Mapping types are deprecated as of Elasticsearch 7.0.0')]
-    protected function getType(): ?string
+    protected function getType(): string|null
     {
         return $this->type ?: $this->query->getType();
     }

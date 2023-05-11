@@ -16,56 +16,19 @@ use function json_encode;
 /**
  * Collection
  *
- * @package Matchory\Elasticsearch
+ * @template       T of Model
+ * @extends BaseCollection<array-key, T>
+ * @psalm-suppress TooManyTemplateParams
+ * @package        Matchory\Elasticsearch
  */
 class Collection extends BaseCollection
 {
-    /**
-     * @var int|null
-     */
-    protected $total;
-
-    /**
-     * @var float|null
-     */
-    protected $maxScore;
-
-    /**
-     * @var float|null
-     */
-    protected $duration;
-
-    /**
-     * @var bool|null
-     */
-    protected $timedOut;
-
-    /**
-     * @var string|null
-     */
-    protected $scrollId;
-
-    /**
-     * @var mixed|null
-     */
-    protected $shards;
-
-    /**
-     * @var array|null
-     */
-    protected $suggestions;
-
-    /**
-     * @var array|null
-     */
-    protected $aggregations;
-
     /**
      * Collection constructor.
      *
      * @param iterable      $items
      * @param int|null      $total
-     * @param int|null      $maxScore
+     * @param float|null    $maxScore
      * @param float|null    $duration
      * @param bool|null     $timedOut
      * @param string|null   $scrollId
@@ -75,30 +38,63 @@ class Collection extends BaseCollection
      */
     public function __construct(
         iterable $items = [],
-        ?int $total = null,
-        ?float $maxScore = null,
-        ?float $duration = null,
-        ?bool $timedOut = null,
-        ?string $scrollId = null,
-        ?stdClass $shards = null,
-        ?array $suggestions = null,
-        ?array $aggregations = null
+        protected int|null $total = null,
+        protected float|null $maxScore = null,
+        protected float|null $duration = null,
+        protected bool|null $timedOut = null,
+        protected string|null $scrollId = null,
+        protected stdClass|null $shards = null,
+        protected array|null $suggestions = null,
+        protected array|null $aggregations = null
     ) {
         parent::__construct($items);
+    }
 
-        $this->total = $total;
-        $this->maxScore = $maxScore;
-        $this->duration = $duration;
-        $this->timedOut = $timedOut;
-        $this->scrollId = $scrollId;
-        $this->shards = $shards;
-        $this->suggestions = $suggestions;
-        $this->aggregations = $aggregations;
+    public function getAggregations(): BaseCollection
+    {
+        return new BaseCollection($this->aggregations);
+    }
+
+    public function getAllSuggestions(): BaseCollection
+    {
+        return BaseCollection
+            ::make($this->suggestions)
+            ->mapInto(BaseCollection::class);
+    }
+
+    public function getDuration(): float|null
+    {
+        return $this->duration;
+    }
+
+    public function getMaxScore(): float|null
+    {
+        return $this->maxScore;
+    }
+
+    public function getScrollId(): string|null
+    {
+        return $this->scrollId;
+    }
+
+    public function getShards(): stdClass|null
+    {
+        return $this->shards;
+    }
+
+    public function getSuggestions(string $name): BaseCollection
+    {
+        return new BaseCollection($this->suggestions[$name] ?? []);
+    }
+
+    public function getTotal(): int|null
+    {
+        return $this->total;
     }
 
     public static function fromResponse(
         array $response,
-        ?array $items = null
+        array|null $items = null
     ): self {
         $items = $items ?? $response['hits']['hits'] ?? [];
 
@@ -106,6 +102,7 @@ class Collection extends BaseCollection
         $duration = (float)$response['took'];
         $timedOut = (bool)$response['timed_out'];
         $scrollId = (string)($response['_scroll_id'] ?? null);
+        /** @var stdClass $shards */
         $shards = (object)$response['_shards'];
         $suggestions = $response['suggest'] ?? [];
         $aggregations = $response['aggregations'] ?? [];
@@ -127,58 +124,11 @@ class Collection extends BaseCollection
         );
     }
 
-    public function getTotal(): ?int
-    {
-        return $this->total;
-    }
-
-    public function getMaxScore(): ?float
-    {
-        return $this->maxScore;
-    }
-
-    public function getDuration(): ?float
-    {
-        return $this->duration;
-    }
-
-    public function isTimedOut(): ?bool
+    public function isTimedOut(): bool|null
     {
         return $this->timedOut;
     }
 
-    public function getScrollId(): ?string
-    {
-        return $this->scrollId;
-    }
-
-    public function getShards(): ?stdClass
-    {
-        return $this->shards;
-    }
-
-    public function getAllSuggestions(): BaseCollection
-    {
-        return BaseCollection
-            ::make($this->suggestions)
-            ->mapInto(BaseCollection::class);
-    }
-
-    public function getSuggestions(string $name): BaseCollection
-    {
-        return new BaseCollection($this->suggestions[$name] ?? []);
-    }
-
-    public function getAggregations(): BaseCollection
-    {
-        return new BaseCollection($this->aggregations);
-    }
-
-    /**
-     * Get the collection of items as Array.
-     *
-     * @return array
-     */
     public function toArray(): array
     {
         return array_map(static function ($item) {

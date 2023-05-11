@@ -36,31 +36,11 @@ class ConnectionManager implements ConnectionResolverInterface
     public const CONFIG_KEY_SERVERS = 'servers';
 
     /**
-     * @var CacheInterface|null
-     */
-    protected $cache;
-
-    /**
-     * @var ClientFactoryInterface
-     */
-    protected $clientFactory;
-
-    /**
-     * @var array
-     */
-    protected $configuration;
-
-    /**
      * All the registered connections.
      *
      * @var array<string, ConnectionInterface>
      */
-    protected $connections = [];
-
-    /**
-     * @var LoggerInterface|null
-     */
-    protected $logger;
+    protected array $connections = [];
 
     /**
      * Create a new connection resolver instance.
@@ -71,15 +51,11 @@ class ConnectionManager implements ConnectionResolverInterface
      * @param LoggerInterface|null   $logger
      */
     public function __construct(
-        array $configuration,
-        ClientFactoryInterface $clientFactory,
-        ?CacheInterface $cache = null,
-        ?LoggerInterface $logger = null
+        protected array $configuration,
+        protected readonly ClientFactoryInterface $clientFactory,
+        protected readonly ?CacheInterface $cache = null,
+        protected readonly ?LoggerInterface $logger = null
     ) {
-        $this->configuration = $configuration;
-        $this->clientFactory = $clientFactory;
-        $this->cache = $cache;
-        $this->logger = $logger;
     }
 
     /**

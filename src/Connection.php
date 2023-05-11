@@ -21,6 +21,7 @@ use Matchory\Elasticsearch\Interfaces\ClientFactoryInterface;
 use Matchory\Elasticsearch\Interfaces\ConnectionInterface;
 use Matchory\Elasticsearch\Interfaces\ConnectionResolverInterface as Resolver;
 use Monolog\Handler\StreamHandler;
+use Monolog\Level;
 use Monolog\Logger;
 use Psr\SimpleCache\CacheInterface;
 use Sentry\Breadcrumb;
@@ -49,7 +50,7 @@ class Connection implements ConnectionInterface
      * @todo remove in next major version
      */
     #[Deprecated]
-    private static $resolver;
+    private static Resolver $resolver;
 
     /**
      * Cache instance to be used for this connection. In Laravel applications,
@@ -60,7 +61,7 @@ class Connection implements ConnectionInterface
      * @see Repository
      * @see Cache
      */
-    protected $cache;
+    protected CacheInterface|null $cache;
 
     /**
      * Elasticsearch client instance used for this connection.
@@ -68,7 +69,7 @@ class Connection implements ConnectionInterface
      * @var Client
      * @see Connection::getClient()
      */
-    protected $client;
+    protected Client $client;
 
     /**
      * Used to hold all connections.
@@ -78,17 +79,17 @@ class Connection implements ConnectionInterface
      * @todo remove in next major version
      */
     #[Deprecated]
-    protected $clients = [];
+    protected array $clients = [];
 
     /**
      * @var string|null
      */
-    protected $index;
+    protected string|null $index;
 
     /**
      * @var bool
      */
-    protected $reportQueries;
+    protected bool $reportQueries;
 
     /**
      * Creates a new connection
@@ -100,8 +101,8 @@ class Connection implements ConnectionInterface
      */
     final public function __construct(
         Client $client,
-        ?CacheInterface $cache = null,
-        ?string $index = null,
+        CacheInterface|null $cache = null,
+        string|null $index = null,
         bool $reportQueries = true
     ) {
         $this->client = $client;
@@ -113,7 +114,7 @@ class Connection implements ConnectionInterface
     /**
      * @inheritDoc
      */
-    public function getCache(): ?CacheInterface
+    public function getCache(): CacheInterface|null
     {
         return $this->cache;
     }
@@ -136,8 +137,8 @@ class Connection implements ConnectionInterface
 
     public function insert(
         array $parameters,
-        ?string $index = null,
-        ?string $type = null
+        string|null $index = null,
+        string|null $type = null
     ): object {
         if (
             ! isset($parameters[Query::PARAM_INDEX]) &&
@@ -167,7 +168,7 @@ class Connection implements ConnectionInterface
      *
      * @return Query
      */
-    public function newQuery(?string $connection = null): Query
+    public function newQuery(string|null $connection = null): Query
     {
         // TODO: This is deprecated behaviour and should be removed in the next
         //       major version.
@@ -233,10 +234,10 @@ class Connection implements ConnectionInterface
                     $config,
                     'logging.location'
                 ),
-                (int)Arr::get(
+                Arr::get(
                     $config,
                     'logging.level',
-                    Logger::INFO
+                    Level::Info
                 )
             ));
 
@@ -260,7 +261,7 @@ class Connection implements ConnectionInterface
      * @see        ConnectionManager
      */
     #[Deprecated(reason: 'Use the connection manager to create connections instead.')]
-    public static function create($config): Query
+    public static function create(mixed $config): Query
     {
         $app = App::getFacadeApplication();
         $client = $app

@@ -14,18 +14,16 @@ use function implode;
 class DocumentNotFoundException extends ModelNotFoundException
 {
     /**
-     * Name of the affected Elasticsearch model.
-     *
-     * @var string
-     */
-    protected $model;
-
-    /**
      * The affected model IDs.
      *
      * @var string|array
      */
-    protected $ids;
+    protected $ids = [];
+
+    /**
+     * Name of the affected Elasticsearch model.
+     */
+    protected $model = '';
 
     /**
      * Set the affected Eloquent model and instance ids.

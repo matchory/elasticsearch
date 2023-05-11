@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Matchory\Elasticsearch;
 
 /**
@@ -19,7 +21,7 @@ class Request
      *
      * @return string
      */
-    public static function url(?string $host = null): string
+    public static function url(string|null $host = null): string
     {
         $server = $_SERVER;
         $ssl = ( ! empty($server['HTTPS']) && $server['HTTPS'] === 'on');
@@ -30,7 +32,7 @@ class Request
             ? ''
             : ':' . $port;
         $host = $host ?? ($server['SERVER_NAME'] . $port);
-        $host .= preg_replace("/\?.*/", "", $server["REQUEST_URI"]);
+        $host .= preg_replace('/\?.*/', '', $server['REQUEST_URI']);
 
         return "{$protocol}://{$host}";
     }
@@ -38,9 +40,9 @@ class Request
     /**
      * Get all query string parameters
      *
-     * @return mixed
+     * @return array
      */
-    public static function query()
+    public static function query(): array
     {
         return $_GET;
     }
@@ -48,12 +50,12 @@ class Request
     /**
      * Get value of query string parameter
      *
-     * @param string $name
-     * @param mixed  $fallback
+     * @param string     $name
+     * @param mixed|null $fallback
      *
      * @return mixed
      */
-    public static function get(string $name, $fallback = null)
+    public static function get(string $name, mixed $fallback = null): mixed
     {
         return $_GET[$name] ?? $fallback;
     }

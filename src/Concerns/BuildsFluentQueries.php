@@ -21,7 +21,6 @@ use function count;
 use function implode;
 use function in_array;
 use function is_array;
-use function is_callable;
 use function is_string;
 use function tap;
 use function value;
@@ -35,42 +34,42 @@ trait BuildsFluentQueries
      *
      * @var array
      */
-    public $body = [];
+    public array $body = [];
 
     /**
      * Ignored HTTP errors
      *
      * @var array
      */
-    public $ignores = [];
+    public array $ignores = [];
 
     /**
      * Query bool must
      *
      * @var array
      */
-    public $must = [];
+    public array $must = [];
 
     /**
      * Query bool must not
      *
      * @var array
      */
-    public $must_not = [];
+    public array $must_not = [];
 
     /**
      * Result aggregations
      *
      * @var array
      */
-    protected $aggregations = [];
+    protected array $aggregations = [];
 
     /**
      * Query bool filter
      *
      * @var array
      */
-    protected $filter = [];
+    protected array $filter = [];
 
     /**
      * Starting document offset
@@ -84,7 +83,7 @@ trait BuildsFluentQueries
      * @var int
      * @see https://www.elastic.co/guide/en/elasticsearch/reference/7.10/search-search.html#search-type
      */
-    protected $from = Query::DEFAULT_OFFSET;
+    protected int $from = Query::DEFAULT_OFFSET;
 
     /**
      * Unique document ID
@@ -107,7 +106,7 @@ trait BuildsFluentQueries
      * @var string|null
      * @see https://www.elastic.co/guide/en/elasticsearch/reference/7.10/mapping-id-field.html
      */
-    protected $id;
+    protected string|null $id = null;
 
     /**
      * Index name
@@ -127,14 +126,14 @@ trait BuildsFluentQueries
      * @see https://www.elastic.co/guide/en/elasticsearch/reference/7.10/search-search.html
      * @see https://www.elastic.co/guide/en/elasticsearch/reference/7.10/documents-indices.html
      */
-    protected $index;
+    protected string|null $index = null;
 
     /**
      * Filter operators
      *
      * @var array
      */
-    protected $operators = [
+    protected array $operators = [
         Query::OPERATOR_EQUAL,
         Query::OPERATOR_NOT_EQUAL,
         Query::OPERATOR_GREATER_THAN,
@@ -167,10 +166,10 @@ trait BuildsFluentQueries
      * it should keep the “search context” alive (see Keeping the search context
      * alive), eg ?scroll=1m.
      *
-     * @var string
+     * @var string|null
      * @see https://www.elastic.co/guide/en/elasticsearch/reference/7.10/paginate-search-results.html#scroll-search-results
      */
-    protected $scroll;
+    protected string|null $scroll = null;
 
     /**
      * Scroll ID
@@ -184,7 +183,7 @@ trait BuildsFluentQueries
      * @var string|null
      * @see https://www.elastic.co/guide/en/elasticsearch/reference/7.10/paginate-search-results.html#scroll-search-results
      */
-    protected $scrollId = null;
+    protected string|null $scrollId = null;
 
     /**
      * Search Type
@@ -240,11 +239,11 @@ trait BuildsFluentQueries
      * the accuracy of scoring, it adds a round-trip to each shard, which can
      * result in slower searches.
      *
-     * @var string
+     * @var string|null
      * @psalm-var 'query_then_fetch'|'dfs_query_then_fetch'
      * @see       https://www.elastic.co/guide/en/elasticsearch/reference/7.10/search-search.html#search-type
      */
-    protected $searchType;
+    protected string|null $searchType = null;
 
     /**
      * Number of hits to return
@@ -258,21 +257,24 @@ trait BuildsFluentQueries
      * @var int
      * @see https://www.elastic.co/guide/en/elasticsearch/reference/7.10/search-search.html#search-type
      */
-    protected $size = Query::DEFAULT_LIMIT;
+    protected int $size = Query::DEFAULT_LIMIT;
 
     /**
      * Query sort fields
      *
      * @var array
      */
-    protected $sort = [];
+    protected array $sort = [];
 
     /**
      * Query returned fields list
      *
-     * @var array|null
+     * @var array{
+     *     includes: list<string>|null,
+     *     excludes: list<string>|null,
+     * }|null
      */
-    protected $source;
+    protected array|null $source = null;
 
     /**
      * Mapping type
@@ -294,14 +296,14 @@ trait BuildsFluentQueries
      * @see        https://www.elastic.co/guide/en/elasticsearch/reference/7.10/mapping-type-field.html
      */
     #[Deprecated(reason: 'Mapping types are deprecated as of Elasticsearch 7.0.0')]
-    protected $type;
+    protected string|null $type = null;
 
     /**
      * Retrieves the ID the query is restricted to.
      *
      * @return string|null
      */
-    public function getId(): ?string
+    public function getId(): string|null
     {
         return $this->id;
     }
@@ -321,7 +323,7 @@ trait BuildsFluentQueries
      *
      * @return string|null
      */
-    public function getIndex(): ?string
+    public function getIndex(): string|null
     {
         return $this->index;
     }
@@ -331,12 +333,12 @@ trait BuildsFluentQueries
      *
      * @return string|null
      */
-    public function getScroll(): ?string
+    public function getScroll(): string|null
     {
         return $this->scroll;
     }
 
-    public function getScrollId(): ?string
+    public function getScrollId(): string|null
     {
         return $this->scrollId;
     }
@@ -348,7 +350,7 @@ trait BuildsFluentQueries
      * @psalm-return 'query_then_fetch'|'dfs_query_then_fetch'
      * @see          https://www.elastic.co/guide/en/elasticsearch/reference/6.8/search-request-search-type.html
      */
-    public function getSearchType(): ?string
+    public function getSearchType(): string|null
     {
         return $this->searchType;
     }
@@ -361,8 +363,12 @@ trait BuildsFluentQueries
      * @see        https://www.elastic.co/guide/en/elasticsearch/reference/7.10/removal-of-types.html
      */
     #[Deprecated(reason: 'Mapping types are deprecated as of Elasticsearch 7.0.0')]
-    public function getType(): ?string
+    public function getType(): string|null
     {
+        /**
+         * @noinspection   PhpDeprecationInspection
+         * @psalm-suppress DeprecatedProperty
+         */
         return $this->type;
     }
 
@@ -374,7 +380,7 @@ trait BuildsFluentQueries
      * @see        Query::id()
      */
     #[Deprecated(replacement: '%class%->id(%parameter0%)')]
-    public function _id(?string $id = null): self
+    public function _id(string|null $id = null): static
     {
         return $this->id($id);
     }
@@ -400,7 +406,7 @@ trait BuildsFluentQueries
      * @see https://www.elastic.co/guide/en/elasticsearch/reference/current/search-aggregations.html
      *
      * @param string            $name     Name of the aggregation.
-     * @param string|array|null $settings Aggregation configuration. If a string
+     * @param array|string|null $settings Aggregation configuration. If a string
      *                                    will be assumed the name of a field to
      *                                    aggregate. If an array, will be used
      *                                    as the aggregation configuration. If
@@ -412,8 +418,8 @@ trait BuildsFluentQueries
      */
     public function aggregate(
         string $name,
-        $settings = null
-    ): self {
+        array|string $settings = null
+    ): static {
         $field = is_string($settings) ? $settings : $name;
         $settings = is_array($settings)
             ? $settings
@@ -435,7 +441,7 @@ trait BuildsFluentQueries
      *
      * @return $this
      */
-    public function body(array $body = []): self
+    public function body(array $body = []): static
     {
         $this->body = $body;
 
@@ -448,18 +454,21 @@ trait BuildsFluentQueries
      *
      * @see https://www.elastic.co/guide/en/elasticsearch/reference/2.4/query-dsl-geo-distance-query.html
      *
-     * @param string|callable $name     A name of the field.
-     * @param mixed           $value    A starting geo point which can be
+     * @param Closure|string $name      A name of the field.
+     * @param mixed          $value     A starting geo point which can be
      *                                  represented by a string 'lat,lon', an
      *                                  object like `{'lat': lat, 'lon': lon}`
      *                                  or an array like `[lon,lat]`.
-     * @param string          $distance A distance from the starting geo point.
+     * @param string         $distance  A distance from the starting geo point.
      *                                  It can be for example '20km'.
      *
      * @return $this
      */
-    public function distance($name, $value, string $distance): self
-    {
+    public function distance(
+        Closure|string $name,
+        mixed $value,
+        string $distance
+    ): static {
         if ($name instanceof Closure) {
             return tap($this, $name);
         }
@@ -470,7 +479,7 @@ trait BuildsFluentQueries
         ]);
     }
 
-    public function filter(string $type, array $parameters): self
+    public function filter(string $type, array $parameters): static
     {
         $this->filter[] = [
             $type => $parameters,
@@ -482,17 +491,17 @@ trait BuildsFluentQueries
     /**
      * Set the query where clause and retrieve the first matching document.
      *
-     * @param string|callable $name
-     * @param string|int|null $operator
+     * @param Closure|string  $name
+     * @param int|string|null $operator
      * @param mixed|null      $value
      *
      * @return Model|null
      * @throws InvalidArgumentException
      */
     public function firstWhere(
-        $name,
-        $operator = Query::OPERATOR_EQUAL,
-        $value = null
+        Closure|string $name,
+        int|string|null $operator = Query::OPERATOR_EQUAL,
+        mixed $value = null
     ): ?Model {
         return $this
             ->where($name, $operator, $value)
@@ -506,7 +515,7 @@ trait BuildsFluentQueries
      *
      * @return $this
      */
-    public function groupBy(string $field): self
+    public function groupBy(string $field): static
     {
         $this->body['collapse'] = [
             'field' => $field,
@@ -522,7 +531,7 @@ trait BuildsFluentQueries
      *
      * @return $this
      */
-    public function highlight(...$args): self
+    public function highlight(...$args): static
     {
         $fields = $this->flattenArgs($args);
         $new_fields = [];
@@ -545,7 +554,7 @@ trait BuildsFluentQueries
      *
      * @return $this
      */
-    public function id(?string $id = null): self
+    public function id(string|null $id = null): static
     {
         $this->id = $id;
         $this->filter[] = [
@@ -565,7 +574,7 @@ trait BuildsFluentQueries
      *
      * @return $this
      */
-    public function ignore(...$args): self
+    public function ignore(...$args): static
     {
         $this->ignores = array_merge(
             $this->ignores,
@@ -584,7 +593,7 @@ trait BuildsFluentQueries
      *
      * @return $this
      */
-    public function index(?string $index = null): self
+    public function index(string|null $index = null): static
     {
         $this->index = $index;
 
@@ -594,16 +603,18 @@ trait BuildsFluentQueries
     /**
      * Shorthand to add a "match" filter.
      *
-     * @param string                $field Name of the field to add a filter for
-     * @param string|array|callable $value Filter value. Either a string value,
+     * @param string $field                Name of the field to add a filter for
+     * @param mixed  $value                Filter value. Either a string value,
      *                                     an array of Elasticsearch parameters,
      *                                     or a callable that returns either of
      *                                     the previous.
      *
      * @return $this
      */
-    public function matchFilter(string $field, $value): self
-    {
+    public function matchFilter(
+        string $field,
+        mixed $value
+    ): static {
         return $this->filter('match', [
             $field => value($value, $this, $field),
         ]);
@@ -617,7 +628,7 @@ trait BuildsFluentQueries
      *
      * @return $this
      */
-    public function must(string $type, array $parameters): self
+    public function must(string $type, array $parameters): static
     {
         $this->must[] = [
             $type => $parameters,
@@ -634,7 +645,7 @@ trait BuildsFluentQueries
      *
      * @return $this
      */
-    public function mustNot(string $type, array $parameters): self
+    public function mustNot(string $type, array $parameters): static
     {
         $this->must_not[] = [
             $type => $parameters,
@@ -648,7 +659,7 @@ trait BuildsFluentQueries
      *
      * @return $this
      */
-    public function nested(string $path): self
+    public function nested(string $path): static
     {
         $this->body = [
             'query' => [
@@ -664,12 +675,12 @@ trait BuildsFluentQueries
     /**
      * Set the sorting field
      *
-     * @param string|int $field
+     * @param int|string $field
      * @param string     $direction
      *
      * @return $this
      */
-    public function orderBy($field, string $direction = 'asc'): self
+    public function orderBy(int|string $field, string $direction = 'asc'): static
     {
         $this->sort[] = [$field => $direction];
 
@@ -679,15 +690,15 @@ trait BuildsFluentQueries
     /**
      * Shorthand to add a "prefix" filter.
      *
-     * @param string                $field Name of the field to add a filter for
-     * @param string|array|callable $value Filter value. Either a string value,
+     * @param string $field                Name of the field to add a filter for
+     * @param mixed  $value                Filter value. Either a string value,
      *                                     an array of Elasticsearch parameters,
      *                                     or a callable that returns either of
      *                                     the previous.
      *
      * @return $this
      */
-    public function prefixFilter(string $field, $value): self
+    public function prefixFilter(string $field, mixed $value): static
     {
         return $this->filter('prefix', [
             $field => value($value, $this, $field),
@@ -697,19 +708,19 @@ trait BuildsFluentQueries
     /**
      * Shorthand to add a "range" filter.
      *
-     * @param string                $field    Name of the field to add a filter
-     *                                        for
-     * @param string|array|callable $operator Range comparison operator as a
-     *                                        string, an array of custom range
-     *                                        comparison parameters or a
-     *                                        callable that returns either of
-     *                                        the previous.
-     * @param string|array|callable $value    Filter value. Either a string
-     *                                        value, an array of Elasticsearch
-     *                                        parameters, or a callable that
-     *                                        returns either of the previous.
-     *                                        Only used if a string operator has
-     *                                        been passed as the second argument
+     * @param string                     $field    Name of the field to add a filter
+     *                                             for
+     * @param callable|array|string      $operator Range comparison operator as a
+     *                                             string, an array of custom range
+     *                                             comparison parameters or a
+     *                                             callable that returns either of
+     *                                             the previous.
+     * @param callable|array|string|null $value    Filter value. Either a string
+     *                                             value, an array of Elasticsearch
+     *                                             parameters, or a callable that
+     *                                             returns either of the previous.
+     *                                             Only used if a string operator has
+     *                                             been passed as the second argument
      *
      * @return $this
      * @example $query->rangeFilter('year', ['gte' => '2006'])
@@ -719,8 +730,11 @@ trait BuildsFluentQueries
      *
      * @example $query->rangeFilter('year', 'gt', '2006')
      */
-    public function rangeFilter(string $field, $operator, $value = null): self
-    {
+    public function rangeFilter(
+        string $field,
+        mixed $operator,
+        mixed $value = null
+    ): static {
         $operator = value($operator, $this, $field);
 
         if (is_string($operator) && $value) {
@@ -741,9 +755,9 @@ trait BuildsFluentQueries
     /**
      * Shorthand to add a "regexp" filter.
      *
-     * @param string                $field                 Name of the field to
+     * @param string    $field                             Name of the field to
      *                                                     add a filter for
-     * @param string|array|callable $value                 Filter value. Either
+     * @param mixed     $value                             Filter value. Either
      *                                                     a string value, an
      *                                                     array of
      *                                                     Elasticsearch
@@ -751,10 +765,10 @@ trait BuildsFluentQueries
      *                                                     callable that returns
      *                                                     either of the
      *                                                     previous.
-     * @param int|null              $flags                 Enables optional
+     * @param int|null  $flags                             Enables optional
      *                                                     operators for the
      *                                                     regular expression.
-     * @param bool|null             $caseSensitivity       Allows case
+     * @param bool|null $caseSensitivity                   Allows case
      *                                                     insensitive matching
      *                                                     of the regular
      *                                                     expression
@@ -767,7 +781,7 @@ trait BuildsFluentQueries
      *                                                     matching depends on
      *                                                     the underlying
      *                                                     field’s mapping.
-     * @param int|null              $maxDeterminizedStates Maximum number of
+     * @param int|null  $maxDeterminizedStates             Maximum number of
      *                                                     automaton states
      *                                                     required for the
      *                                                     query.
@@ -799,11 +813,11 @@ trait BuildsFluentQueries
      */
     public function regexpFilter(
         string $field,
-        $value,
-        ?int $flags = null,
-        ?bool $caseSensitivity = null,
-        ?int $maxDeterminizedStates = null
-    ): self {
+        mixed $value,
+        int|null $flags = null,
+        bool|null $caseSensitivity = null,
+        int|null $maxDeterminizedStates = null
+    ): static {
         $value = value($value, $this, $field);
 
         if (is_array($value) || (
@@ -820,7 +834,7 @@ trait BuildsFluentQueries
             'value' => $value,
         ];
 
-        $stringFlags = $this->resolveRegexpFlags($flags);
+        $stringFlags = $this->resolveRegexpFlags($flags ?? 0);
 
         if ($stringFlags) {
             $parameters['flags'] = $stringFlags;
@@ -847,7 +861,7 @@ trait BuildsFluentQueries
      *
      * @return $this
      */
-    public function scroll(string $keepAlive = '5m'): self
+    public function scroll(string $keepAlive = '5m'): static
     {
         $this->scroll = $keepAlive;
 
@@ -861,7 +875,7 @@ trait BuildsFluentQueries
      *
      * @return $this
      */
-    public function scrollId(?string $scroll): self
+    public function scrollId(string|null $scroll): static
     {
         $this->scrollId = $scroll;
 
@@ -878,10 +892,10 @@ trait BuildsFluentQueries
      * @return $this
      */
     public function search(
-        ?string $queryString = null,
-        $settings = null,
-        ?int $boost = null
-    ): self {
+        string|null $queryString = null,
+        callable|array $settings = null,
+        int|null $boost = null
+    ): static {
         if ($queryString) {
             $search = new Search(
                 $this,
@@ -899,14 +913,14 @@ trait BuildsFluentQueries
     /**
      * Sets the query search type.
      *
-     * @param string $type
+     * @param string                                          $type
      *
      * @psalm-param 'query_then_fetch'|'dfs_query_then_fetch' $type
      *
      * @return $this
      * @see         https://www.elastic.co/guide/en/elasticsearch/reference/6.8/search-request-search-type.html
      */
-    public function searchType(string $type): self
+    public function searchType(string $type): static
     {
         $this->searchType = $type;
 
@@ -920,8 +934,9 @@ trait BuildsFluentQueries
      *
      * @return $this
      */
-    public function select(...$args): self
+    public function select(...$args): static
     {
+        /** @var list<string> $fields */
         $fields = $this->flattenArgs($args);
 
         $this->source[Query::SOURCE_INCLUDES] = array_values(array_unique(array_merge(
@@ -948,7 +963,7 @@ trait BuildsFluentQueries
      *
      * @return $this
      */
-    public function skip(int $from = 0): self
+    public function skip(int $from = 0): static
     {
         $this->from = $from;
 
@@ -962,7 +977,7 @@ trait BuildsFluentQueries
      *
      * @return $this
      */
-    public function take(int $size = Query::DEFAULT_LIMIT): self
+    public function take(int $size = Query::DEFAULT_LIMIT): static
     {
         $this->size = $size;
 
@@ -972,15 +987,15 @@ trait BuildsFluentQueries
     /**
      * Shorthand to add a "term" filter.
      *
-     * @param string                $field Name of the field to add a filter for
-     * @param string|array|callable $value Filter value. Either a string value,
+     * @param string $field                Name of the field to add a filter for
+     * @param mixed  $value                Filter value. Either a string value,
      *                                     an array of Elasticsearch parameters,
      *                                     or a callable that returns either of
      *                                     the previous.
      *
      * @return $this
      */
-    public function termFilter(string $field, $value): self
+    public function termFilter(string $field, mixed $value): static
     {
         return $this->filter('term', [
             $field => value($value, $this, $field),
@@ -991,10 +1006,10 @@ trait BuildsFluentQueries
      * Shorthand to add a "terms" filter.
      *
      * @param string         $field Name of the field to add a filter for
-     * @param array|callable $value Filter value. Either a string value, an
+     * @param mixed          $value Filter value. Either a string value, an
      *                              array of Elasticsearch parameters, or a
      *                              callable that returns either of the previous
-     * @param float|null     $boost Floating point number used to decrease or
+     * @param int|float|null $boost Floating point number used to decrease or
      *                              increase the relevance scores of a query.
      *                              Defaults to 1.0. You can use the boost
      *                              parameter to adjust relevance scores for
@@ -1009,9 +1024,9 @@ trait BuildsFluentQueries
      */
     public function termsFilter(
         string $field,
-        $value,
-        ?float $boost = null
-    ): self {
+        mixed $value,
+        int|float|null $boost = null
+    ): static {
         $value = value($value, $this, $field);
 
         if ($boost === null) {
@@ -1036,8 +1051,12 @@ trait BuildsFluentQueries
      * @see        https://www.elastic.co/guide/en/elasticsearch/reference/7.10/removal-of-types.html
      */
     #[Deprecated(reason: 'Mapping types are deprecated as of Elasticsearch 7.0.0')]
-    public function type(string $type): self
+    public function type(string $type): static
     {
+        /**
+         * @noinspection   PhpDeprecationInspection
+         * @psalm-suppress DeprecatedProperty
+         */
         $this->type = $type;
 
         return $this;
@@ -1050,8 +1069,9 @@ trait BuildsFluentQueries
      *
      * @return $this
      */
-    public function unselect(...$args): self
+    public function unselect(...$args): static
     {
+        /** @var list<string> $fields */
         $fields = $this->flattenArgs($args);
 
         $this->source[Query::SOURCE_EXCLUDES] = array_values(array_unique(array_merge(
@@ -1074,18 +1094,18 @@ trait BuildsFluentQueries
     /**
      * Adds a filter to the query
      *
-     * @param string|callable $name
-     * @param string|int|null $operator
+     * @param Closure|string  $name
+     * @param int|string|null $operator
      * @param mixed|null      $value
      *
      * @return $this
      * @throws InvalidArgumentException
      */
     public function where(
-        $name,
-        $operator = Query::OPERATOR_EQUAL,
-        $value = null
-    ): self {
+        Closure|string $name,
+        int|string|null $operator = Query::OPERATOR_EQUAL,
+        mixed $value = null
+    ): static {
         if ($name instanceof Closure) {
             $name($this);
 
@@ -1104,7 +1124,7 @@ trait BuildsFluentQueries
                     return $this->id((string)$value);
                 }
 
-                return $this->termFilter($name, $value);
+                return $this->termFilter($name, (string)$value);
 
             case 'gt':
             case Query::OPERATOR_GREATER_THAN:
@@ -1156,17 +1176,17 @@ trait BuildsFluentQueries
     /**
      * Set the query where between clause
      *
-     * @param string $name
-     * @param mixed  $firstValue
-     * @param mixed  $lastValue
+     * @param string     $name
+     * @param mixed      $firstValue
+     * @param mixed|null $lastValue
      *
      * @return $this
      */
     public function whereBetween(
         string $name,
-        $firstValue,
-        $lastValue = null
-    ): self {
+        mixed $firstValue,
+        mixed $lastValue = null
+    ): static {
         if (is_array($firstValue) && count($firstValue) === 2) {
             [$firstValue, $lastValue] = $firstValue;
         }
@@ -1187,7 +1207,7 @@ trait BuildsFluentQueries
      *
      * @return $this
      */
-    public function whereExists(string $name, bool $exists = true): self
+    public function whereExists(string $name, bool $exists = true): static
     {
         if ($exists) {
             return $this->must('exists', [
@@ -1203,12 +1223,12 @@ trait BuildsFluentQueries
     /**
      * Set the query where in clause
      *
-     * @param string|callable $name
-     * @param mixed|null      $value
+     * @param Closure|string $name
+     * @param mixed|array    $value
      *
      * @return $this
      */
-    public function whereIn($name, $value = []): self
+    public function whereIn(Closure|string $name, mixed $value = []): static
     {
         if ($name instanceof Closure) {
             return tap($this, $name);
@@ -1220,17 +1240,17 @@ trait BuildsFluentQueries
     /**
      * Set the query inverse where clause
      *
-     * @param string|callable $name
-     * @param string          $operator
-     * @param null            $value
+     * @param Closure|string $name
+     * @param string         $operator
+     * @param null           $value
      *
      * @return $this
      */
     public function whereNot(
-        $name,
+        Closure|string $name,
         string $operator = Query::OPERATOR_EQUAL,
         $value = null
-    ): self {
+    ): static {
         if ($name instanceof Closure) {
             return tap($this, $name);
         }
@@ -1294,9 +1314,9 @@ trait BuildsFluentQueries
      */
     public function whereNotBetween(
         string $name,
-        $firstValue,
-        $lastValue = null
-    ): self {
+        mixed $firstValue,
+        mixed $lastValue = null
+    ): static {
         if (is_array($firstValue) && count($firstValue) === 2) {
             [$firstValue, $lastValue] = $firstValue;
         }
@@ -1312,12 +1332,12 @@ trait BuildsFluentQueries
     /**
      * Set the query where not in clause
      *
-     * @param string|callable $name
-     * @param mixed|array     $value
+     * @param Closure|string $name
+     * @param mixed|array    $value
      *
      * @return $this
      */
-    public function whereNotIn($name, $value = []): self
+    public function whereNotIn(Closure|string $name, mixed $value = []): static
     {
         if ($name instanceof Closure) {
             return tap($this, $name);
@@ -1331,16 +1351,18 @@ trait BuildsFluentQueries
     /**
      * Shorthand to add a "wildcard" filter.
      *
-     * @param string                $field Name of the field to add a filter for
-     * @param string|array|callable $value Filter value. Either a string value,
+     * @param string $field                Name of the field to add a filter for
+     * @param mixed  $value                Filter value. Either a string value,
      *                                     an array of Elasticsearch parameters,
      *                                     or a callable that returns either of
      *                                     the previous.
      *
      * @return $this
      */
-    public function wildcardFilter(string $field, $value): self
-    {
+    public function wildcardFilter(
+        string $field,
+        mixed $value
+    ): static {
         return $this->filter('wildcard', [
             $field => value($value, $this, $field),
         ]);
@@ -1467,6 +1489,14 @@ trait BuildsFluentQueries
         );
     }
 
+    /**
+     * @template TKey of array-key
+     * @template TValue
+     *
+     * @param array<TKey, TValue> $args
+     *
+     * @return list<TValue>
+     */
     private function flattenArgs(array $args): array
     {
         $flattened = [];
@@ -1483,7 +1513,7 @@ trait BuildsFluentQueries
         return $flattened;
     }
 
-    private function resolveRegexpFlags(int $flags): ?string
+    private function resolveRegexpFlags(int $flags): string|null
     {
         $stringFlags = [];
 

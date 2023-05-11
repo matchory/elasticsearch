@@ -1,11 +1,22 @@
 <?php
-/** @noinspection PhpUnhandledExceptionInspection */
+
+declare(strict_types=1);
 
 namespace Matchory\Elasticsearch\Tests\Traits;
 
 use Elasticsearch\Client;
 use Matchory\Elasticsearch\Connection;
 use Matchory\Elasticsearch\Query;
+use PHPUnit\Framework\InvalidArgumentException;
+use PHPUnit\Framework\MockObject\ClassAlreadyExistsException;
+use PHPUnit\Framework\MockObject\ClassIsFinalException;
+use PHPUnit\Framework\MockObject\ClassIsReadonlyException;
+use PHPUnit\Framework\MockObject\DuplicateMethodException;
+use PHPUnit\Framework\MockObject\InvalidMethodNameException;
+use PHPUnit\Framework\MockObject\OriginalConstructorInvocationRequiredException;
+use PHPUnit\Framework\MockObject\ReflectionException;
+use PHPUnit\Framework\MockObject\RuntimeException;
+use PHPUnit\Framework\MockObject\UnknownTypeException;
 
 /**
  * Class ESQueryTrait
@@ -17,22 +28,35 @@ trait ESQueryTrait
      *
      * @var string
      */
-    protected $index = 'my_index';
+    protected string $index = 'my_index';
 
     /**
      * Test query offset
      *
      * @var int
      */
-    protected $skip = 0;
+    protected int $skip = 0;
 
     /**
      * Test query limit
      *
      * @var int
      */
-    protected $take = 10;
+    protected int $take = 10;
 
+    /**
+     * @return Client
+     * @throws InvalidArgumentException
+     * @throws ClassAlreadyExistsException
+     * @throws ClassIsFinalException
+     * @throws ClassIsReadonlyException
+     * @throws DuplicateMethodException
+     * @throws InvalidMethodNameException
+     * @throws OriginalConstructorInvocationRequiredException
+     * @throws ReflectionException
+     * @throws RuntimeException
+     * @throws UnknownTypeException
+     */
     protected function getClient(): Client
     {
         return $this
@@ -41,6 +65,19 @@ trait ESQueryTrait
             ->getMock();
     }
 
+    /**
+     * @return Connection
+     * @throws ClassAlreadyExistsException
+     * @throws ClassIsFinalException
+     * @throws ClassIsReadonlyException
+     * @throws DuplicateMethodException
+     * @throws InvalidArgumentException
+     * @throws InvalidMethodNameException
+     * @throws OriginalConstructorInvocationRequiredException
+     * @throws ReflectionException
+     * @throws RuntimeException
+     * @throws UnknownTypeException
+     */
     protected function getConnection(): Connection
     {
         return new Connection($this->getClient());
@@ -69,6 +106,16 @@ trait ESQueryTrait
      * @param Query|null $query
      *
      * @return Query
+     * @throws ClassAlreadyExistsException
+     * @throws ClassIsFinalException
+     * @throws ClassIsReadonlyException
+     * @throws DuplicateMethodException
+     * @throws InvalidArgumentException
+     * @throws InvalidMethodNameException
+     * @throws OriginalConstructorInvocationRequiredException
+     * @throws ReflectionException
+     * @throws RuntimeException
+     * @throws UnknownTypeException
      */
     protected function getQueryObject(?Query $query = null): Query
     {

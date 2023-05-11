@@ -20,7 +20,7 @@ interface ClientFactoryInterface
      */
     public function createClient(
         array $hosts,
-        ?LoggerInterface $logger = null,
-        ?callable $handler = null
+        LoggerInterface|null $logger = null,
+        callable|null $handler = null
     ): Client;
 }

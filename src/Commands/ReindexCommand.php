@@ -75,7 +75,7 @@ class ReindexCommand extends Command
     public function __construct()
     {
         parent::__construct();
-        $this->es = app("es");
+        $this->es = app('es');
     }
 
     /**
@@ -89,12 +89,12 @@ class ReindexCommand extends Command
      */
     public function handle(): void
     {
-        $this->connection = $this->option("connection") ?: config('es.default');
-        $this->size = (int)$this->option("bulk-size");
-        $this->scroll = (string)$this->option("scroll");
+        $this->connection = $this->option('connection') ?: config('es.default');
+        $this->size = (int)$this->option('bulk-size');
+        $this->scroll = (string)$this->option('scroll');
 
         if ($this->size <= 0) {
-            $this->warn("Invalid size value");
+            $this->warn('Invalid size value');
 
             return;
         }

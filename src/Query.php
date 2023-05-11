@@ -31,15 +31,17 @@ use const JSON_THROW_ON_ERROR;
  * =====
  * Query builder instance for Elasticsearch queries
  *
- * @package Matchory\Elasticsearch\Query
- * @todo    Rename to "Builder" for coherency with Eloquent. To avoid breaking
+ * @package  Matchory\Elasticsearch\Query
+ * @template T of Model
+ * @todo     Rename to "Builder" for coherency with Eloquent. To avoid breaking
  *          changes, an alias should be registered for Query
  */
 class Query implements Arrayable, JsonSerializable, Jsonable, IteratorAggregate
 {
+    /** @use ExecutesQueries<T> */
+    use ExecutesQueries;
     use AppliesScopes;
     use BuildsFluentQueries;
-    use ExecutesQueries;
     use ForwardsCalls;
     use ManagesIndices;
     use ExplainsQueries;
@@ -138,29 +140,34 @@ class Query implements Arrayable, JsonSerializable, Jsonable, IteratorAggregate
 
     public const SOURCE_INCLUDES = 'includes';
 
-    protected static $defaultSource = [
+    /**
+     * @var array{
+     *     includes: list<string>,
+     *     excludes: list<string>,
+     * }
+     */
+    protected static array $defaultSource = [
         self::SOURCE_INCLUDES => [],
         self::SOURCE_EXCLUDES => [],
     ];
 
     /**
-     * @var null
      * @deprecated Use getConnection()->getClient() to access the client instead
      * @see        ConnectionInterface::getClient()
      * @see        Query::getConnection()
      */
     #[Deprecated(replacement: '%class%->getConnection()->getClient()')]
-    public $client = null;
+    public null $client = null;
 
     /**
      * Elastic model instance.
      *
-     * @var Model
+     * @psalm-var T
      * @deprecated Use getModel() instead
      * @see        Query::getModel()
      */
     #[Deprecated(replacement: '%class%->getModel()')]
-    public $model;
+    public Model $model;
 
     /**
      * Elasticsearch connection instance
@@ -171,21 +178,30 @@ class Query implements Arrayable, JsonSerializable, Jsonable, IteratorAggregate
      *
      * @var ConnectionInterface
      */
-    protected $connection;
+    protected ConnectionInterface $connection;
 
     /**
      * Creates a new query builder instance.
      *
-     * @param ConnectionInterface $connection Elasticsearch connection the query
+     * @param ConnectionInterface $connection Elasticsearch Connection the query
      *                                        builder uses.
+     * @param T|null              $model      Model instance the query builder
      */
-    public function __construct(ConnectionInterface $connection)
-    {
+    public function __construct(
+        ConnectionInterface $connection,
+        Model|null $model = null
+    ) {
         $this->connection = $connection;
 
-        // We set a plain model here so there's always a model instance set.
-        // This avoids errors in methods that rely on a model.
-        $this->setModel(new Model());
+        /**
+         * We set a plain model here so there's always a model instance set.
+         * This avoids errors in methods that rely on a model.
+         *
+         * @noinspection   PhpDeprecationInspection
+         * @psalm-suppress DeprecatedProperty
+         * @psalm-suppress PossiblyInvalidPropertyAssignmentValue
+         */
+        $this->model = $model ?? new Model();
     }
 
     /**
@@ -216,11 +232,14 @@ class Query implements Arrayable, JsonSerializable, Jsonable, IteratorAggregate
      * the model that initiated a query, but defaults to the Model class itself
      * if the query builder is used without models.
      *
-     * @return Model Model instance used for the current query.
+     * @return T Model instance used for the current query.
      */
     public function getModel(): Model
     {
-        /** @noinspection PhpDeprecationInspection */
+        /**
+         * @noinspection   PhpDeprecationInspection
+         * @psalm-suppress DeprecatedProperty
+         */
         return $this->model;
     }
 
@@ -228,16 +247,17 @@ class Query implements Arrayable, JsonSerializable, Jsonable, IteratorAggregate
      * Sets the model the query is based on. Any results will be casted to this
      * model. If no model is set, a plain model instance will be used.
      *
-     * @param Model $model Model to use for the current query.
+     * @template TModel of Model
      *
-     * @return $this Query builder instance for chaining.
+     * @param Model        $model Model to use for the current query.
+     *
+     * @psalm-param TModel $model
+     *
+     * @return self<TModel> Query builder instance for chaining.
      */
     public function setModel(Model $model): self
     {
-        /** @noinspection PhpDeprecationInspection */
-        $this->model = $model;
-
-        return $this;
+        return new self($this->getConnection(), $model);
     }
 
     /**
@@ -343,6 +363,10 @@ class Query implements Arrayable, JsonSerializable, Jsonable, IteratorAggregate
             $params[self::PARAM_INDEX] = $index;
         }
 
+        /**
+         * @noinspection   PhpDeprecationInspection
+         * @psalm-suppress DeprecatedMethod
+         */
         if ($type = $query->getType()) {
             $params[self::PARAM_TYPE] = $type;
         }

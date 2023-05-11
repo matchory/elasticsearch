@@ -8,6 +8,7 @@ use Closure;
 use InvalidArgumentException;
 use Matchory\Elasticsearch\Interfaces\ScopeInterface;
 
+use function dd;
 use function get_class;
 use function is_null;
 use function is_string;
