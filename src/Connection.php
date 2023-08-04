@@ -349,7 +349,7 @@ class Connection implements ConnectionInterface
                 'elasticsearch.query',
                 json_encode($query, JSON_THROW_ON_ERROR) ?: '',
             ));
-        } catch (JsonException) {
+        } catch (JsonException $exception) {
             // We don't want errors during reporting to bubble up to
             // the application
         }
