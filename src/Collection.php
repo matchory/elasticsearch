@@ -8,7 +8,6 @@ use Illuminate\Contracts\Support\Arrayable;
 use Illuminate\Support\Collection as BaseCollection;
 use JsonException;
 use stdClass;
-
 use function array_map;
 use function is_array;
 use function json_encode;
@@ -16,9 +15,9 @@ use function json_encode;
 /**
  * Collection
  *
- * @template-covariant T of Model
- * @extends BaseCollection<array-key, T>
- * @psalm-suppress TooManyTemplateParams
+ * @template TKey of array-key
+ * @template-covariant TValue of Model
+ * @extends BaseCollection<TKey, TValue>
  * @package Matchory\Elasticsearch
  */
 class Collection extends BaseCollection
@@ -26,15 +25,15 @@ class Collection extends BaseCollection
     /**
      * Collection constructor.
      *
-     * @param iterable      $items
-     * @param int|null      $total
-     * @param float|null    $maxScore
-     * @param float|null    $duration
-     * @param bool|null     $timedOut
-     * @param string|null   $scrollId
+     * @param iterable $items
+     * @param int|null $total
+     * @param float|null $maxScore
+     * @param float|null $duration
+     * @param bool|null $timedOut
+     * @param string|null $scrollId
      * @param stdClass|null $shards
-     * @param array|null    $suggestions
-     * @param array|null    $aggregations
+     * @param array|null $suggestions
+     * @param array|null $aggregations
      */
     public function __construct(
         iterable $items = [],
@@ -129,6 +128,10 @@ class Collection extends BaseCollection
         return $this->timedOut;
     }
 
+    /**
+     * @inheritDoc
+     * @psalm-suppress DocblockTypeContradiction
+     */
     public function toArray(): array
     {
         return array_map(static function ($item) {

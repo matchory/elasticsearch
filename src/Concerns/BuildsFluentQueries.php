@@ -11,7 +11,6 @@ use Matchory\Elasticsearch\Classes\Search;
 use Matchory\Elasticsearch\Model;
 use Matchory\Elasticsearch\Query;
 use stdClass;
-
 use function array_filter;
 use function array_key_exists;
 use function array_merge;
@@ -24,7 +23,6 @@ use function is_array;
 use function is_string;
 use function tap;
 use function value;
-
 use const SORT_REGULAR;
 
 trait BuildsFluentQueries
@@ -146,7 +144,7 @@ trait BuildsFluentQueries
 
     /**
      * Scroll
-     * ======
+     *
      * While a search request returns a single “page” of results, the scroll API
      * can be used to retrieve large numbers of results (or even all results)
      * from a single search request, in much the same way as you would use a
@@ -173,7 +171,7 @@ trait BuildsFluentQueries
 
     /**
      * Scroll ID
-     * =========
+     *
      * Identifier for the search and its search context.
      * You can use this scroll ID with the scroll API to retrieve the next batch
      * of search results for the request. See Scroll search results.
@@ -187,7 +185,7 @@ trait BuildsFluentQueries
 
     /**
      * Search Type
-     * ===========
+     *
      * There are different execution paths that can be done when executing a
      * distributed search. The distributed search operation needs to be
      * scattered to all the relevant shards and then all the results are
@@ -247,7 +245,7 @@ trait BuildsFluentQueries
 
     /**
      * Number of hits to return
-     * ========================
+     *
      * Defines the number of hits to return. Defaults to `10`.
      *
      * By default, you cannot page through more than 10,000 hits using the
@@ -278,7 +276,7 @@ trait BuildsFluentQueries
 
     /**
      * Mapping type
-     * ============
+     *
      * Each document indexed is associated with a `_type` and an `_id`.
      * The `_type` field is indexed in order to make searching by type name fast
      * The value of the `_type` field is accessible in queries, aggregations,
@@ -405,7 +403,7 @@ trait BuildsFluentQueries
      *
      * @see https://www.elastic.co/guide/en/elasticsearch/reference/current/search-aggregations.html
      *
-     * @param string            $name     Name of the aggregation.
+     * @param string $name Name of the aggregation.
      * @param array|string|null $settings Aggregation configuration. If a string
      *                                    will be assumed the name of a field to
      *                                    aggregate. If an array, will be used
@@ -454,12 +452,12 @@ trait BuildsFluentQueries
      *
      * @see https://www.elastic.co/guide/en/elasticsearch/reference/2.4/query-dsl-geo-distance-query.html
      *
-     * @param Closure|string $name      A name of the field.
-     * @param mixed          $value     A starting geo point which can be
+     * @param Closure|string $name A name of the field.
+     * @param mixed $value A starting geo point which can be
      *                                  represented by a string 'lat,lon', an
      *                                  object like `{'lat': lat, 'lon': lon}`
      *                                  or an array like `[lon,lat]`.
-     * @param string         $distance  A distance from the starting geo point.
+     * @param string $distance A distance from the starting geo point.
      *                                  It can be for example '20km'.
      *
      * @return $this
@@ -491,9 +489,9 @@ trait BuildsFluentQueries
     /**
      * Set the query where clause and retrieve the first matching document.
      *
-     * @param Closure|string  $name
+     * @param Closure|string $name
      * @param int|string|null $operator
-     * @param mixed|null      $value
+     * @param mixed|null $value
      *
      * @return Model|null
      * @throws InvalidArgumentException
@@ -502,7 +500,7 @@ trait BuildsFluentQueries
         Closure|string $name,
         int|string|null $operator = Query::OPERATOR_EQUAL,
         mixed $value = null
-    ): ?Model {
+    ): Model|null {
         return $this
             ->where($name, $operator, $value)
             ->first();
@@ -603,8 +601,8 @@ trait BuildsFluentQueries
     /**
      * Shorthand to add a "match" filter.
      *
-     * @param string $field                Name of the field to add a filter for
-     * @param mixed  $value                Filter value. Either a string value,
+     * @param string $field Name of the field to add a filter for
+     * @param mixed $value Filter value. Either a string value,
      *                                     an array of Elasticsearch parameters,
      *                                     or a callable that returns either of
      *                                     the previous.
@@ -623,8 +621,8 @@ trait BuildsFluentQueries
     /**
      * Adds a must condition to the query.
      *
-     * @param string $type       Query type
-     * @param array  $parameters Parameters to the query
+     * @param string $type Query type
+     * @param array $parameters Parameters to the query
      *
      * @return $this
      */
@@ -640,8 +638,8 @@ trait BuildsFluentQueries
     /**
      * Adds a must_not condition to the query.
      *
-     * @param string $type       Query type
-     * @param array  $parameters Parameters to the query
+     * @param string $type Query type
+     * @param array $parameters Parameters to the query
      *
      * @return $this
      */
@@ -676,7 +674,7 @@ trait BuildsFluentQueries
      * Set the sorting field
      *
      * @param int|string $field
-     * @param string     $direction
+     * @param string $direction
      *
      * @return $this
      */
@@ -690,8 +688,8 @@ trait BuildsFluentQueries
     /**
      * Shorthand to add a "prefix" filter.
      *
-     * @param string $field                Name of the field to add a filter for
-     * @param mixed  $value                Filter value. Either a string value,
+     * @param string $field Name of the field to add a filter for
+     * @param mixed $value Filter value. Either a string value,
      *                                     an array of Elasticsearch parameters,
      *                                     or a callable that returns either of
      *                                     the previous.
@@ -708,14 +706,14 @@ trait BuildsFluentQueries
     /**
      * Shorthand to add a "range" filter.
      *
-     * @param string                     $field    Name of the field to add a filter
+     * @param string $field Name of the field to add a filter
      *                                             for
-     * @param callable|array|string      $operator Range comparison operator as a
+     * @param callable|array|string $operator Range comparison operator as a
      *                                             string, an array of custom range
      *                                             comparison parameters or a
      *                                             callable that returns either of
      *                                             the previous.
-     * @param callable|array|string|null $value    Filter value. Either a string
+     * @param callable|array|string|null $value Filter value. Either a string
      *                                             value, an array of Elasticsearch
      *                                             parameters, or a callable that
      *                                             returns either of the previous.
@@ -755,57 +753,32 @@ trait BuildsFluentQueries
     /**
      * Shorthand to add a "regexp" filter.
      *
-     * @param string    $field                             Name of the field to
-     *                                                     add a filter for
-     * @param mixed     $value                             Filter value. Either
-     *                                                     a string value, an
-     *                                                     array of
-     *                                                     Elasticsearch
-     *                                                     parameters, or a
-     *                                                     callable that returns
-     *                                                     either of the
-     *                                                     previous.
-     * @param int|null  $flags                             Enables optional
-     *                                                     operators for the
-     *                                                     regular expression.
-     * @param bool|null $caseSensitivity                   Allows case
-     *                                                     insensitive matching
-     *                                                     of the regular
-     *                                                     expression
-     *                                                     value with the
-     *                                                     indexed field values
-     *                                                     when set to true.
-     *                                                     Default is false
-     *                                                     which means the case
-     *                                                     sensitivity of
-     *                                                     matching depends on
-     *                                                     the underlying
-     *                                                     field’s mapping.
-     * @param int|null  $maxDeterminizedStates             Maximum number of
-     *                                                     automaton states
-     *                                                     required for the
-     *                                                     query.
-     *                                                     Default is 10000.
-     *                                                     Elasticsearch uses
-     *                                                     Apache Lucene
-     *                                                     internally to parse
-     *                                                     regular expressions.
-     *                                                     Lucene converts each
-     *                                                     regular expression to
-     *                                                     a finite automaton
-     *                                                     containing a number
-     *                                                     of determinized
-     *                                                     states. You can use
-     *                                                     this parameter to
-     *                                                     prevent that
-     *                                                     conversion from
-     *                                                     unintentionally
-     *                                                     consuming too
-     *                                                     many resources. You
-     *                                                     may need to increase
-     *                                                     this limit to run
-     *                                                     complex regular
-     *                                                     expressions.
+     * @param string $field Name of the field to add a filter for
+     * @param mixed $value Filter value. Either a string value, an array of
+     *                     Elasticsearch parameters, or a callable that returns
+     *                     either of the previous.
+     * @param int|null $flags Enables optional operators for the regular
+     *                        expression.
+     * @param bool|null $caseSensitivity Allows case-insensitive matching of the
+     *                                   regular expression value with the
+     *                                   indexed field values when set to true.
+     *                                   Default is false which means the case
+     *                                   sensitivity of matching depends on the
+     *                                   underlying field's mapping.
+     * @param int|null $maxDeterminizedStates Maximum number of automaton states
+     *                                        required for the query. Default is
+     *                                        10000. Elasticsearch uses Apache
+     *                                        Lucene internally to parse regular
+     *                                        expressions. Lucene converts each
+     *                                        regular expression to a finite
+     *                                        automaton containing a number of
+     *                                        determinized states. You can use
+     *                                        this parameter to prevent that
+     *                                        conversion from unintentionally
+     *                                        consuming too many resources.
+     *                                        You may need to increase this
+     *                                        limit to run complex regular
+     *                                        expressions.
      *
      * @return $this
      * @see https://www.elastic.co/guide/en/elasticsearch/reference/current/query-dsl-regexp-query.html
@@ -885,9 +858,9 @@ trait BuildsFluentQueries
     /**
      * Search the entire document fields
      *
-     * @param string|null         $queryString
+     * @param string|null $queryString
      * @param callable|array|null $settings
-     * @param int|null            $boost
+     * @param int|null $boost
      *
      * @return $this
      */
@@ -913,7 +886,7 @@ trait BuildsFluentQueries
     /**
      * Sets the query search type.
      *
-     * @param string                                          $type
+     * @param string $type
      *
      * @psalm-param 'query_then_fetch'|'dfs_query_then_fetch' $type
      *
@@ -946,7 +919,7 @@ trait BuildsFluentQueries
 
         $this->source[Query::SOURCE_EXCLUDES] = array_values(array_filter(
             $this->source[Query::SOURCE_EXCLUDES] ?? [], function ($field) {
-            return ! in_array(
+            return !in_array(
                 $field,
                 $this->source[Query::SOURCE_INCLUDES] ?? [],
                 false
@@ -987,8 +960,8 @@ trait BuildsFluentQueries
     /**
      * Shorthand to add a "term" filter.
      *
-     * @param string $field                Name of the field to add a filter for
-     * @param mixed  $value                Filter value. Either a string value,
+     * @param string $field Name of the field to add a filter for
+     * @param mixed $value Filter value. Either a string value,
      *                                     an array of Elasticsearch parameters,
      *                                     or a callable that returns either of
      *                                     the previous.
@@ -1005,8 +978,8 @@ trait BuildsFluentQueries
     /**
      * Shorthand to add a "terms" filter.
      *
-     * @param string         $field Name of the field to add a filter for
-     * @param mixed          $value Filter value. Either a string value, an
+     * @param string $field Name of the field to add a filter for
+     * @param mixed $value Filter value. Either a string value, an
      *                              array of Elasticsearch parameters, or a
      *                              callable that returns either of the previous
      * @param int|float|null $boost Floating point number used to decrease or
@@ -1081,7 +1054,7 @@ trait BuildsFluentQueries
 
         $this->source[Query::SOURCE_INCLUDES] = array_values(array_filter(
             $this->source[Query::SOURCE_INCLUDES] ?? [], function ($field) {
-            return ! in_array(
+            return !in_array(
                 $field,
                 $this->source[Query::SOURCE_EXCLUDES] ?? [],
                 false
@@ -1094,9 +1067,9 @@ trait BuildsFluentQueries
     /**
      * Adds a filter to the query
      *
-     * @param Closure|string  $name
+     * @param Closure|string $name
      * @param int|string|null $operator
-     * @param mixed|null      $value
+     * @param mixed|null $value
      *
      * @return $this
      * @throws InvalidArgumentException
@@ -1112,7 +1085,7 @@ trait BuildsFluentQueries
             return $this;
         }
 
-        if ( ! $this->isOperator((string)$operator)) {
+        if (!$this->isOperator((string)$operator)) {
             $value = $operator;
             $operator = Query::OPERATOR_EQUAL;
         }
@@ -1176,8 +1149,8 @@ trait BuildsFluentQueries
     /**
      * Set the query where between clause
      *
-     * @param string     $name
-     * @param mixed      $firstValue
+     * @param string $name
+     * @param mixed $firstValue
      * @param mixed|null $lastValue
      *
      * @return $this
@@ -1203,7 +1176,7 @@ trait BuildsFluentQueries
      * Set the query where exists clause
      *
      * @param string $name
-     * @param bool   $exists
+     * @param bool $exists
      *
      * @return $this
      */
@@ -1224,7 +1197,7 @@ trait BuildsFluentQueries
      * Set the query where in clause
      *
      * @param Closure|string $name
-     * @param mixed|array    $value
+     * @param mixed|array $value
      *
      * @return $this
      */
@@ -1241,8 +1214,8 @@ trait BuildsFluentQueries
      * Set the query inverse where clause
      *
      * @param Closure|string $name
-     * @param string         $operator
-     * @param null           $value
+     * @param string $operator
+     * @param null $value
      *
      * @return $this
      */
@@ -1255,7 +1228,7 @@ trait BuildsFluentQueries
             return tap($this, $name);
         }
 
-        if ( ! $this->isOperator($operator)) {
+        if (!$this->isOperator($operator)) {
             $value = $operator;
             $operator = Query::OPERATOR_EQUAL;
         }
@@ -1297,7 +1270,7 @@ trait BuildsFluentQueries
                 ]);
 
             case Query::OPERATOR_EXISTS:
-                $this->whereExists($name, ! $value);
+                $this->whereExists($name, !$value);
         }
 
         return $this;
@@ -1306,8 +1279,8 @@ trait BuildsFluentQueries
     /**
      * Set the query where not between clause
      *
-     * @param string     $name
-     * @param mixed      $firstValue
+     * @param string $name
+     * @param mixed $firstValue
      * @param mixed|null $lastValue
      *
      * @return $this
@@ -1333,7 +1306,7 @@ trait BuildsFluentQueries
      * Set the query where not in clause
      *
      * @param Closure|string $name
-     * @param mixed|array    $value
+     * @param mixed|array $value
      *
      * @return $this
      */
@@ -1351,8 +1324,8 @@ trait BuildsFluentQueries
     /**
      * Shorthand to add a "wildcard" filter.
      *
-     * @param string $field                Name of the field to add a filter for
-     * @param mixed  $value                Filter value. Either a string value,
+     * @param string $field Name of the field to add a filter for
+     * @param mixed $value Filter value. Either a string value,
      *                                     an array of Elasticsearch parameters,
      *                                     or a callable that returns either of
      *                                     the previous.

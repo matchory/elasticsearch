@@ -184,12 +184,12 @@ class Query implements Arrayable, JsonSerializable, Jsonable, IteratorAggregate
      * @param ConnectionInterface $connection Elasticsearch Connection the query
      *                                        builder uses.
      * @param T|null $model Model instance the query builder
+     * @noinspection PhpDocSignatureInspection
      */
     public function __construct(
         ConnectionInterface $connection,
-        Model|null          $model = null
-    )
-    {
+        Model|null $model = null
+    ) {
         $this->connection = $connection;
 
         /**
@@ -232,13 +232,11 @@ class Query implements Arrayable, JsonSerializable, Jsonable, IteratorAggregate
      * if the query builder is used without models.
      *
      * @return T Model instance used for the current query.
+     * @noinspection PhpDocSignatureInspection, PhpDeprecationInspection
+     * @psalm-suppress DeprecatedProperty
      */
     public function getModel(): Model
     {
-        /**
-         * @noinspection   PhpDeprecationInspection
-         * @psalm-suppress DeprecatedProperty
-         */
         return $this->model;
     }
 

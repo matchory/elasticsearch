@@ -10,7 +10,6 @@ use Matchory\Elasticsearch\Interfaces\ConnectionInterface;
 use Matchory\Elasticsearch\Interfaces\ConnectionResolverInterface;
 use Psr\Log\LoggerInterface;
 use Psr\SimpleCache\CacheInterface;
-
 use function is_null;
 
 /**
@@ -45,10 +44,10 @@ class ConnectionManager implements ConnectionResolverInterface
     /**
      * Create a new connection resolver instance.
      *
-     * @param array                  $configuration
+     * @param array $configuration
      * @param ClientFactoryInterface $clientFactory
-     * @param CacheInterface|null    $cache
-     * @param LoggerInterface|null   $logger
+     * @param CacheInterface|null $cache
+     * @param LoggerInterface|null $logger
      */
     public function __construct(
         protected array $configuration,
@@ -62,7 +61,7 @@ class ConnectionManager implements ConnectionResolverInterface
      * Dynamically pass methods to the default connection.
      *
      * @param string $method
-     * @param array  $parameters
+     * @param array $parameters
      *
      * @return mixed
      * @throws InvalidArgumentException
@@ -75,7 +74,7 @@ class ConnectionManager implements ConnectionResolverInterface
     /**
      * Add a connection to the resolver.
      *
-     * @param string              $name
+     * @param string $name
      * @param ConnectionInterface $connection
      *
      * @return void
@@ -101,7 +100,7 @@ class ConnectionManager implements ConnectionResolverInterface
             $name = $this->getDefaultConnection();
         }
 
-        if ( ! isset($this->connections[$name])) {
+        if (!isset($this->connections[$name])) {
             $this->connections[$name] = $this->makeConnection($name);
         }
 
@@ -151,9 +150,9 @@ class ConnectionManager implements ConnectionResolverInterface
     protected function makeConnection(string $name): ConnectionInterface
     {
         $config = $this->configuration[self::CONFIG_KEY_CONNECTIONS][$name]
-                  ?? null;
+            ?? null;
 
-        if ( ! $config) {
+        if (!$config) {
             throw new InvalidArgumentException(
                 "Elasticsearch connection [{$name}] not configured."
             );

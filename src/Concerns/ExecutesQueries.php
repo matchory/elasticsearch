@@ -16,7 +16,6 @@ use Matchory\Elasticsearch\Pagination;
 use Matchory\Elasticsearch\Query;
 use Psr\SimpleCache\CacheInterface;
 use Psr\SimpleCache\InvalidArgumentException;
-
 use function array_diff_key;
 use function array_flip;
 use function array_map;
@@ -25,7 +24,6 @@ use function is_callable;
 use function is_null;
 use function md5;
 use function serialize;
-
 use const PHP_SAPI;
 
 /**
@@ -59,13 +57,13 @@ trait ExecutesQueries
      *
      * @param string|null $scrollId
      *
-     * @return Collection
+     * @return Collection<array-key, T>
      */
     public function get(string|null $scrollId = null): Collection
     {
         $result = $this->getResult($scrollId);
 
-        if ( ! $result) {
+        if (!$result) {
             return new Collection([]);
         }
 
@@ -173,16 +171,16 @@ trait ExecutesQueries
         );
 
         return (int)$this
-                        ->getConnection()
-                        ->getClient()
-                        ->count($query)['count'];
+            ->getConnection()
+            ->getClient()
+            ->count($query)['count'];
     }
 
     /**
      * Increment a document field
      *
      * @param string $field
-     * @param int    $count
+     * @param int $count
      *
      * @return object
      */
@@ -224,6 +222,7 @@ trait ExecutesQueries
      * @param string|null $scrollId
      *
      * @return T|null
+     * @noinspection PhpDocSignatureInspection
      */
     public function first(string|null $scrollId = null): Model|null
     {
@@ -231,7 +230,7 @@ trait ExecutesQueries
 
         $result = $this->getResult($scrollId);
 
-        if ( ! $result) {
+        if (!$result) {
             return null;
         }
 
@@ -242,10 +241,11 @@ trait ExecutesQueries
      * Get the first result or call a callback.
      *
      * @param callable|string|null $scrollId
-     * @param callable|null        $callback
+     * @param callable|null $callback
      *
      * @return T|null
      * @throws InvalidArgumentException
+     * @noinspection PhpDocSignatureInspection
      */
     public function firstOr(
         callable|string $scrollId = null,
@@ -256,7 +256,7 @@ trait ExecutesQueries
             $scrollId = null;
         }
 
-        if ( ! is_null($model = $this->first($scrollId))) {
+        if (!is_null($model = $this->first($scrollId))) {
             return $model;
         }
 
@@ -270,10 +270,11 @@ trait ExecutesQueries
      *
      * @return T
      * @throws DocumentNotFoundException
+     * @noinspection PhpDocSignatureInspection
      */
     public function firstOrFail(string|null $scrollId = null): Model
     {
-        if ( ! is_null($model = $this->first($scrollId))) {
+        if (!is_null($model = $this->first($scrollId))) {
             return $model;
         }
 
@@ -303,7 +304,7 @@ trait ExecutesQueries
      * Increment a document field
      *
      * @param string $field
-     * @param int    $count
+     * @param int $count
      *
      * @return object
      */
@@ -317,7 +318,7 @@ trait ExecutesQueries
     /**
      * Insert a document
      *
-     * @param array       $attributes
+     * @param array $attributes
      * @param string|null $id
      *
      * @return object
@@ -349,8 +350,8 @@ trait ExecutesQueries
     /**
      * Paginate collection of results
      *
-     * @param int      $perPage
-     * @param string   $pageName
+     * @param int $perPage
+     * @param string $pageName
      * @param int|null $page
      *
      * @return Pagination
@@ -455,7 +456,7 @@ trait ExecutesQueries
      * Indicate that the query results should be cached.
      *
      * @param DateTime|int $ttl Cache TTL in seconds.
-     * @param string|null  $key Cache key to use. Will be generated
+     * @param string|null $key Cache key to use. Will be generated
      *                          automatically if omitted.
      *
      * @return $this
@@ -511,7 +512,7 @@ trait ExecutesQueries
     /**
      * Update a document
      *
-     * @param array           $attributes
+     * @param array $attributes
      * @param int|string|null $id
      *
      * @return object
@@ -556,6 +557,7 @@ trait ExecutesQueries
      *                                       instance from
      *
      * @return T Model instance representing the source document
+     * @noinspection PhpDocSignatureInspection
      */
     protected function createModelInstance(array $document): Model
     {
@@ -564,6 +566,7 @@ trait ExecutesQueries
             Query::FIELD_SOURCE,
         ]));
 
+        /** @var T */
         return $this->getModel()->newInstance(
             $data,
             $metadata,
@@ -590,7 +593,7 @@ trait ExecutesQueries
      */
     protected function getResult(string|null $scrollId = null): array|null
     {
-        if ( ! $this->cacheTtl) {
+        if (!$this->cacheTtl) {
             return $this->performSearch($scrollId);
         }
 
@@ -612,20 +615,19 @@ trait ExecutesQueries
      *
      * @param array[] $response Response to extract documents from
      *
-     * @return Collection Collection of model instances representing the
-     *                    documents contained in the response
+     * @return Collection<array-key, T> Collection of model instances
+     *                                  representing the documents contained in
+     *                                  the response
      */
     protected function transformIntoCollection(array $response = []): Collection
     {
         $results = $response[Query::FIELD_HITS][Query::FIELD_NESTED_HITS] ?? [];
-        $documents = array_map(function (array $document): Model {
-            return $this->createModelInstance($document);
-        }, $results);
-
-        return Collection::fromResponse(
-            $response,
-            $documents
+        $documents = array_map(
+            fn(array $document): Model => $this->createModelInstance($document),
+            $results
         );
+
+        return Collection::fromResponse($response, $documents);
     }
 
     /**
@@ -635,19 +637,21 @@ trait ExecutesQueries
      * @param array[] $response Response to extract the first document from
      *
      * @return T|null Model instance if any documents were found in the
-     *                    response, `null` otherwise
+     *                response, `null` otherwise
+     * @noinspection PhpDocSignatureInspection
      */
     protected function transformIntoModel(array $response = []): Model|null
     {
-        if ( ! isset(
-            $response[Query::FIELD_HITS][Query::FIELD_NESTED_HITS][0]
-        )) {
+        if (!isset($response[Query::FIELD_HITS][Query::FIELD_NESTED_HITS][0])) {
             return null;
         }
 
-        return $this->createModelInstance(
+        /** @var T $instance */
+        $instance = $this->createModelInstance(
             $response[Query::FIELD_HITS][Query::FIELD_NESTED_HITS][0]
         );
+
+        return $instance;
     }
 
     /**

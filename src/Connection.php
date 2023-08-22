@@ -27,10 +27,8 @@ use Psr\SimpleCache\CacheInterface;
 use Sentry\Breadcrumb;
 use Sentry\Laravel\ServiceProvider as SentryProvider;
 use Sentry\State\HubInterface;
-
 use function assert;
 use function json_encode;
-
 use const JSON_THROW_ON_ERROR;
 
 /**
@@ -94,10 +92,10 @@ class Connection implements ConnectionInterface
     /**
      * Creates a new connection
      *
-     * @param Client              $client
+     * @param Client $client
      * @param CacheInterface|null $cache
-     * @param string|null         $index
-     * @param bool                $reportQueries
+     * @param string|null $index
+     * @param bool $reportQueries
      */
     final public function __construct(
         Client $client,
@@ -140,10 +138,7 @@ class Connection implements ConnectionInterface
         string|null $index = null,
         string|null $type = null
     ): object {
-        if (
-            ! isset($parameters[Query::PARAM_INDEX]) &&
-            $index = $index ?? $this->index
-        ) {
+        if (!isset($parameters[Query::PARAM_INDEX]) && $index = $index ?? $this->index) {
             $parameters[Query::PARAM_INDEX] = $index;
         }
 
@@ -174,9 +169,7 @@ class Connection implements ConnectionInterface
         //       major version.
         if ($connection) {
             /** @noinspection PhpDeprecationInspection */
-            return static::$resolver
-                ->connection($connection)
-                ->newQuery();
+            return static::$resolver->connection($connection)->newQuery();
         }
 
         return (new Query($this))->index($this->index);
@@ -213,7 +206,7 @@ class Connection implements ConnectionInterface
 
     /**
      * @param ClientBuilder $clientBuilder
-     * @param array         $config
+     * @param array $config
      *
      * @return ClientBuilder
      * @throws InvalidArgumentException
@@ -229,17 +222,8 @@ class Connection implements ConnectionInterface
     ): ClientBuilder {
         if (Arr::get($config, 'logging.enabled')) {
             $logger = new Logger(self::DEFAULT_LOGGER_NAME);
-            $logger->pushHandler(new StreamHandler(
-                Arr::get(
-                    $config,
-                    'logging.location'
-                ),
-                Arr::get(
-                    $config,
-                    'logging.level',
-                    Level::Info
-                )
-            ));
+            $logger->pushHandler(new StreamHandler(Arr::get($config, 'logging.location'),
+                Arr::get($config, 'logging.level', Level::Info)));
 
             $clientBuilder->setLogger($logger);
         }
@@ -264,35 +248,24 @@ class Connection implements ConnectionInterface
     public static function create(mixed $config): Query
     {
         $app = App::getFacadeApplication();
-        $client = $app
-            ->make(ClientFactoryInterface::class)
-            ->createClient(
-                $config['servers'],
-                $config['handler'] ?? null
-            );
+        $client = $app->make(ClientFactoryInterface::class)->createClient($config['servers'],
+                $config['handler'] ?? null);
 
-        return (new static(
-            $client,
-            $config['index'] ?? null
-        ))->newQuery();
+        return (new static($client, $config['index'] ?? null))->newQuery();
     }
 
     /**
      * Proxy  calls to the default connection
      *
      * @param string $name
-     * @param array  $arguments
+     * @param array $arguments
      *
      * @return mixed
      * @throws BadMethodCallException
      */
     public function __call(string $name, array $arguments)
     {
-        return $this->forwardCallTo(
-            $this->newQuery(),
-            $name,
-            $arguments
-        );
+        return $this->forwardCallTo($this->newQuery(), $name, $arguments);
     }
 
     /**
@@ -335,7 +308,7 @@ class Connection implements ConnectionInterface
         $app = app();
         assert($app instanceof Application);
 
-        if ( ! $app->providerIsLoaded(SentryProvider::class)) {
+        if (!$app->providerIsLoaded(SentryProvider::class)) {
             return;
         }
 
@@ -344,12 +317,8 @@ class Connection implements ConnectionInterface
 
         try {
             /** @noinspection PhpUnhandledExceptionInspection */
-            $sentry->addBreadcrumb(new Breadcrumb(
-                Breadcrumb::LEVEL_INFO,
-                Breadcrumb::TYPE_DEFAULT,
-                'elasticsearch.query',
-                json_encode($query, JSON_THROW_ON_ERROR) ?: '',
-            ));
+            $sentry->addBreadcrumb(new Breadcrumb(Breadcrumb::LEVEL_INFO, Breadcrumb::TYPE_DEFAULT,
+                'elasticsearch.query', json_encode($query, JSON_THROW_ON_ERROR) ?: '',));
         } catch (JsonException) {
             // We don't want errors during reporting to bubble up to
             // the application

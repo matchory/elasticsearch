@@ -31,7 +31,6 @@ use Matchory\Elasticsearch\Exceptions\DocumentNotFoundException;
 use Matchory\Elasticsearch\Interfaces\ConnectionInterface as Connection;
 use Matchory\Elasticsearch\Interfaces\ConnectionResolverInterface;
 use ReturnTypeWillChange;
-
 use function array_key_exists;
 use function array_merge;
 use function array_unique;
@@ -51,7 +50,6 @@ use function settype;
 use function sprintf;
 use function tap;
 use function ucfirst;
-
 use const DATE_ATOM;
 
 /**
@@ -60,17 +58,17 @@ use const DATE_ATOM;
  * @property-read string|null _id
  * @property-read string|null _index
  * @property-read string|null _type
- * @property-read float|null  _score
- * @property-read array|null  highlight
+ * @property-read float|null _score
+ * @property-read array|null highlight
  *
  * @package Matchory\Elasticsearch
  */
 class Model implements Arrayable,
-                       ArrayAccess,
-                       Jsonable,
-                       JsonSerializable,
-                       QueueableEntity,
-                       UrlRoutable
+    ArrayAccess,
+    Jsonable,
+    JsonSerializable,
+    QueueableEntity,
+    UrlRoutable
 {
     use ForwardsCalls;
     use HasAttributes;
@@ -175,7 +173,7 @@ class Model implements Arrayable,
      * not add the `throws` annotation to their constructor.
      *
      * @param array<string, mixed> $attributes
-     * @param bool                 $exists
+     * @param bool $exists
      *
      * @noinspection PhpUnhandledExceptionInspection
      * @noinspection PhpDocMissingThrowsInspection
@@ -211,7 +209,7 @@ class Model implements Arrayable,
      */
     public function getAttribute(string $key): mixed
     {
-        if ( ! $key) {
+        if (!$key) {
             return null;
         }
 
@@ -281,7 +279,7 @@ class Model implements Arrayable,
      * Set a given attribute on the model.
      *
      * @param string $key
-     * @param mixed  $value
+     * @param mixed $value
      *
      * @return mixed
      * @throws InvalidCastException
@@ -310,7 +308,7 @@ class Model implements Arrayable,
             return $this;
         }
 
-        if ( ! is_null($value) && $this->isJsonCastable($key)) {
+        if (!is_null($value) && $this->isJsonCastable($key)) {
             $value = $this->castAttributeAsJson($key, $value);
         }
 
@@ -321,7 +319,7 @@ class Model implements Arrayable,
             return $this->fillJsonAttribute($key, $value);
         }
 
-        if ( ! is_null($value) && $this->isEncryptedCastable($key)) {
+        if (!is_null($value) && $this->isEncryptedCastable($key)) {
             $value = $this->castAttributeAsEncryptedString($key, $value);
         }
 
@@ -348,7 +346,7 @@ class Model implements Arrayable,
      * Transform a raw model value using mutators, casts, etc.
      *
      * @param string $key
-     * @param mixed  $value
+     * @param mixed $value
      *
      * @return mixed
      */
@@ -586,8 +584,8 @@ class Model implements Arrayable,
      * Elasticsearch does not support relations, so any resolution request will
      * be proxied to the usual route binding resolution method.
      *
-     * @param string      $childType
-     * @param mixed       $value
+     * @param string $childType
+     * @param mixed $value
      * @param string|null $field
      *
      * @return Model|null
@@ -608,7 +606,7 @@ class Model implements Arrayable,
      * a rather short-sighted decision.
      * Route bindings using Elasticsearch models should work fine regardless.
      *
-     * @param mixed       $value
+     * @param mixed $value
      * @param string|null $field
      *
      * @return Model|null
@@ -719,7 +717,7 @@ class Model implements Arrayable,
      * Handle dynamic static method calls into the method.
      *
      * @param string $method
-     * @param array  $parameters
+     * @param array $parameters
      *
      * @return mixed
      */
@@ -754,7 +752,7 @@ class Model implements Arrayable,
     /**
      * Save a new model and return the instance.
      *
-     * @param array       $attributes
+     * @param array $attributes
      * @param string|null $id
      *
      * @return static
@@ -766,7 +764,7 @@ class Model implements Arrayable,
     public static function create(array $attributes, string|null $id = null): self
     {
         $metadata = [];
-        if ( ! is_null($id)) {
+        if (!is_null($id)) {
             $metadata['_id'] = $id;
         }
 
@@ -782,6 +780,7 @@ class Model implements Arrayable,
      * @param array|int|string|BaseCollection $ids
      *
      * @return int
+     * @throws InvalidCastException
      */
     public static function destroy(array|BaseCollection|int|string $ids): int
     {
@@ -917,7 +916,7 @@ class Model implements Arrayable,
 
             if (
                 method_exists($class, $method) &&
-                ! in_array($method, $booted, true)
+                !in_array($method, $booted, true)
             ) {
                 forward_static_call([$class, $method]);
 
@@ -962,7 +961,7 @@ class Model implements Arrayable,
      * Handle dynamic method calls into the model.
      *
      * @param string $method
-     * @param array  $parameters
+     * @param array $parameters
      *
      * @return mixed
      * @throws BadMethodCallException
@@ -993,7 +992,7 @@ class Model implements Arrayable,
      * Handle model properties setter
      *
      * @param string $name
-     * @param mixed  $value
+     * @param mixed $value
      *
      * @return void
      * @throws InvalidCastException
@@ -1037,7 +1036,7 @@ class Model implements Arrayable,
      * Apply the given named scope if possible.
      *
      * @param string $scope
-     * @param array  $parameters
+     * @param array $parameters
      *
      * @return mixed
      */
@@ -1049,10 +1048,10 @@ class Model implements Arrayable,
     /**
      * Delete model record
      *
-     * @return void
+     * @return bool
      * @throws InvalidCastException
      */
-    public function delete(): void
+    public function delete(): bool
     {
         $this->mergeAttributesFromClassCasts();
 
@@ -1060,12 +1059,12 @@ class Model implements Arrayable,
         // return immediately and not do anything else. Otherwise, we will
         // continue with a deletion process on the model, firing the proper
         // events, and so forth.
-        if ( ! $this->exists) {
-            return;
+        if (!$this->exists) {
+            return false;
         }
 
         if ($this->fireModelEvent('deleting') === false) {
-            return;
+            return false;
         }
 
         $this->performDeleteOnModel();
@@ -1073,6 +1072,8 @@ class Model implements Arrayable,
         // Once the model has been deleted, we will fire off the deleted event
         // so that the developers may hook into post-delete operations.
         $this->fireModelEvent('deleted', false);
+
+        return true;
     }
 
     /**
@@ -1160,11 +1161,11 @@ class Model implements Arrayable,
      */
     public function is(self|null $model): bool
     {
-        return ! is_null($model) &&
-               $this->getId() === $model->getId() &&
-               $this->getType() === $model->getType() &&
-               $this->getIndex() === $model->getIndex() &&
-               $this->getConnectionName() === $model->getConnectionName();
+        return !is_null($model) &&
+            $this->getId() === $model->getId() &&
+            $this->getType() === $model->getType() &&
+            $this->getIndex() === $model->getIndex() &&
+            $this->getConnectionName() === $model->getConnectionName();
     }
 
     /**
@@ -1177,7 +1178,7 @@ class Model implements Arrayable,
      */
     public function isNot(self|null $model): bool
     {
-        return ! $this->is($model);
+        return !$this->is($model);
     }
 
     /**
@@ -1207,11 +1208,11 @@ class Model implements Arrayable,
      * model instances of this current model. It is particularly useful during
      * the hydration of new objects via the Query instance.
      *
-     * @param array       $attributes Model attributes
-     * @param array       $metadata   Query result metadata
-     * @param bool        $exists     Whether the document exists
-     * @param string|null $index      Name of the index the document lives in
-     * @param string|null $type       (Deprecated) Mapping type of the document
+     * @param array $attributes Model attributes
+     * @param array $metadata Query result metadata
+     * @param bool $exists Whether the document exists
+     * @param string|null $index Name of the index the document lives in
+     * @param string|null $type (Deprecated) Mapping type of the document
      *
      * @return static
      * @noinspection PhpDeprecationInspection
@@ -1277,7 +1278,7 @@ class Model implements Arrayable,
      */
     public function offsetExists(mixed $offset): bool
     {
-        return ! is_null($this->getAttribute($offset));
+        return !is_null($this->getAttribute($offset));
     }
 
     /**
@@ -1390,7 +1391,7 @@ class Model implements Arrayable,
         // record that is already in this index using the current ID to only
         // update this model. Otherwise, we'll just insert it.
         if ($this->exists) {
-            $saved = ! $this->isDirty() || $this->performUpdate($query);
+            $saved = !$this->isDirty() || $this->performUpdate($query);
         }
 
         // If the model is brand new, we'll insert it into our index and set the
@@ -1467,7 +1468,7 @@ class Model implements Arrayable,
      */
     protected function bootIfNotBooted(): void
     {
-        if ( ! isset(static::$booted[static::class])) {
+        if (!isset(static::$booted[static::class])) {
             static::$booted[static::class] = true;
 
             $this->fireModelEvent('booting', false);
@@ -1519,7 +1520,7 @@ class Model implements Arrayable,
      * Insert the given attributes and set the ID on the model.
      *
      * @param Query<static> $query
-     * @param array         $attributes
+     * @param array $attributes
      *
      * @return void
      * @throws InvalidCastException
@@ -1635,7 +1636,7 @@ class Model implements Arrayable,
         }
 
         $this->setKeysForSaveQuery($query)
-             ->update($dirty);
+            ->update($dirty);
 
         $this->syncChanges();
 
@@ -1648,7 +1649,7 @@ class Model implements Arrayable,
      * Set attributes casting
      *
      * @param string $name
-     * @param mixed  $value
+     * @param mixed $value
      *
      * @return mixed
      * @deprecated This method will be removed in the next major version.

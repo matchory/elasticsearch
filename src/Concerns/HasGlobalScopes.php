@@ -7,8 +7,6 @@ namespace Matchory\Elasticsearch\Concerns;
 use Closure;
 use InvalidArgumentException;
 use Matchory\Elasticsearch\Interfaces\ScopeInterface;
-
-use function dd;
 use function get_class;
 use function is_null;
 use function is_string;
@@ -60,18 +58,18 @@ trait HasGlobalScopes
     /**
      * Register a new global scope on the model.
      *
-     * @param ScopeInterface|Closure|string $scope
-     * @param Closure|null                  $implementation
+     * @param string|Closure|ScopeInterface $scope
+     * @param Closure|null $implementation
      *
      * @return Closure|ScopeInterface
      *
      * @throws InvalidArgumentException
      */
     public static function addGlobalScope(
-        $scope,
-        ?Closure $implementation = null
-    ) {
-        if (is_string($scope) && ! is_null($implementation)) {
+        ScopeInterface|string|Closure $scope,
+        Closure|null $implementation = null
+    ): ScopeInterface|Closure {
+        if (is_string($scope) && !is_null($implementation)) {
             return static::$globalScopes[static::class][$scope] = $implementation;
         }
 

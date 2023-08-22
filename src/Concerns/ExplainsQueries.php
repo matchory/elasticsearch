@@ -18,9 +18,9 @@ trait ExplainsQueries
      * > have the read index privilege for the target index.
      *
      * @param string|null $id Document ID. Defaults to the ID in the query.
-     * @param bool        $lenient If `true`, format-based query failures (such
-     *                             as providing text to a numeric field) will be
-     *                             ignored. Defaults to `false`.
+     * @param bool $lenient If `true`, format-based query failures (such as
+     *                      providing text to a numeric field) will be ignored.
+     *                      Defaults to `false`.
      *
      * @return array|null
      * @see https://www.elastic.co/guide/en/elasticsearch/reference/current/search-explain.html
@@ -34,7 +34,7 @@ trait ExplainsQueries
         $source = $body['source'] ?? null;
         $id = $id ?? $this->getId();
 
-        if ( ! $query || ! $id) {
+        if (!$query || !$id) {
             return null;
         }
 

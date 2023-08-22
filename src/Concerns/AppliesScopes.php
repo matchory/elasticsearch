@@ -8,7 +8,6 @@ use Closure;
 use Illuminate\Support\Arr;
 use Matchory\Elasticsearch\Interfaces\ScopeInterface;
 use Matchory\Elasticsearch\Query;
-
 use function array_keys;
 use function array_unshift;
 use function array_values;
@@ -41,14 +40,14 @@ trait AppliesScopes
      */
     public function applyScopes(): static
     {
-        if ( ! $this->scopes) {
+        if (!$this->scopes) {
             return $this;
         }
 
         $query = clone $this;
 
         foreach ($this->scopes as $identifier => $scope) {
-            if ( ! isset($query->scopes[$identifier])) {
+            if (!isset($query->scopes[$identifier])) {
                 continue;
             }
 
@@ -130,7 +129,7 @@ trait AppliesScopes
     /**
      * Register a new global scope.
      *
-     * @param string                 $identifier
+     * @param string $identifier
      * @param Closure|ScopeInterface $scope
      *
      * @return $this
@@ -157,7 +156,7 @@ trait AppliesScopes
      */
     public function withoutGlobalScope(ScopeInterface|string $scope): static
     {
-        if ( ! is_string($scope)) {
+        if (!is_string($scope)) {
             $scope = get_class($scope);
         }
 
@@ -177,7 +176,7 @@ trait AppliesScopes
      */
     public function withoutGlobalScopes(array $scopes = null): static
     {
-        if ( ! is_array($scopes)) {
+        if (!is_array($scopes)) {
             $scopes = array_keys($this->scopes);
         }
 
@@ -192,7 +191,7 @@ trait AppliesScopes
      * Apply the given named scope on the current query instance.
      *
      * @param string $scope
-     * @param array  $parameters
+     * @param array $parameters
      *
      * @return $this
      */
@@ -200,27 +199,26 @@ trait AppliesScopes
         string $scope,
         array $parameters = []
     ): static {
-        return $this->callScope(function (...$parameters) use ($scope) {
-            return $this->getModel()->callNamedScope(
+        return $this->callScope(fn(mixed ...$parameters): mixed => $this
+            ->getModel()
+            ->callNamedScope(
                 $scope,
                 $parameters
-            );
-        }, $parameters);
+            ), $parameters);
     }
 
     /**
      * Apply the given scope on the current builder instance.
      *
      * @param callable $scope
-     * @param array    $parameters
+     * @param array $parameters
      *
      * @return $this
      */
     protected function callScope(callable $scope, array $parameters = []): static
     {
         array_unshift($parameters, $this);
-
-            $scope(...array_values($parameters)) ?? $this;
+        $scope(...array_values($parameters));
 
         return $this;
     }

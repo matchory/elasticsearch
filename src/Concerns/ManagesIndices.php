@@ -12,7 +12,7 @@ trait ManagesIndices
     /**
      * Create a new index
      *
-     * @param string        $name
+     * @param string $name
      * @param callable|null $callback
      *
      * @return array
@@ -39,7 +39,7 @@ trait ManagesIndices
     {
         $index = $this->getIndex();
 
-        if ( ! $index) {
+        if (!$index) {
             throw new RuntimeException('No index configured');
         }
 
@@ -56,7 +56,7 @@ trait ManagesIndices
     {
         $index = $this->getIndex();
 
-        if ( ! $index) {
+        if (!$index) {
             throw new RuntimeException('No index configured');
         }
 
@@ -93,7 +93,7 @@ trait ManagesIndices
     {
         $index = $this->getIndex();
 
-        if ( ! $index) {
+        if (!$index) {
             throw new RuntimeException('No index name configured');
         }
 
