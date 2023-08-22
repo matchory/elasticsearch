@@ -29,7 +29,7 @@ use function serialize;
 use const PHP_SAPI;
 
 /**
- * @template T of Model
+ * @template-covariant T of Model
  */
 trait ExecutesQueries
 {

@@ -20,10 +20,8 @@ use Matchory\Elasticsearch\Concerns\ExecutesQueries;
 use Matchory\Elasticsearch\Concerns\ExplainsQueries;
 use Matchory\Elasticsearch\Concerns\ManagesIndices;
 use Matchory\Elasticsearch\Interfaces\ConnectionInterface;
-
 use function count;
 use function json_encode;
-
 use const JSON_THROW_ON_ERROR;
 
 /**
@@ -31,10 +29,10 @@ use const JSON_THROW_ON_ERROR;
  * =====
  * Query builder instance for Elasticsearch queries
  *
- * @package  Matchory\Elasticsearch\Query
- * @template T of Model
- * @todo     Rename to "Builder" for coherency with Eloquent. To avoid breaking
- *          changes, an alias should be registered for Query
+ * @package Matchory\Elasticsearch\Query
+ * @template-covariant T of Model
+ * @todo Rename to "Builder" for coherency with Eloquent. To avoid breaking
+ *       changes, an alias should be registered for Query
  */
 class Query implements Arrayable, JsonSerializable, Jsonable, IteratorAggregate
 {
@@ -185,12 +183,13 @@ class Query implements Arrayable, JsonSerializable, Jsonable, IteratorAggregate
      *
      * @param ConnectionInterface $connection Elasticsearch Connection the query
      *                                        builder uses.
-     * @param T|null              $model      Model instance the query builder
+     * @param T|null $model Model instance the query builder
      */
     public function __construct(
         ConnectionInterface $connection,
-        Model|null $model = null
-    ) {
+        Model|null          $model = null
+    )
+    {
         $this->connection = $connection;
 
         /**
@@ -249,7 +248,7 @@ class Query implements Arrayable, JsonSerializable, Jsonable, IteratorAggregate
      *
      * @template TModel of Model
      *
-     * @param Model        $model Model to use for the current query.
+     * @param Model $model Model to use for the current query.
      *
      * @psalm-param TModel $model
      *
@@ -264,8 +263,8 @@ class Query implements Arrayable, JsonSerializable, Jsonable, IteratorAggregate
      * Forwards calls to the model instance. If the called method is a scope,
      * it will be applied to the query.
      *
-     * @param string $method     Name of the called method.
-     * @param array  $parameters Parameters passed to the method.
+     * @param string $method Name of the called method.
+     * @param array $parameters Parameters passed to the method.
      *
      * @return $this Query builder instance.
      * @throws BadMethodCallException

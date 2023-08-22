@@ -16,10 +16,10 @@ use function json_encode;
 /**
  * Collection
  *
- * @template       T of Model
+ * @template-covariant T of Model
  * @extends BaseCollection<array-key, T>
  * @psalm-suppress TooManyTemplateParams
- * @package        Matchory\Elasticsearch
+ * @package Matchory\Elasticsearch
  */
 class Collection extends BaseCollection
 {
