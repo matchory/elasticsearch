@@ -6554,16 +6554,16 @@
         },
         {
             "name": "laravel/scout",
-            "version": "v10.2.3",
+            "version": "v10.2.4",
             "source": {
                 "type": "git",
                 "url": "https://github.com/laravel/scout.git",
-                "reference": "51d662fb00728dcf726a9e53a234a05896da888a"
+                "reference": "835ce5a188a92383db965876793f7b7b504ea44d"
             },
             "dist": {
                 "type": "zip",
-                "url": "https://api.github.com/repos/laravel/scout/zipball/51d662fb00728dcf726a9e53a234a05896da888a",
-                "reference": "51d662fb00728dcf726a9e53a234a05896da888a",
+                "url": "https://api.github.com/repos/laravel/scout/zipball/835ce5a188a92383db965876793f7b7b504ea44d",
+                "reference": "835ce5a188a92383db965876793f7b7b504ea44d",
                 "shasum": ""
             },
             "require": {
@@ -6625,7 +6625,7 @@
                 "issues": "https://github.com/laravel/scout/issues",
                 "source": "https://github.com/laravel/scout"
             },
-            "time": "2023-07-11T15:04:19+00:00"
+            "time": "2023-08-08T15:20:08+00:00"
         },
         {
             "name": "mockery/mockery",
