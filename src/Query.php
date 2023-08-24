@@ -247,14 +247,14 @@ class Query implements Arrayable, JsonSerializable, Jsonable, IteratorAggregate
      * @template TModel of Model
      *
      * @param Model $model Model to use for the current query.
-     *
      * @psalm-param TModel $model
      *
-     * @return self<TModel> Query builder instance for chaining.
+     * @return static<TModel> Query builder instance for chaining.
      * @noinspection PhpDeprecationInspection
      */
-    public function setModel(Model $model): self
+    public function setModel(Model $model): static
     {
+        /** @var static<TModel> $query */
         $query = clone $this;
         $query->connection = $this->getConnection();
         $query->model = $model;
