@@ -251,10 +251,15 @@ class Query implements Arrayable, JsonSerializable, Jsonable, IteratorAggregate
      * @psalm-param TModel $model
      *
      * @return self<TModel> Query builder instance for chaining.
+     * @noinspection PhpDeprecationInspection
      */
     public function setModel(Model $model): self
     {
-        return new self($this->getConnection(), $model);
+        $query = clone $this;
+        $query->connection = $this->getConnection();
+        $query->model = $model;
+
+        return $query;
     }
 
     /**
