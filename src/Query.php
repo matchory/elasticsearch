@@ -22,6 +22,7 @@ use Matchory\Elasticsearch\Concerns\ManagesIndices;
 use Matchory\Elasticsearch\Interfaces\ConnectionInterface;
 use function count;
 use function json_encode;
+use function rtrim;
 use const JSON_THROW_ON_ERROR;
 
 /**
@@ -201,6 +202,18 @@ class Query implements Arrayable, JsonSerializable, Jsonable, IteratorAggregate
          * @psalm-suppress PossiblyInvalidPropertyAssignmentValue
          */
         $this->model = $model ?? new Model();
+    }
+
+    /**
+     * Adds a ".keyword" suffix to the given field name. This is useful for
+     * sorting and aggregating on keyword fields.
+     *
+     * @param string $field
+     * @return string
+     */
+    public static function asKeyword(string $field): string
+    {
+        return rtrim($field, '.') . '.keyword';
     }
 
     /**
