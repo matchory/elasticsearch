@@ -119,6 +119,12 @@ class Query implements Arrayable, JsonSerializable, Jsonable, IteratorAggregate
 
     public const PARAM_SCROLL_ID = 'scroll_id';
 
+    public const PARAM_PIT = 'pit';
+
+    public const PARAM_PIT_ID = 'id';
+
+    public const PARAM_PIT_KEEP_ALIVE = 'keep_alive';
+
     public const PARAM_SEARCH_TYPE = 'search_type';
 
     public const PARAM_SIZE = 'size';
@@ -374,6 +380,17 @@ class Query implements Arrayable, JsonSerializable, Jsonable, IteratorAggregate
             $params[self::PARAM_SCROLL] = $scroll;
         }
 
+        if ($pit = $query->getPit()) {
+            $parameters[self::PARAM_PIT] = [ 
+                self::PARAM_PIT_KEEP_ALIVE => $pit
+            ];
+            $pitId = $query->getPitId();
+            if (!$pitId){
+                $pitId = $this->openPointInTime($pit); //TODO: make it more specific to index
+            }
+            $parameters[self::PARAM_PIT][self::PARAM_PIT_ID] = $pitId;
+        }
+        
         if ($index = $query->getIndex()) {
             $params[self::PARAM_INDEX] = $index;
         }
@@ -387,5 +404,14 @@ class Query implements Arrayable, JsonSerializable, Jsonable, IteratorAggregate
         }
 
         return $params;
+    }
+
+    private function openPointInTime(string $keepAlive, string $index = '')
+    {
+        return $this->raw()
+            ->openPointInTime([
+                self::PARAM_INDEX => $index,
+                self::PARAM_PIT_KEEP_ALIVE => $keepAlive,
+            ])->asObject()->id;
     }
 }

@@ -184,6 +184,31 @@ trait BuildsFluentQueries
     protected string|null $scrollId = null;
 
     /**
+     * PIT [Point in Time]
+     *
+     *A search request by default executes against the most recent visible data of the target indices,
+     * which is called point in time. Elasticsearch pit (point in time) is a lightweight 
+     * view into the state of the data as it existed when initiated.
+     * In some cases, it’s preferred to perform multiple search requests using the same point in time.
+     * For example, if refreshes happen between search_after requests, then the results of those requests
+     * might not be consistent as changes happening between searches are only visible to the more recent point in time.
+     *
+     * @var string|null
+     * @see https://www.elastic.co/guide/en/elasticsearch/reference/8.4/point-in-time-api.html
+     */
+    protected string|null $pit = null;
+
+    /**
+     * Point in Time ID
+     *
+     * Identifier for point in time view of the data
+     *
+     * @var string|null
+     * @see https://www.elastic.co/guide/en/elasticsearch/reference/8.4/point-in-time-api.html
+     */
+    protected string|null $pitId = null;
+    
+    /**
      * Search Type
      *
      * There are different execution paths that can be done when executing a
@@ -339,6 +364,16 @@ trait BuildsFluentQueries
     public function getScrollId(): string|null
     {
         return $this->scrollId;
+    }
+
+    public function getPit()
+    {
+        return $this->pit;
+    }
+
+    public function getPitId()
+    {
+        return $this->pitId;
     }
 
     /**
@@ -851,6 +886,35 @@ trait BuildsFluentQueries
     public function scrollId(string|null $scroll): static
     {
         $this->scrollId = $scroll;
+
+        return $this;
+    }
+        
+    /**
+     * Enables the point in time API. The argument may be used to set the duration to
+     * keep the point in time ID alive for. Defaults to 5 minutes.
+     *
+     * @param string $keepAlive
+     *
+     * @return Builder<T>&static
+     */
+    public function pit(string $keepAlive = '5m'): static
+    {
+        $this->pit = $keepAlive;
+
+        return $this;
+    }
+
+    /**
+     * Sets the query point in time ID.
+     *
+     * @param string|null $pitId
+     *
+     * @return Builder<T>&static
+     */
+    public function pitId(string|null $pitId): static
+    {
+        $this->pitId= $pitId;
 
         return $this;
     }

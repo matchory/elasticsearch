@@ -154,6 +154,24 @@ trait ExecutesQueries
     }
 
     /**
+     * Close point in time
+     *
+     * @param string|null $pitId
+     *
+     * @return array
+     */
+    public function closePit(?string $pitId = null): Collection
+    {
+        $pitId = $pitId ?? $this->getPitId();
+        return new Collection(
+            $this->getConnection()->getClient()->closePointInTime([
+                'body' => [$pitId],
+                'client' => ['ignore' => $this->getIgnores()],
+            ])
+        );
+    }
+
+    /**
      * Get the count of result
      *
      * @return int
