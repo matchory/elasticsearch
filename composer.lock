@@ -1597,16 +1597,16 @@
         },
         {
             "name": "league/flysystem",
-            "version": "3.22.0",
+            "version": "3.23.0",
             "source": {
                 "type": "git",
                 "url": "https://github.com/thephpleague/flysystem.git",
-                "reference": "d18526ee587f265f091f47bb83f1d9a001ef6f36"
+                "reference": "d4ad81e2b67396e33dc9d7e54ec74ccf73151dcc"
             },
             "dist": {
                 "type": "zip",
-                "url": "https://api.github.com/repos/thephpleague/flysystem/zipball/d18526ee587f265f091f47bb83f1d9a001ef6f36",
-                "reference": "d18526ee587f265f091f47bb83f1d9a001ef6f36",
+                "url": "https://api.github.com/repos/thephpleague/flysystem/zipball/d4ad81e2b67396e33dc9d7e54ec74ccf73151dcc",
+                "reference": "d4ad81e2b67396e33dc9d7e54ec74ccf73151dcc",
                 "shasum": ""
             },
             "require": {
@@ -1671,7 +1671,7 @@
             ],
             "support": {
                 "issues": "https://github.com/thephpleague/flysystem/issues",
-                "source": "https://github.com/thephpleague/flysystem/tree/3.22.0"
+                "source": "https://github.com/thephpleague/flysystem/tree/3.23.0"
             },
             "funding": [
                 {
@@ -1683,20 +1683,20 @@
                     "type": "github"
                 }
             ],
-            "time": "2023-12-03T18:35:53+00:00"
+            "time": "2023-12-04T10:16:17+00:00"
         },
         {
             "name": "league/flysystem-local",
-            "version": "3.22.0",
+            "version": "3.23.0",
             "source": {
                 "type": "git",
                 "url": "https://github.com/thephpleague/flysystem-local.git",
-                "reference": "42dfb4eaafc4accd248180f0dd66f17073b40c4c"
+                "reference": "5cf046ba5f059460e86a997c504dd781a39a109b"
             },
             "dist": {
                 "type": "zip",
-                "url": "https://api.github.com/repos/thephpleague/flysystem-local/zipball/42dfb4eaafc4accd248180f0dd66f17073b40c4c",
-                "reference": "42dfb4eaafc4accd248180f0dd66f17073b40c4c",
+                "url": "https://api.github.com/repos/thephpleague/flysystem-local/zipball/5cf046ba5f059460e86a997c504dd781a39a109b",
+                "reference": "5cf046ba5f059460e86a997c504dd781a39a109b",
                 "shasum": ""
             },
             "require": {
@@ -1731,7 +1731,7 @@
             ],
             "support": {
                 "issues": "https://github.com/thephpleague/flysystem-local/issues",
-                "source": "https://github.com/thephpleague/flysystem-local/tree/3.22.0"
+                "source": "https://github.com/thephpleague/flysystem-local/tree/3.23.0"
             },
             "funding": [
                 {
@@ -1743,7 +1743,7 @@
                     "type": "github"
                 }
             ],
-            "time": "2023-11-18T20:52:53+00:00"
+            "time": "2023-12-04T10:14:46+00:00"
         },
         {
             "name": "league/mime-type-detection",
@@ -7217,27 +7217,26 @@
         },
         {
             "name": "orchestra/testbench",
-            "version": "v7.36.0",
+            "version": "v7.37.0",
             "source": {
                 "type": "git",
                 "url": "https://github.com/orchestral/testbench.git",
-                "reference": "55fce1fe010acd301906078ee375fdee10e7dc13"
+                "reference": "69c9513f6f7a7ac63abda4cd5e81587a2bf851d7"
             },
             "dist": {
                 "type": "zip",
-                "url": "https://api.github.com/repos/orchestral/testbench/zipball/55fce1fe010acd301906078ee375fdee10e7dc13",
-                "reference": "55fce1fe010acd301906078ee375fdee10e7dc13",
+                "url": "https://api.github.com/repos/orchestral/testbench/zipball/69c9513f6f7a7ac63abda4cd5e81587a2bf851d7",
+                "reference": "69c9513f6f7a7ac63abda4cd5e81587a2bf851d7",
                 "shasum": ""
             },
             "require": {
                 "fakerphp/faker": "^1.21",
                 "laravel/framework": "^9.52.15",
                 "mockery/mockery": "^1.5.1",
-                "orchestra/testbench-core": "^7.36",
-                "orchestra/workbench": "^1.1 || ^7.1",
+                "orchestra/testbench-core": "^7.37",
+                "orchestra/workbench": "^1.2 || ^7.2",
                 "php": "^8.0",
                 "phpunit/phpunit": "^9.5.10",
-                "spatie/laravel-ray": "^1.32.4",
                 "symfony/process": "^6.0.9",
                 "symfony/yaml": "^6.0.9",
                 "vlucas/phpdotenv": "^5.4.1"
@@ -7271,22 +7270,22 @@
             ],
             "support": {
                 "issues": "https://github.com/orchestral/testbench/issues",
-                "source": "https://github.com/orchestral/testbench/tree/v7.36.0"
+                "source": "https://github.com/orchestral/testbench/tree/v7.37.0"
             },
-            "time": "2023-12-04T08:44:26+00:00"
+            "time": "2023-12-06T03:19:55+00:00"
         },
         {
             "name": "orchestra/testbench-core",
-            "version": "v7.36.0",
+            "version": "v7.37.1",
             "source": {
                 "type": "git",
                 "url": "https://github.com/orchestral/testbench-core.git",
-                "reference": "b019a8cb884e16c7a24e9d3cfa6f8c240b2029ca"
+                "reference": "337d9e7abdb79c1c14a746c79915a1d7f88a662a"
             },
             "dist": {
                 "type": "zip",
-                "url": "https://api.github.com/repos/orchestral/testbench-core/zipball/b019a8cb884e16c7a24e9d3cfa6f8c240b2029ca",
-                "reference": "b019a8cb884e16c7a24e9d3cfa6f8c240b2029ca",
+                "url": "https://api.github.com/repos/orchestral/testbench-core/zipball/337d9e7abdb79c1c14a746c79915a1d7f88a662a",
+                "reference": "337d9e7abdb79c1c14a746c79915a1d7f88a662a",
                 "shasum": ""
             },
             "require": {
@@ -7366,20 +7365,20 @@
                 "issues": "https://github.com/orchestral/testbench/issues",
                 "source": "https://github.com/orchestral/testbench-core"
             },
-            "time": "2023-12-04T04:36:03+00:00"
+            "time": "2023-12-06T07:58:07+00:00"
         },
         {
             "name": "orchestra/workbench",
-            "version": "v7.1.0",
+            "version": "v7.2.0",
             "source": {
                 "type": "git",
                 "url": "https://github.com/orchestral/workbench.git",
-                "reference": "a9f6913065f390a745d472e6ee4812d3f75d7623"
+                "reference": "a29f84c2cc53917d010b18b4330e699596e9ee1c"
             },
             "dist": {
                 "type": "zip",
-                "url": "https://api.github.com/repos/orchestral/workbench/zipball/a9f6913065f390a745d472e6ee4812d3f75d7623",
-                "reference": "a9f6913065f390a745d472e6ee4812d3f75d7623",
+                "url": "https://api.github.com/repos/orchestral/workbench/zipball/a29f84c2cc53917d010b18b4330e699596e9ee1c",
+                "reference": "a29f84c2cc53917d010b18b4330e699596e9ee1c",
                 "shasum": ""
             },
             "require": {
@@ -7388,7 +7387,7 @@
                 "laravel/framework": "^9.52.15",
                 "laravel/tinker": "^2.8.2",
                 "orchestra/canvas": "^7.11.1",
-                "orchestra/testbench-core": "^7.36",
+                "orchestra/testbench-core": "^7.37",
                 "php": "^8.0",
                 "spatie/laravel-ray": "^1.32.4",
                 "symfony/polyfill-php83": "^1.28",
@@ -7431,9 +7430,9 @@
             ],
             "support": {
                 "issues": "https://github.com/orchestral/workbench/issues",
-                "source": "https://github.com/orchestral/workbench/tree/v7.1.0"
+                "source": "https://github.com/orchestral/workbench/tree/v7.2.0"
             },
-            "time": "2023-12-04T05:42:47+00:00"
+            "time": "2023-12-06T02:55:16+00:00"
         },
         {
             "name": "phar-io/manifest",
