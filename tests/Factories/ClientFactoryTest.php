@@ -21,13 +21,15 @@ class ClientFactoryTest extends TestCase
 
     public function testCreateClientWithHosts(): void
     {
-        $hosts = ['foo', 'bar', 'baz'];
+        $config = [
+            'hosts' => ['foo', 'bar', 'baz']
+        ];
         $factory = new ClientFactory();
-        $client = $factory->createClient($hosts);
+        $client = $factory->createClient($config);
 
         self::assertContains(
             $client->transport->getConnection()->getHost(),
-            $hosts
+            $config['hosts']
         );
     }
 }

@@ -102,27 +102,6 @@ class ConnectionManagerTest extends TestCase
         self::assertSame($cache, $connection->getCache());
     }
 
-    public function testCreatesConnectionsWithLoggerInstance(): void
-    {
-        /** @var LoggerInterface&Mock $logger */
-        $logger = $this->mock(LoggerInterface::class);
-        $clientFactory = new ClientFactory($logger);
-        $instance = new ConnectionManager(
-            [
-                'connections' => [
-                    'foo' => [
-                        'servers' => [
-                            '0.0.0.0',
-                        ],
-                    ],
-                ],
-            ],
-            $clientFactory,
-            null,
-        );
-        $instance->connection('foo');
-    }
-
     /**
      * @throws ExpectationFailedException
      * @throws InvalidArgumentException
