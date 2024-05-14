@@ -201,7 +201,7 @@ class ElasticsearchServiceProvider extends ServiceProvider
             ClientFactory::class
         );
 
-        $this->app->when(ClientFactory::class)
+        $this->app->when(ClientFactoryInterface::class)
             ->needs(LoggerInterface::class)
             ->give('elasticsearch.logger');
 
