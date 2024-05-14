@@ -35,9 +35,10 @@ class ClientFactory implements ClientFactoryInterface
             unset($config['servers']);
         }
 
-        return ClientBuilder::fromConfig([
-            ...$config,
-            'logger' => $this->logger,
-        ]);
+        if ($this->logger !== null) {
+            $config['logger'] = $this->logger;
+        }
+
+        return ClientBuilder::fromConfig($config);
     }
 }
