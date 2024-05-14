@@ -20,9 +20,11 @@ use Matchory\Elasticsearch\Concerns\ExecutesQueries;
 use Matchory\Elasticsearch\Concerns\ExplainsQueries;
 use Matchory\Elasticsearch\Concerns\ManagesIndices;
 use Matchory\Elasticsearch\Interfaces\ConnectionInterface;
+
 use function count;
 use function json_encode;
 use function rtrim;
+
 use const JSON_THROW_ON_ERROR;
 
 /**
@@ -45,7 +47,7 @@ class Query implements Arrayable, JsonSerializable, Jsonable, IteratorAggregate
     use ManagesIndices;
     use ExplainsQueries;
 
-    public const DEFAULT_CACHE_PREFIX = 'es';
+    public const DEFAULT_CACHE_PREFIX = 'elasticsearch';
 
     public const DEFAULT_LIMIT = 10;
 
@@ -217,18 +219,6 @@ class Query implements Arrayable, JsonSerializable, Jsonable, IteratorAggregate
     }
 
     /**
-     * Retrieves the underlying Elasticsearch connection.
-     *
-     * @return ConnectionInterface Connection instance.
-     * @see ConnectionInterface
-     * @see Connection
-     */
-    public function getConnection(): ConnectionInterface
-    {
-        return $this->connection;
-    }
-
-    /**
      * Proxies to the collection iterator, allowing to iterate the query builder
      * directly as though it were a result collection.
      *
@@ -237,6 +227,29 @@ class Query implements Arrayable, JsonSerializable, Jsonable, IteratorAggregate
     final public function getIterator(): ArrayIterator
     {
         return $this->get()->getIterator();
+    }
+
+    /**
+     * Forwards calls to the model instance. If the called method is a scope,
+     * it will be applied to the query.
+     *
+     * @param string $method Name of the called method.
+     * @param array $parameters Parameters passed to the method.
+     *
+     * @return $this Query builder instance.
+     * @throws BadMethodCallException
+     */
+    public function __call(string $method, array $parameters): self
+    {
+        if ($this->hasNamedScope($method)) {
+            return $this->callNamedScope($method, $parameters);
+        }
+
+        return $this->forwardCallTo(
+            $this->getModel(),
+            $method,
+            $parameters
+        );
     }
 
     /**
@@ -276,34 +289,15 @@ class Query implements Arrayable, JsonSerializable, Jsonable, IteratorAggregate
     }
 
     /**
-     * Forwards calls to the model instance. If the called method is a scope,
-     * it will be applied to the query.
+     * Retrieves the underlying Elasticsearch connection.
      *
-     * @param string $method Name of the called method.
-     * @param array $parameters Parameters passed to the method.
-     *
-     * @return $this Query builder instance.
-     * @throws BadMethodCallException
+     * @return ConnectionInterface Connection instance.
+     * @see ConnectionInterface
+     * @see Connection
      */
-    public function __call(string $method, array $parameters): self
+    public function getConnection(): ConnectionInterface
     {
-        if ($this->hasNamedScope($method)) {
-            return $this->callNamedScope($method, $parameters);
-        }
-
-        return $this->forwardCallTo(
-            $this->getModel(),
-            $method,
-            $parameters
-        );
-    }
-
-    /**
-     * @inheritDoc
-     */
-    public function jsonSerialize(): array
-    {
-        return $this->toArray();
+        return $this->connection;
     }
 
     /**
@@ -321,17 +315,6 @@ class Query implements Arrayable, JsonSerializable, Jsonable, IteratorAggregate
     }
 
     /**
-     * Converts the fluent query into an Elasticsearch query array that can be
-     * converted into JSON.
-     *
-     * @inheritDoc
-     */
-    final public function toArray(): array
-    {
-        return $this->buildQuery();
-    }
-
-    /**
      * Converts the query to a JSON string.
      *
      * @inheritDoc
@@ -343,6 +326,25 @@ class Query implements Arrayable, JsonSerializable, Jsonable, IteratorAggregate
             $this->jsonSerialize(),
             JSON_THROW_ON_ERROR | $options
         );
+    }
+
+    /**
+     * @inheritDoc
+     */
+    public function jsonSerialize(): array
+    {
+        return $this->toArray();
+    }
+
+    /**
+     * Converts the fluent query into an Elasticsearch query array that can be
+     * converted into JSON.
+     *
+     * @inheritDoc
+     */
+    final public function toArray(): array
+    {
+        return $this->buildQuery();
     }
 
     /**

@@ -41,11 +41,11 @@ interface ConnectionInterface
     /**
      * Adds a document to the index using the specified parameters.
      *
-     * @param array       $parameters Parameters to index the document with
-     * @param string|null $index      Index to insert the document into.
+     * @param array $parameters Parameters to index the document with
+     * @param string|null $index Index to insert the document into.
      *                                Defaults to the default index of the
      *                                connection.
-     * @param string|null $type       Document type to create. Defaults to the
+     * @param string|null $type Document type to create. Defaults to the
      *                                type of the connection. Usage of this
      *                                parameter is deprecated.
      *

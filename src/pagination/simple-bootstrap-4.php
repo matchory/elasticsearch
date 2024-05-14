@@ -6,31 +6,41 @@
 
 use Matchory\Elasticsearch\Pagination;
 
-?><?php if ($paginator->hasPages()): ?>
+?><?php
+if ($paginator->hasPages()): ?>
     <ul class="pagination">
 
-        <?php if ($paginator->onFirstPage()): ?>
+        <?php
+        if ($paginator->onFirstPage()): ?>
             <li class="page-item disabled">
                 <span class="page-link">&laquo;</span>
             </li>
-        <?php else: ?>
+        <?php
+        else: ?>
             <li class="page-item">
                 <a class="page-link"
-                   href="<?php echo $paginator->previousPageUrl() ?>"
+                   href="<?php
+                   echo $paginator->previousPageUrl() ?>"
                    rel="prev">&laquo;</a>
             </li>
-            <?php endif ?>
+        <?php
+        endif ?>
 
-        <?php if ($paginator->hasMorePages()): ?>
+        <?php
+        if ($paginator->hasMorePages()): ?>
             <li class="page-item">
                 <a class="page-link"
-                   href="<?php echo $paginator->nextPageUrl() ?>"
+                   href="<?php
+                   echo $paginator->nextPageUrl() ?>"
                    rel="next">&raquo;</a>
             </li>
-        <?php else: ?>
+        <?php
+        else: ?>
             <li class="page-item disabled">
                 <span class="page-link">&raquo;</span>
             </li>
-        <?php endif ?>
+        <?php
+        endif ?>
     </ul>
-<?php endif ?>
+<?php
+endif ?>

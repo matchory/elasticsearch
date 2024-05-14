@@ -25,10 +25,8 @@ trait ExplainsQueries
      * @return array|null
      * @see https://www.elastic.co/guide/en/elasticsearch/reference/current/search-explain.html
      */
-    public function explain(
-        string|null $id = null,
-        bool $lenient = false
-    ): array|null {
+    public function explain(string|null $id = null, bool $lenient = false): array|null
+    {
         $body = $this->getBody();
         $query = $body['body'] ?? null;
         $source = $body['source'] ?? null;

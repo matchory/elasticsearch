@@ -1,70 +1,54 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Matchory\Elasticsearch\Commands;
 
 use Illuminate\Console\Command;
-use InvalidArgumentException;
-use Matchory\Elasticsearch\Connection;
-use RuntimeException;
+use Matchory\Elasticsearch\Interfaces\ConnectionResolverInterface;
 
-use function app;
 use function array_keys;
 use function config;
 use function is_null;
 
+/**
+ * Update Index Command
+ *
+ * @bundle Matchory\Elasticsearch
+ */
 class UpdateIndexCommand extends Command
 {
     /**
      * The name and signature of the console command.
-     *
-     * @var string
      */
     protected $signature = 'es:indices:update {index?}{--connection= : Elasticsearch connection}';
 
     /**
      * The console command description.
-     *
-     * @var string
      */
     protected $description = 'Update index using defined setting and mapping in config file';
 
     /**
-     * ES object
-     *
-     * @var Connection
-     */
-    protected $es;
-
-    public function __construct()
-    {
-        parent::__construct();
-        $this->es = app('es');
-    }
-
-    /**
      * Execute the console command.
-     *
-     * @throws InvalidArgumentException
-     * @throws RuntimeException
      */
-    public function handle(): void
+    public function handle(ConnectionResolverInterface $resolver): void
     {
-        $connectionName = $this->option("connection") ?: config('es.default');
-        $connection = $this->es->connection($connectionName);
-        $client = $connection->raw();
-        $indices = ! is_null($this->argument('index'))
+        $connectionName = $this->option('connection') ?: null;
+        $connection = $resolver->connection($connectionName);
+        $client = $connection->getClient();
+        $indices = !is_null($this->argument('index'))
             ? [$this->argument('index')]
-            : array_keys(config('es.indices'));
+            : array_keys(config('elasticsearch.indices', config('es.indices', [])));
 
         foreach ($indices as $index) {
-            $config = config("es.indices.{$index}");
+            $config = config("elasticsearch.indices.{$index}", config("es.indices.{$index}"));
 
             if (is_null($config)) {
                 $this->warn("Missing configuration for index: {$index}");
                 continue;
             }
 
-            if ( ! $client->indices()->exists(['index' => $index])) {
+            if (!$client->indices()->exists(['index' => $index])) {
                 $this->call('es:indices:create', [
                     'index' => $index,
                 ]);
@@ -82,7 +66,7 @@ class UpdateIndexCommand extends Command
                         [
                             'remove' => [
                                 'index' => $index,
-                                'alias' => "*",
+                                'alias' => '*',
                             ],
                         ],
                     ],
@@ -100,7 +84,7 @@ class UpdateIndexCommand extends Command
                     );
 
                     $client->indices()->updateAliases([
-                        "body" => [
+                        'body' => [
                             'actions' => [
                                 [
                                     'add' => [

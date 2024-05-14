@@ -11,10 +11,10 @@ return [
     | using Laravel Scout. This connection is used when syncing all models
     | to the search service. You should adjust this based on your needs.
     |
-    | Supported: "es", "algolia", "null"
+    | Supported: "elasticsearch", "algolia", "null"
     |
     */
-    'driver' => env('SCOUT_DRIVER', 'es'),
+    'driver' => env('SCOUT_DRIVER', 'elasticsearch'),
 
     /*
     |--------------------------------------------------------------------------
@@ -55,7 +55,7 @@ return [
         'secret' => env('ALGOLIA_SECRET', ''),
     ],
 
-    'es' => [
+    'elasticsearch' => [
         'connection' => env('ELASTIC_CONNECTION', 'default'),
     ],
 ];

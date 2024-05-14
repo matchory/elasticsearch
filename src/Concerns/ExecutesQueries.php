@@ -16,6 +16,7 @@ use Matchory\Elasticsearch\Pagination;
 use Matchory\Elasticsearch\Query;
 use Psr\SimpleCache\CacheInterface;
 use Psr\SimpleCache\InvalidArgumentException;
+
 use function array_diff_key;
 use function array_flip;
 use function array_map;
@@ -24,6 +25,7 @@ use function is_callable;
 use function is_null;
 use function md5;
 use function serialize;
+
 use const PHP_SAPI;
 
 /**
@@ -53,36 +55,6 @@ trait ExecutesQueries
     protected int|null|DateTime $cacheTtl = null;
 
     /**
-     * Get the collection of results
-     *
-     * @param string|null $scrollId
-     *
-     * @return Collection<array-key, T>
-     */
-    public function get(string|null $scrollId = null): Collection
-    {
-        $result = $this->getResult($scrollId);
-
-        if (!$result) {
-            return new Collection([]);
-        }
-
-        return $this->transformIntoCollection($result);
-    }
-
-    /**
-     * Get a unique cache key for the complete query.
-     *
-     * @return string
-     */
-    public function getCacheKey(): string
-    {
-        $cacheKey = $this->cacheKey ?: $this->generateCacheKey();
-
-        return "{$this->cachePrefix}.{$cacheKey}";
-    }
-
-    /**
      * Insert multiple documents at once.
      *
      * @param callable|array $data Dictionary of [id => data] pairs
@@ -102,13 +74,10 @@ trait ExecutesQueries
 
             foreach ($data as $key => $value) {
                 $params['body'][] = [
-
                     'index' => [
                         '_index' => $this->getIndex(),
-                        '_type' => $this->getType(),
                         '_id' => $key,
                     ],
-
                 ];
 
                 $params['body'][] = $value;
@@ -192,6 +161,91 @@ trait ExecutesQueries
     }
 
     /**
+     * Update by script
+     *
+     * @param mixed $script
+     * @param array $params
+     *
+     * @return object
+     */
+    public function script(mixed $script, array $params = []): object
+    {
+        $parameters = [
+            'id' => $this->getId(),
+            'body' => [
+                'script' => [
+                    'inline' => $script,
+                    'params' => $params,
+                ],
+            ],
+            'client' => ['ignore' => $this->getIgnores()],
+        ];
+
+        $parameters = $this->addBaseParams($parameters);
+
+        return (object)$this->getConnection()->getClient()->update(
+            $parameters
+        );
+    }
+
+    /**
+     * Adds the base parameters required for all queries.
+     *
+     * @param array<string, mixed> $params Query parameters to hydrate
+     *
+     * @return array<string, mixed> Hydrated query parameters
+     */
+    private function addBaseParams(array $params): array
+    {
+        if ($index = $this->getIndex()) {
+            $params[Query::PARAM_INDEX] = $index;
+        }
+
+        return $params;
+    }
+
+    /**
+     * Update a document
+     *
+     * @param array $attributes
+     * @param int|string|null $id
+     *
+     * @return object
+     */
+    public function update(
+        array $attributes,
+        int|string $id = null
+    ): object {
+        if ($id) {
+            $this->id((string)$id);
+        }
+
+        unset(
+            $attributes[self::FIELD_HIGHLIGHT],
+            $attributes[self::FIELD_INDEX],
+            $attributes[self::FIELD_SCORE],
+            $attributes[self::FIELD_TYPE],
+            $attributes[self::FIELD_ID],
+        );
+
+        $parameters = [
+            'id' => $this->getId(),
+            'body' => [
+                'doc' => $attributes,
+            ],
+            'client' => [
+                'ignore' => $this->getIgnores(),
+            ],
+        ];
+
+        $parameters = $this->addBaseParams($parameters);
+
+        return (object)$this->getConnection()->getClient()->update(
+            $parameters
+        );
+    }
+
+    /**
      * Delete a document
      *
      * @param string|null $id
@@ -214,27 +268,6 @@ trait ExecutesQueries
         return (object)$this->getConnection()->getClient()->delete(
             $parameters
         );
-    }
-
-    /**
-     * Get the first result
-     *
-     * @param string|null $scrollId
-     *
-     * @return T|null
-     * @noinspection PhpDocSignatureInspection
-     */
-    public function first(string|null $scrollId = null): Model|null
-    {
-        $this->take(1);
-
-        $result = $this->getResult($scrollId);
-
-        if (!$result) {
-            return null;
-        }
-
-        return $this->transformIntoModel($result);
     }
 
     /**
@@ -264,6 +297,219 @@ trait ExecutesQueries
     }
 
     /**
+     * Get the first result
+     *
+     * @param string|null $scrollId
+     *
+     * @return T|null
+     * @noinspection PhpDocSignatureInspection
+     */
+    public function first(string|null $scrollId = null): Model|null
+    {
+        $this->take(1);
+
+        $result = $this->getResult($scrollId);
+
+        if (!$result) {
+            return null;
+        }
+
+        return $this->transformIntoModel($result);
+    }
+
+    /**
+     * Executes the query and handles the result
+     *
+     * @param string|null $scrollId
+     *
+     * @return array|null
+     */
+    protected function getResult(string|null $scrollId = null): array|null
+    {
+        if (!$this->cacheTtl) {
+            return $this->performSearch($scrollId);
+        }
+
+        if ($cache = $this->getCache()) {
+            try {
+                return $cache->get($this->getCacheKey());
+            } catch (InvalidArgumentException) {
+                // If the cache didn't like our cache key (which should be
+                // impossible), we regard it as a cache failure and perform a
+                // normal search instead.
+            }
+        }
+
+        return $this->performSearch($scrollId);
+    }
+
+    /**
+     * Get non-cached results
+     *
+     * @param string|null $scrollId
+     *
+     * @return array|null
+     */
+    public function performSearch(string|null $scrollId = null): array|null
+    {
+        $scrollId = $scrollId ?? $this->getScrollId();
+
+        if ($scrollId) {
+            $result = $this
+                ->getConnection()
+                ->getClient()
+                ->scroll([
+                    Query::PARAM_SCROLL => $this->getScroll(),
+                    Query::PARAM_BODY => [
+                        Query::PARAM_SCROLL_ID => $scrollId
+                    ],
+                ]);
+        } else {
+            $query = $this->buildQuery();
+            $result = $this->getConnection()->search($query);
+        }
+
+        // We attempt to cache the results if we have a cache instance, and the
+        // TTl is truthy. This allows to use values such as `-1` to flush it.
+        if ($this->cacheTtl && ($cache = $this->getCache())) {
+            try {
+                $cache->set(
+                    $this->getCacheKey(),
+                    $result,
+                    $this->cacheTtl instanceof DateTime
+                        ? $this->cacheTtl->getTimestamp()
+                        : $this->cacheTtl
+                );
+            } catch (InvalidArgumentException) {
+            }
+        }
+
+        return $result;
+    }
+
+    /**
+     * @return CacheInterface|null
+     */
+    protected function getCache(): CacheInterface|null
+    {
+        return $this->getConnection()->getCache();
+    }
+
+    /**
+     * Get a unique cache key for the complete query.
+     *
+     * @return string
+     */
+    public function getCacheKey(): string
+    {
+        $cacheKey = $this->cacheKey ?: $this->generateCacheKey();
+
+        return "{$this->cachePrefix}.{$cacheKey}";
+    }
+
+    /**
+     * Generate the unique cache key for the query.
+     *
+     * @return string
+     */
+    public function generateCacheKey(): string
+    {
+        try {
+            return md5($this->toJson());
+        } catch (JsonException) {
+            return md5(serialize($this));
+        }
+    }
+
+    /**
+     * Get the collection of results
+     *
+     * @param string|null $scrollId
+     *
+     * @return Collection<array-key, T>
+     */
+    public function get(string|null $scrollId = null): Collection
+    {
+        $result = $this->getResult($scrollId);
+
+        if (!$result) {
+            return new Collection([]);
+        }
+
+        return $this->transformIntoCollection($result);
+    }
+
+    /**
+     * Retrieves all documents from a response.
+     *
+     * @param array[] $response Response to extract documents from
+     *
+     * @return Collection<array-key, T> Collection of model instances
+     *                                  representing the documents contained in
+     *                                  the response
+     */
+    protected function transformIntoCollection(array $response = []): Collection
+    {
+        $results = $response[Query::FIELD_HITS][Query::FIELD_NESTED_HITS] ?? [];
+        $documents = array_map(
+            fn(array $document): Model => $this->createModelInstance($document),
+            $results
+        );
+
+        return Collection::fromResponse($response, $documents);
+    }
+
+    /**
+     * Processes a result and turns it into a model instance.
+     *
+     * @param array<string, mixed> $document Raw document to create a model
+     *                                       instance from
+     *
+     * @return T Model instance representing the source document
+     * @noinspection PhpDocSignatureInspection
+     */
+    protected function createModelInstance(array $document): Model
+    {
+        $data = $document[Query::FIELD_SOURCE] ?? [];
+        $metadata = array_diff_key($document, array_flip([
+            Query::FIELD_SOURCE,
+        ]));
+
+        /** @var T */
+        return $this->getModel()->newInstance(
+            $data,
+            $metadata,
+            true,
+            $document[Query::FIELD_INDEX] ?? null,
+            $document[Query::FIELD_TYPE] ?? null,
+        );
+    }
+
+    /**
+     * Retrieve the first document from a response. If the response does not
+     * contain any hits, will return `null`.
+     *
+     * @param array[] $response Response to extract the first document from
+     *
+     * @return T|null Model instance if any documents were found in the
+     *                response, `null` otherwise
+     * @noinspection PhpDocSignatureInspection
+     */
+    protected function transformIntoModel(array $response = []): Model|null
+    {
+        if (!isset($response[Query::FIELD_HITS][Query::FIELD_NESTED_HITS][0])) {
+            return null;
+        }
+
+        /** @var T $instance */
+        $instance = $this->createModelInstance(
+            $response[Query::FIELD_HITS][Query::FIELD_NESTED_HITS][0]
+        );
+
+        return $instance;
+    }
+
+    /**
      * Get the first result or fail.
      *
      * @param string|null $scrollId
@@ -284,20 +530,6 @@ trait ExecutesQueries
             get_class($this->getModel()),
             $id ?? []
         );
-    }
-
-    /**
-     * Generate the unique cache key for the query.
-     *
-     * @return string
-     */
-    public function generateCacheKey(): string
-    {
-        try {
-            return md5($this->toJson());
-        } catch (JsonException) {
-            return md5(serialize($this));
-        }
     }
 
     /**
@@ -398,50 +630,6 @@ trait ExecutesQueries
     }
 
     /**
-     * Get non-cached results
-     *
-     * @param string|null $scrollId
-     *
-     * @return array|null
-     */
-    public function performSearch(string|null $scrollId = null): array|null
-    {
-        $scrollId = $scrollId ?? $this->getScrollId();
-
-        if ($scrollId) {
-            $result = $this
-                ->getConnection()
-                ->getClient()
-                ->scroll([
-                    Query::PARAM_SCROLL => $this->getScroll(),
-                    Query::PARAM_BODY => [
-                        Query::PARAM_SCROLL_ID => $scrollId
-                    ],
-                ]);
-        } else {
-            $query = $this->buildQuery();
-            $result = $this->getConnection()->search($query);
-        }
-
-        // We attempt to cache the results if we have a cache instance, and the
-        // TTl is truthy. This allows to use values such as `-1` to flush it.
-        if ($this->cacheTtl && ($cache = $this->getCache())) {
-            try {
-                $cache->set(
-                    $this->getCacheKey(),
-                    $result,
-                    $this->cacheTtl instanceof DateTime
-                        ? $this->cacheTtl->getTimestamp()
-                        : $this->cacheTtl
-                );
-            } catch (InvalidArgumentException) {
-            }
-        }
-
-        return $result;
-    }
-
-    /**
      * Keeping around for backwards compatibility
      *
      * @return array
@@ -452,6 +640,18 @@ trait ExecutesQueries
     public function query(): array
     {
         return $this->toArray();
+    }
+
+    /**
+     * Indicate that the query results should be cached forever.
+     *
+     * @param string|null $key
+     *
+     * @return $this
+     */
+    public function rememberForever(string|null $key = null): static
+    {
+        return $this->remember(-1, $key);
     }
 
     /**
@@ -469,210 +669,5 @@ trait ExecutesQueries
         $this->cacheKey = $key;
 
         return $this;
-    }
-
-    /**
-     * Indicate that the query results should be cached forever.
-     *
-     * @param string|null $key
-     *
-     * @return $this
-     */
-    public function rememberForever(string|null $key = null): static
-    {
-        return $this->remember(-1, $key);
-    }
-
-    /**
-     * Update by script
-     *
-     * @param mixed $script
-     * @param array $params
-     *
-     * @return object
-     */
-    public function script(mixed $script, array $params = []): object
-    {
-        $parameters = [
-            'id' => $this->getId(),
-            'body' => [
-                'script' => [
-                    'inline' => $script,
-                    'params' => $params,
-                ],
-            ],
-            'client' => ['ignore' => $this->getIgnores()],
-        ];
-
-        $parameters = $this->addBaseParams($parameters);
-
-        return (object)$this->getConnection()->getClient()->update(
-            $parameters
-        );
-    }
-
-    /**
-     * Update a document
-     *
-     * @param array $attributes
-     * @param int|string|null $id
-     *
-     * @return object
-     */
-    public function update(
-        array $attributes,
-        int|string $id = null
-    ): object {
-        if ($id) {
-            $this->id((string)$id);
-        }
-
-        unset(
-            $attributes[self::FIELD_HIGHLIGHT],
-            $attributes[self::FIELD_INDEX],
-            $attributes[self::FIELD_SCORE],
-            $attributes[self::FIELD_TYPE],
-            $attributes[self::FIELD_ID],
-        );
-
-        $parameters = [
-            'id' => $this->getId(),
-            'body' => [
-                'doc' => $attributes,
-            ],
-            'client' => [
-                'ignore' => $this->getIgnores(),
-            ],
-        ];
-
-        $parameters = $this->addBaseParams($parameters);
-
-        return (object)$this->getConnection()->getClient()->update(
-            $parameters
-        );
-    }
-
-    /**
-     * Processes a result and turns it into a model instance.
-     *
-     * @param array<string, mixed> $document Raw document to create a model
-     *                                       instance from
-     *
-     * @return T Model instance representing the source document
-     * @noinspection PhpDocSignatureInspection
-     */
-    protected function createModelInstance(array $document): Model
-    {
-        $data = $document[Query::FIELD_SOURCE] ?? [];
-        $metadata = array_diff_key($document, array_flip([
-            Query::FIELD_SOURCE,
-        ]));
-
-        /** @var T */
-        return $this->getModel()->newInstance(
-            $data,
-            $metadata,
-            true,
-            $document[Query::FIELD_INDEX] ?? null,
-            $document[Query::FIELD_TYPE] ?? null,
-        );
-    }
-
-    /**
-     * @return CacheInterface|null
-     */
-    protected function getCache(): CacheInterface|null
-    {
-        return $this->getConnection()->getCache();
-    }
-
-    /**
-     * Executes the query and handles the result
-     *
-     * @param string|null $scrollId
-     *
-     * @return array|null
-     */
-    protected function getResult(string|null $scrollId = null): array|null
-    {
-        if (!$this->cacheTtl) {
-            return $this->performSearch($scrollId);
-        }
-
-        if ($cache = $this->getCache()) {
-            try {
-                return $cache->get($this->getCacheKey());
-            } catch (InvalidArgumentException) {
-                // If the cache didn't like our cache key (which should be
-                // impossible), we regard it as a cache failure and perform a
-                // normal search instead.
-            }
-        }
-
-        return $this->performSearch($scrollId);
-    }
-
-    /**
-     * Retrieves all documents from a response.
-     *
-     * @param array[] $response Response to extract documents from
-     *
-     * @return Collection<array-key, T> Collection of model instances
-     *                                  representing the documents contained in
-     *                                  the response
-     */
-    protected function transformIntoCollection(array $response = []): Collection
-    {
-        $results = $response[Query::FIELD_HITS][Query::FIELD_NESTED_HITS] ?? [];
-        $documents = array_map(
-            fn(array $document): Model => $this->createModelInstance($document),
-            $results
-        );
-
-        return Collection::fromResponse($response, $documents);
-    }
-
-    /**
-     * Retrieve the first document from a response. If the response does not
-     * contain any hits, will return `null`.
-     *
-     * @param array[] $response Response to extract the first document from
-     *
-     * @return T|null Model instance if any documents were found in the
-     *                response, `null` otherwise
-     * @noinspection PhpDocSignatureInspection
-     */
-    protected function transformIntoModel(array $response = []): Model|null
-    {
-        if (!isset($response[Query::FIELD_HITS][Query::FIELD_NESTED_HITS][0])) {
-            return null;
-        }
-
-        /** @var T $instance */
-        $instance = $this->createModelInstance(
-            $response[Query::FIELD_HITS][Query::FIELD_NESTED_HITS][0]
-        );
-
-        return $instance;
-    }
-
-    /**
-     * Adds the base parameters required for all queries.
-     *
-     * @param array<string, mixed> $params Query parameters to hydrate
-     *
-     * @return array<string, mixed> Hydrated query parameters
-     */
-    private function addBaseParams(array $params): array
-    {
-        if ($index = $this->getIndex()) {
-            $params[Query::PARAM_INDEX] = $index;
-        }
-
-        if ($type = $this->getType()) {
-            $params[Query::PARAM_TYPE] = $type;
-        }
-
-        return $params;
     }
 }

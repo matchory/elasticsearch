@@ -29,7 +29,7 @@ class DocumentNotFoundException extends ModelNotFoundException
      * Set the affected Eloquent model and instance ids.
      *
      * @param class-string<Model> $model
-     * @param string|array        $ids
+     * @param string|array $ids
      *
      * @return $this
      * @psalm-suppress MoreSpecificImplementedParamType

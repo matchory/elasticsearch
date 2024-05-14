@@ -1,14 +1,15 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Matchory\Elasticsearch\Commands;
 
 use Illuminate\Console\Command;
 use InvalidArgumentException;
 use JsonException;
-use Matchory\Elasticsearch\Connection;
+use Matchory\Elasticsearch\Interfaces\ConnectionResolverInterface;
 use RuntimeException;
 
-use function app;
 use function array_key_exists;
 use function ceil;
 use function config;
@@ -16,16 +17,14 @@ use function count;
 use function json_encode;
 
 /**
- * Class ReindexCommand
+ * Reindex Command
  *
- * @package Matchory\Elasticsearch\Commands
+ * @package Matchory\Elasticsearch
  */
 class ReindexCommand extends Command
 {
     /**
      * The name and signature of the console command.
-     *
-     * @var string
      */
     protected $signature = 'es:indices:reindex {index}{new_index}
                             {--bulk-size=1000 : Scroll size}
@@ -36,60 +35,34 @@ class ReindexCommand extends Command
 
     /**
      * The console command description.
-     *
-     * @var string
      */
     protected $description = 'Reindex indices data';
 
     /**
      * ES connection name
-     *
-     * @var string
      */
-    protected $connection;
-
-    /**
-     * ES object
-     *
-     * @var Connection
-     */
-    protected $es;
+    protected string|null $connection = null;
 
     /**
      * Query bulk size
-     *
-     * @var integer
      */
-    protected $size;
+    protected int|null $size = null;
 
     /**
      * Scroll time
-     *
-     * @var string
      */
-    protected $scroll;
-
-    /**
-     * ReindexCommand constructor.
-     */
-    public function __construct()
-    {
-        parent::__construct();
-        $this->es = app('es');
-    }
+    protected string|null $scroll = null;
 
     /**
      * Execute the console command.
      *
-     * @return void
      * @throws InvalidArgumentException
      * @throws RuntimeException
      * @throws JsonException
-     * @psalm-suppress PossiblyInvalidArgument
      */
-    public function handle(): void
+    public function handle(ConnectionResolverInterface $resolver): void
     {
-        $this->connection = $this->option('connection') ?: config('es.default');
+        $this->connection = $this->option('connection') ?: null;
         $this->size = (int)$this->option('bulk-size');
         $this->scroll = (string)$this->option('scroll');
 
@@ -102,42 +75,37 @@ class ReindexCommand extends Command
         $originalIndex = (string)$this->argument('index');
         $newIndex = $this->argument('new_index');
 
-        if ( ! array_key_exists($originalIndex, config('es.indices'))) {
+        if (!array_key_exists($originalIndex, config('elasticsearch.indices', config('es.indices', [])))) {
             $this->warn("Missing configuration for index: {$originalIndex}");
 
             return;
         }
 
-        if ( ! array_key_exists($newIndex, config('es.indices'))) {
+        if (!array_key_exists($newIndex, config('elasticsearch.indices', config('es.indices', [])))) {
             $this->warn("Missing configuration for index: {$newIndex}");
 
             return;
         }
 
-        $this->migrate($originalIndex, $newIndex);
+        $this->migrate($resolver, $originalIndex, $newIndex);
     }
 
     /**
      * Migrate data with Scroll queries & Bulk API
      *
-     * @param string      $originalIndex
-     * @param string      $newIndex
-     * @param string|null $scrollId
-     * @param int         $errors
-     * @param int         $page
-     *
      * @throws InvalidArgumentException
-     * @throws RuntimeException
      * @throws JsonException
+     * @throws RuntimeException
      */
     public function migrate(
+        ConnectionResolverInterface $resolver,
         string $originalIndex,
         string $newIndex,
-        ?string $scrollId = null,
+        string|null $scrollId = null,
         int $errors = 0,
         int $page = 1
     ): void {
-        $connection = $this->es->connection($this->connection);
+        $connection = $resolver->connection($this->connection);
 
         if ($page === 1) {
             $pages = (int)ceil(
@@ -150,14 +118,12 @@ class ReindexCommand extends Command
 
             $documents = $connection
                 ->index($originalIndex)
-                ->type('')
                 ->scroll($this->scroll)
                 ->take($this->size)
                 ->performSearch();
         } else {
             $documents = $connection
                 ->index($originalIndex)
-                ->type('')
                 ->scroll($this->scroll)
                 ->scrollID($scrollId ?: '')
                 ->performSearch();
@@ -184,13 +150,13 @@ class ReindexCommand extends Command
                 $params['body'][] = $row['_source'];
             }
 
-            $response = $connection->raw()->bulk($params);
+            $response = $connection->getClient()->bulk($params);
 
             if (isset($response['errors']) && $response['errors']) {
-                if ( ! $this->option('hide-errors')) {
+                if (!$this->option('hide-errors')) {
                     $items = json_encode($response['items']);
 
-                    if ( ! $this->option('skip-errors')) {
+                    if (!$this->option('skip-errors')) {
                         $this->warn("\n{$items}");
 
                         return;
@@ -225,6 +191,7 @@ class ReindexCommand extends Command
         $page++;
 
         $this->migrate(
+            $resolver,
             $originalIndex,
             $newIndex,
             $documents['_scroll_id'],

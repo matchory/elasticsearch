@@ -47,7 +47,7 @@ class ConnectionResolver implements ConnectionResolverInterface
     /**
      * Add a connection to the resolver.
      *
-     * @param string              $name
+     * @param string $name
      * @param ConnectionInterface $connection
      *
      * @return void

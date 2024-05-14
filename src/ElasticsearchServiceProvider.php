@@ -25,6 +25,7 @@ use Matchory\Elasticsearch\Interfaces\ConnectionInterface;
 use Matchory\Elasticsearch\Interfaces\ConnectionResolverInterface;
 use Psr\Log\LoggerInterface;
 use Psr\SimpleCache\CacheInterface;
+
 use function class_exists;
 use function config_path;
 use function file_exists;
@@ -50,40 +51,29 @@ class ElasticsearchServiceProvider extends ServiceProvider
         $this->configure();
 
         // Enable automatic connection resolution in all models
-        Model::setConnectionResolver($this->app->make(
-            ConnectionResolverInterface::class
-        ));
+        Model::setConnectionResolver(
+            $this->app->make(
+                ConnectionResolverInterface::class
+            )
+        );
 
         // Enable event dispatching in all models
-        Model::setEventDispatcher($this->app->make(
-            Dispatcher::class
-        ));
+        Model::setEventDispatcher(
+            $this->app->make(
+                Dispatcher::class
+            )
+        );
 
         // TODO: Remove in next major version
         /** @noinspection PhpDeprecationInspection */
-        Connection::setConnectionResolver($this->app->make(
-            ConnectionResolverInterface::class
-        ));
+        Connection::setConnectionResolver(
+            $this->app->make(
+                ConnectionResolverInterface::class
+            )
+        );
 
         // Register the Laravel Scout Engine
         $this->registerScoutEngine();
-    }
-
-    /**
-     * Register any application services.
-     *
-     * @return void
-     * @throws LogicException
-     */
-    public function register(): void
-    {
-        Model::clearBootedModels();
-
-        $this->registerCommands();
-        $this->registerLogger();
-        $this->registerClientFactory();
-        $this->registerConnectionResolver();
-        $this->registerDefaultConnection();
     }
 
     protected function configure(): void
@@ -115,6 +105,84 @@ class ElasticsearchServiceProvider extends ServiceProvider
         }
     }
 
+    protected function registerScoutEngine(): void
+    {
+        // Resolve Laravel Scout engine.
+        if (!class_exists(EngineManager::class)) {
+            return;
+        }
+
+        try {
+            $this->app
+                ->make(EngineManager::class)
+                ->extend('elasticsearch', function () {
+                    $connectionName = Config::get('scout.elasticsearch.connection');
+                    $config = Config::get("elasticsearch.connections.{$connectionName}");
+                    $elastic = ElasticBuilder
+                        ::create()
+                        ->setHosts($config['servers'])
+                        ->build();
+
+                    return new ScoutEngine(
+                        $elastic,
+                        $config['index']
+                    );
+                });
+        } catch (BindingResolutionException) {
+            // Class is not resolved.
+            // Laravel Scout service provider was not loaded yet.
+        }
+    }
+
+    /**
+     * Register any application services.
+     *
+     * @return void
+     * @throws LogicException
+     */
+    public function register(): void
+    {
+        Model::clearBootedModels();
+
+        $this->registerCommands();
+        $this->registerLogger();
+        $this->registerClientFactory();
+        $this->registerConnectionResolver();
+        $this->registerDefaultConnection();
+    }
+
+    protected function registerCommands(): void
+    {
+        $version = $this->app->version();
+
+        if (
+            version_compare($version, '5.1', '>=') ||
+            Str::startsWith($version, 'Lumen') ||
+            $this->app->runningInConsole()
+        ) {
+            // Registering commands
+            $this->commands([
+                ListIndicesCommand::class,
+                CreateIndexCommand::class,
+                UpdateIndexCommand::class,
+                DropIndexCommand::class,
+                ReindexCommand::class,
+            ]);
+        }
+    }
+
+    /**
+     * Bind the Elasticsearch logger.
+     *
+     * @return void
+     */
+    protected function registerLogger(): void
+    {
+        $this->app->bind('elasticsearch.logger', fn(Application $app) => new Logger(
+            $app->make('log')->channel(Config::get('elasticsearch.logger'))
+        ));
+    }
+
     /**
      * @throws LogicException
      */
@@ -139,26 +207,6 @@ class ElasticsearchServiceProvider extends ServiceProvider
         );
     }
 
-    protected function registerCommands(): void
-    {
-        $version = $this->app->version();
-
-        if (
-            version_compare($version, '5.1', '>=') ||
-            Str::startsWith($version, 'Lumen') ||
-            $this->app->runningInConsole()
-        ) {
-            // Registering commands
-            $this->commands([
-                ListIndicesCommand::class,
-                CreateIndexCommand::class,
-                UpdateIndexCommand::class,
-                DropIndexCommand::class,
-                ReindexCommand::class,
-            ]);
-        }
-    }
-
     /**
      * @throws LogicException
      */
@@ -169,13 +217,14 @@ class ElasticsearchServiceProvider extends ServiceProvider
         $this->app->singleton(
             ConnectionResolverInterface::class,
             function (Application $app) {
+                $configuration = Config::get('elasticsearch', Config::get('es', []));
                 $factory = $app->make(ClientFactoryInterface::class);
                 $cache = $app->bound(CacheInterface::class)
                     ? $app->make(CacheInterface::class)
                     : null;
 
                 return new ConnectionManager(
-                    Config::get('es', []),
+                    $configuration,
                     $factory,
                     $cache,
                 );
@@ -189,8 +238,23 @@ class ElasticsearchServiceProvider extends ServiceProvider
 
         $this->app->alias(
             ConnectionResolverInterface::class,
+            'elasticsearch'
+        );
+
+        $this->app->alias(
+            ConnectionResolverInterface::class,
             'es'
         );
+
+        $this->app->extend('es', function (ConnectionResolverInterface $resolver) {
+            trigger_deprecation(
+                'matchory/elasticsearch',
+                '3.0.0',
+                'The "es" alias is deprecated. Use "elasticsearch" instead.'
+            );
+
+            return $resolver;
+        });
     }
 
     /**
@@ -210,46 +274,5 @@ class ElasticsearchServiceProvider extends ServiceProvider
             ConnectionInterface::class,
             'elasticsearch.connection'
         );
-    }
-
-    /**
-     * Bind the Elasticsearch logger.
-     *
-     * @return void
-     */
-    protected function registerLogger(): void
-    {
-        $this->app->bind('elasticsearch.logger', fn(Application $app) => new Logger(
-            $app->make('log')->channel(Config::get('elasticsearch.logger'))
-        ));
-    }
-
-    protected function registerScoutEngine(): void
-    {
-        // Resolve Laravel Scout engine.
-        if (!class_exists(EngineManager::class)) {
-            return;
-        }
-
-        try {
-            $this->app
-                ->make(EngineManager::class)
-                ->extend('es', function () {
-                    $connectionName = Config::get('scout.elasticsearch.connection');
-                    $config = Config::get("elasticsearch.connections.{$connectionName}");
-                    $elastic = ElasticBuilder
-                        ::create()
-                        ->setHosts($config['servers'])
-                        ->build();
-
-                    return new ScoutEngine(
-                        $elastic,
-                        $config['index']
-                    );
-                });
-        } catch (BindingResolutionException) {
-            // Class is not resolved.
-            // Laravel Scout service provider was not loaded yet.
-        }
     }
 }

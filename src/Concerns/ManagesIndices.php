@@ -77,7 +77,6 @@ trait ManagesIndices
     public function dropIndex(string $name): array
     {
         $index = new Index($name);
-
         $index->connection = $this->getConnection();
 
         return $index->drop();

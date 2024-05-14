@@ -12,6 +12,10 @@ use Matchory\Elasticsearch\Model;
 use Matchory\Elasticsearch\Pagination;
 use Matchory\Elasticsearch\Query;
 
+use function class_alias;
+
+class_alias(Elasticsearch::class, 'Matchory\Elasticsearch\Facades\ES');
+
 /**
  * Elasticsearch Facade
  * ====================
@@ -76,7 +80,7 @@ use Matchory\Elasticsearch\Query;
  *
  * @package Matchory\Elasticsearch\Facades
  */
-class ES extends Facade
+class Elasticsearch extends Facade
 {
     /**
      * @inheritDoc

@@ -1,13 +1,12 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Matchory\Elasticsearch\Commands;
 
 use Illuminate\Console\Command;
-use InvalidArgumentException;
-use Matchory\Elasticsearch\Connection;
-use RuntimeException;
+use Matchory\Elasticsearch\Interfaces\ConnectionResolverInterface;
 
-use function app;
 use function array_keys;
 use function config;
 use function is_null;
@@ -29,38 +28,21 @@ class CreateIndexCommand extends Command
     protected $description = 'Create a new index using defined setting and mapping in config file';
 
     /**
-     * ES object
-     *
-     * @var Connection
-     */
-    protected $es;
-
-    public function __construct()
-    {
-        parent::__construct();
-
-        $this->es = app("es");
-    }
-
-    /**
      * Execute the console command.
-     *
-     * @throws RuntimeException
-     * @throws InvalidArgumentException
      */
-    public function handle(): void
+    public function handle(ConnectionResolverInterface $resolver): void
     {
-        $connectionName = $this->option("connection") ?: config('es.default');
-        $connection = $this->es->connection($connectionName);
+        $connectionName = $this->option('connection') ?: null;
+        $connection = $resolver->connection($connectionName)->newQuery();
         $client = $connection->raw();
 
         /** @var string[] $indices */
-        $indices = ! is_null($this->argument('index'))
+        $indices = !is_null($this->argument('index'))
             ? [$this->argument('index')]
-            : array_keys(config('es.indices'));
+            : array_keys(config('elasticsearch.indices', config('elasticsearch.indices', config('es.indices', []))));
 
         foreach ($indices as $index) {
-            $config = config("es.indices.{$index}");
+            $config = config("elasticsearch.indices.{$index}", config("es.indices.{$index}"));
 
             if (is_null($config)) {
                 $this->warn("Missing configuration for index: {$index}");
@@ -81,19 +63,16 @@ class CreateIndexCommand extends Command
             $client->indices()->create([
                 'index' => $index,
                 'body' => [
-                    "settings" => $config['settings'],
+                    'settings' => $config['settings'],
                 ],
-
             ]);
 
             if (isset($config['aliases'])) {
                 foreach ($config['aliases'] as $alias) {
-                    $this->info(
-                        "Creating alias: {$alias} for index: {$index}"
-                    );
+                    $this->info("Creating alias: {$alias} for index: {$index}");
 
                     $client->indices()->updateAliases([
-                        "body" => [
+                        'body' => [
                             'actions' => [
                                 [
                                     'add' => [
@@ -119,7 +98,7 @@ class CreateIndexCommand extends Command
                         'index' => $index,
                         'type' => $type,
                         'body' => $mapping,
-                        "include_type_name" => true,
+                        'include_type_name' => true,
                     ]);
                 }
             }

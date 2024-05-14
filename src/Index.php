@@ -115,7 +115,7 @@ class Index
     /**
      * Creates a new index instance.
      *
-     * @param string        $name     Name of the index to create.
+     * @param string $name Name of the index to create.
      * @param callable|null $callback Callback to configure the index before it
      *                                is created. This allows to add additional
      *                                options like shards, replicas or mappings.
@@ -123,42 +123,6 @@ class Index
     public function __construct(public string $name, ?callable $callback = null)
     {
         $this->callback = $callback;
-    }
-
-    /**
-     * Retrieves the Elasticsearch  client instance.
-     *
-     * @return Client
-     * @internal
-     */
-    public function getClient(): Client
-    {
-        return $this->getConnection()->getClient();
-    }
-
-    /**
-     * Retrieves the active connection.
-     *
-     * @return ConnectionInterface
-     * @internal
-     */
-    public function getConnection(): ConnectionInterface
-    {
-        assert($this->connection !== null);
-
-        return $this->connection;
-    }
-
-    /**
-     * Sets the active connection on the index.
-     *
-     * @param ConnectionInterface $connection
-     *
-     * @internal
-     */
-    public function setConnection(ConnectionInterface $connection): void
-    {
-        $this->connection = $connection;
     }
 
     /**
@@ -186,7 +150,7 @@ class Index
      * searching, and routing values. An alias cannot have the same name as
      * an index.
      *
-     * @param string                        $alias   Name of the alias to add.
+     * @param string $alias Name of the alias to add.
      * @param array|ArrayObject|string|null $options Options to pass to
      *                                               the alias.
      *
@@ -198,8 +162,8 @@ class Index
     {
         if (
             $options !== null &&
-            ! is_string($options) &&
-            ! is_array($options)
+            !is_string($options) &&
+            !is_array($options)
         ) {
             throw new TypeError(
                 'Alias options may be passed as an array, a string ' .
@@ -259,6 +223,42 @@ class Index
             ->getClient()
             ->indices()
             ->create($params);
+    }
+
+    /**
+     * Retrieves the Elasticsearch  client instance.
+     *
+     * @return Client
+     * @internal
+     */
+    public function getClient(): Client
+    {
+        return $this->getConnection()->getClient();
+    }
+
+    /**
+     * Retrieves the active connection.
+     *
+     * @return ConnectionInterface
+     * @internal
+     */
+    public function getConnection(): ConnectionInterface
+    {
+        assert($this->connection !== null);
+
+        return $this->connection;
+    }
+
+    /**
+     * Sets the active connection on the index.
+     *
+     * @param ConnectionInterface $connection
+     *
+     * @internal
+     */
+    public function setConnection(ConnectionInterface $connection): void
+    {
+        $this->connection = $connection;
     }
 
     /**

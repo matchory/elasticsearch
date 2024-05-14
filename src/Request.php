@@ -24,11 +24,11 @@ class Request
     public static function url(string|null $host = null): string
     {
         $server = $_SERVER;
-        $ssl = ( ! empty($server['HTTPS']) && $server['HTTPS'] === 'on');
+        $ssl = (!empty($server['HTTPS']) && $server['HTTPS'] === 'on');
         $sp = strtolower($server['SERVER_PROTOCOL']);
         $protocol = substr($sp, 0, strpos($sp, '/') ?: 0) . (($ssl) ? 's' : '');
         $port = (int)$server['SERVER_PORT'];
-        $port = (( ! $ssl && $port === 80) || ($ssl && $port === 443))
+        $port = ((!$ssl && $port === 80) || ($ssl && $port === 443))
             ? ''
             : ':' . $port;
         $host = $host ?? ($server['SERVER_NAME'] . $port);
@@ -50,7 +50,7 @@ class Request
     /**
      * Get value of query string parameter
      *
-     * @param string     $name
+     * @param string $name
      * @param mixed|null $fallback
      *
      * @return mixed

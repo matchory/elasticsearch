@@ -9,6 +9,7 @@ use Matchory\Elasticsearch\Interfaces\ClientFactoryInterface;
 use Matchory\Elasticsearch\Interfaces\ConnectionInterface;
 use Matchory\Elasticsearch\Interfaces\ConnectionResolverInterface;
 use Psr\SimpleCache\CacheInterface;
+
 use function is_null;
 
 /**
@@ -48,11 +49,10 @@ class ConnectionManager implements ConnectionResolverInterface
      * @param CacheInterface|null $cache
      */
     public function __construct(
-        protected array                           $configuration,
+        protected array $configuration,
         protected readonly ClientFactoryInterface $clientFactory,
-        protected readonly ?CacheInterface        $cache = null,
-    )
-    {
+        protected readonly ?CacheInterface $cache = null,
+    ) {
     }
 
     /**
@@ -67,22 +67,6 @@ class ConnectionManager implements ConnectionResolverInterface
     public function __call(string $method, array $parameters)
     {
         return $this->connection()->$method(...$parameters);
-    }
-
-    /**
-     * Add a connection to the resolver.
-     *
-     * @param string $name
-     * @param ConnectionInterface $connection
-     *
-     * @return void
-     */
-    public function addConnection(
-        string              $name,
-        ConnectionInterface $connection
-    ): void
-    {
-        $this->connections[$name] = $connection;
     }
 
     /**
@@ -117,30 +101,6 @@ class ConnectionManager implements ConnectionResolverInterface
     }
 
     /**
-     * Set the default connection name.
-     *
-     * @param string $name
-     *
-     * @return void
-     */
-    public function setDefaultConnection(string $name): void
-    {
-        $this->configuration[self::CONFIG_KEY_DEFAULT_CONNECTION] = $name;
-    }
-
-    /**
-     * Check if a connection has been registered.
-     *
-     * @param string $name
-     *
-     * @return bool
-     */
-    public function hasConnection(string $name): bool
-    {
-        return isset($this->connections[$name]);
-    }
-
-    /**
      * @param string $name
      *
      * @return ConnectionInterface
@@ -164,5 +124,44 @@ class ConnectionManager implements ConnectionResolverInterface
             $config[self::CONFIG_KEY_INDEX] ?? null,
             $config[self::CONFIG_KEY_REPORT_QUERIES] ?? true,
         );
+    }
+
+    /**
+     * Add a connection to the resolver.
+     *
+     * @param string $name
+     * @param ConnectionInterface $connection
+     *
+     * @return void
+     */
+    public function addConnection(
+        string $name,
+        ConnectionInterface $connection
+    ): void {
+        $this->connections[$name] = $connection;
+    }
+
+    /**
+     * Set the default connection name.
+     *
+     * @param string $name
+     *
+     * @return void
+     */
+    public function setDefaultConnection(string $name): void
+    {
+        $this->configuration[self::CONFIG_KEY_DEFAULT_CONNECTION] = $name;
+    }
+
+    /**
+     * Check if a connection has been registered.
+     *
+     * @param string $name
+     *
+     * @return bool
+     */
+    public function hasConnection(string $name): bool
+    {
+        return isset($this->connections[$name]);
     }
 }

@@ -8,6 +8,7 @@ use Closure;
 use Illuminate\Support\Arr;
 use Matchory\Elasticsearch\Interfaces\ScopeInterface;
 use Matchory\Elasticsearch\Query;
+
 use function array_keys;
 use function array_unshift;
 use function array_values;
@@ -72,6 +73,22 @@ trait AppliesScopes
     }
 
     /**
+     * Apply the given scope on the current builder instance.
+     *
+     * @param callable $scope
+     * @param array $parameters
+     *
+     * @return $this
+     */
+    protected function callScope(callable $scope, array $parameters = []): static
+    {
+        array_unshift($parameters, $this);
+        $scope(...array_values($parameters));
+
+        return $this;
+    }
+
+    /**
      * Determine if the given model has a scope.
      *
      * @param string $scope
@@ -127,6 +144,26 @@ trait AppliesScopes
     }
 
     /**
+     * Apply the given named scope on the current query instance.
+     *
+     * @param string $scope
+     * @param array $parameters
+     *
+     * @return $this
+     */
+    protected function callNamedScope(
+        string $scope,
+        array $parameters = []
+    ): static {
+        return $this->callScope(fn(mixed ...$parameters): mixed => $this
+            ->getModel()
+            ->callNamedScope(
+                $scope,
+                $parameters
+            ), $parameters);
+    }
+
+    /**
      * Register a new global scope.
      *
      * @param string $identifier
@@ -143,26 +180,6 @@ trait AppliesScopes
         if (method_exists($scope, 'extend')) {
             $scope->extend($this);
         }
-
-        return $this;
-    }
-
-    /**
-     * Remove a registered global scope.
-     *
-     * @param string|ScopeInterface $scope
-     *
-     * @return $this
-     */
-    public function withoutGlobalScope(ScopeInterface|string $scope): static
-    {
-        if (!is_string($scope)) {
-            $scope = get_class($scope);
-        }
-
-        unset($this->scopes[$scope]);
-
-        $this->removedScopes[] = $scope;
 
         return $this;
     }
@@ -188,37 +205,21 @@ trait AppliesScopes
     }
 
     /**
-     * Apply the given named scope on the current query instance.
+     * Remove a registered global scope.
      *
-     * @param string $scope
-     * @param array $parameters
-     *
-     * @return $this
-     */
-    protected function callNamedScope(
-        string $scope,
-        array $parameters = []
-    ): static {
-        return $this->callScope(fn(mixed ...$parameters): mixed => $this
-            ->getModel()
-            ->callNamedScope(
-                $scope,
-                $parameters
-            ), $parameters);
-    }
-
-    /**
-     * Apply the given scope on the current builder instance.
-     *
-     * @param callable $scope
-     * @param array $parameters
+     * @param string|ScopeInterface $scope
      *
      * @return $this
      */
-    protected function callScope(callable $scope, array $parameters = []): static
+    public function withoutGlobalScope(ScopeInterface|string $scope): static
     {
-        array_unshift($parameters, $this);
-        $scope(...array_values($parameters));
+        if (!is_string($scope)) {
+            $scope = get_class($scope);
+        }
+
+        unset($this->scopes[$scope]);
+
+        $this->removedScopes[] = $scope;
 
         return $this;
     }

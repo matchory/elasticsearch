@@ -134,9 +134,9 @@ If you haven't already, make Lumen work with facades by uncommenting this line i
 $app->withFacades();
 ```
 
-If you don't want to enable facades in Lumen, you can access the query builder using `app("es")`:
+If you don't want to enable facades in Lumen, you can access the query builder using `app("elasticsearch")`:
 ```php
-app("es")->index("my_index")->type("my_type")->get();
+app("elasticsearch")->index("my_index")->type("my_type")->get();
 
 # This is similar to:
 ES::index("my_index")->type("my_type")->get();
@@ -327,11 +327,11 @@ Usage as a Laravel Scout driver
 First, follow [Laravel Scout installation](https://laravel.com/docs/8.0/scout#installation).  
 All you have to do is updating the following lines in `config/scout.php`:
 ```php
-# change the default driver to 'es'
-'driver' => env('SCOUT_DRIVER', 'es'),
+# change the default driver to 'elasticsearch'
+'driver' => env('SCOUT_DRIVER', 'elasticsearch'),
 
-# link `es` driver with default elasticsearch connection in config/es.php
-'es' => [
+# link `elasticsearch` driver with default elasticsearch connection in config/es.php
+'elasticsearch' => [
     'connection' => env('ELASTIC_CONNECTION', 'default'),
 ],
 ```

@@ -31,6 +31,7 @@ use Matchory\Elasticsearch\Exceptions\DocumentNotFoundException;
 use Matchory\Elasticsearch\Interfaces\ConnectionInterface as Connection;
 use Matchory\Elasticsearch\Interfaces\ConnectionResolverInterface;
 use ReturnTypeWillChange;
+
 use function array_key_exists;
 use function array_merge;
 use function array_unique;
@@ -50,6 +51,7 @@ use function settype;
 use function sprintf;
 use function tap;
 use function ucfirst;
+
 use const DATE_ATOM;
 
 /**
@@ -64,11 +66,11 @@ use const DATE_ATOM;
  * @package Matchory\Elasticsearch
  */
 class Model implements Arrayable,
-    ArrayAccess,
-    Jsonable,
-    JsonSerializable,
-    QueueableEntity,
-    UrlRoutable
+                       ArrayAccess,
+                       Jsonable,
+                       JsonSerializable,
+                       QueueableEntity,
+                       UrlRoutable
 {
     use ForwardsCalls;
     use HasAttributes;
@@ -199,80 +201,155 @@ class Model implements Arrayable,
     }
 
     /**
-     * Get an attribute from the model.
+     * Check if the model needs to be booted and if so, do it.
      *
-     * @param string $key
+     * @return void
+     */
+    protected function bootIfNotBooted(): void
+    {
+        if (!isset(static::$booted[static::class])) {
+            static::$booted[static::class] = true;
+
+            $this->fireModelEvent('booting', false);
+
+            static::booting();
+            static::boot();
+            static::booted();
+
+            $this->fireModelEvent('booted', false);
+        }
+    }
+
+    /**
+     * Perform any actions required before the model boots.
      *
-     * @return mixed
+     * @return void
+     */
+    protected static function booting(): void
+    {
+        //
+    }
+
+    /**
+     * Bootstrap the model and its traits.
+     *
+     * @return void
+     */
+    protected static function boot(): void
+    {
+        static::bootTraits();
+    }
+
+    /**
+     * Boot all bootable traits on the model.
+     *
+     * @return void
+     */
+    protected static function bootTraits(): void
+    {
+        $class = static::class;
+        $booted = [];
+
+        static::$traitInitializers[$class] = [];
+
+        foreach (class_uses_recursive($class) as $trait) {
+            $method = 'boot' . class_basename($trait);
+
+            if (
+                method_exists($class, $method) &&
+                !in_array($method, $booted, true)
+            ) {
+                forward_static_call([$class, $method]);
+
+                $booted[] = $method;
+            }
+
+            if (method_exists(
+                $class,
+                $method = 'initialize' . class_basename($trait)
+            )) {
+                /** @noinspection UnsupportedStringOffsetOperationsInspection */
+                static::$traitInitializers[$class][] = $method;
+
+                static::$traitInitializers[$class] = array_unique(
+                    static::$traitInitializers[$class]
+                );
+            }
+        }
+    }
+
+    /**
+     * Perform any actions required after the model boots.
+     *
+     * @return void
+     */
+    protected static function booted(): void
+    {
+        //
+    }
+
+    /**
+     * Initialize any initializable traits on the model.
+     *
+     * @return void
+     */
+    protected function initializeTraits(): void
+    {
+        foreach (static::$traitInitializers[static::class] as $method) {
+            $this->{$method}();
+        }
+    }
+
+    /**
+     * Fill the model with an array of attributes. Force mass assignment.
+     *
+     * @param array $attributes
+     *
+     * @return static
      * @throws InvalidCastException
-     * @noinspection PhpDeprecationInspection
+     * @throws JsonEncodingException
+     * @throws MassAssignmentException
      */
-    public function getAttribute(string $key): mixed
+    public function forceFill(array $attributes): self
     {
-        if (!$key) {
-            return null;
-        }
-
-        // If the attribute exists in the metadata array, we will get the value
-        // from there.
-        if (array_key_exists($key, $this->resultMetadata)) {
-            return $this->getResultMetadataValue($key);
-        }
-
-        if ($key === '_index') {
-            return $this->getIndex();
-        }
-
-        if ($key === '_type') {
-            return $this->getType();
-        }
-
-        if ($key === '_score') {
-            return $this->getScore();
-        }
-
-        // If the attribute exists in the attribute array or has a "get" mutator
-        // we will get the attribute's value.
-        if (
-            array_key_exists($key, $this->attributes) ||
-            array_key_exists($key, $this->casts) ||
-            $this->hasGetMutator($key) ||
-            $this->isClassCastable($key)
-        ) {
-            return $this->getAttributeValue($key);
-        }
-
-        return null;
+        return static::unguarded(function () use ($attributes) {
+            return $this->fill($attributes);
+        });
     }
 
     /**
-     * Get all of the current attributes on the model.
+     * Fill the model with an array of attributes.
      *
-     * @return array
+     * @param array<string, mixed> $attributes
+     *
+     * @return static
+     *
+     * @throws InvalidCastException
+     * @throws JsonEncodingException
+     * @throws MassAssignmentException
      */
-    public function getAttributes(): array
+    public function fill(array $attributes): self
     {
-        return $this->attributes;
-    }
+        $totallyGuarded = $this->totallyGuarded();
 
-    /**
-     * Get the casts array.
-     *
-     * @return array
-     */
-    public function getCasts(): array
-    {
-        return $this->casts;
-    }
+        foreach ($this->fillableFromArray($attributes) as $key => $value) {
+            // The developers may choose to place some attributes in the "fillable" array
+            // which means only those attributes may be set through mass assignment to
+            // the model, and all others will just get ignored for security reasons.
+            if ($this->isFillable($key)) {
+                $this->setAttribute($key, $value);
+            } elseif ($totallyGuarded) {
+                throw new MassAssignmentException(
+                    sprintf(
+                        'Add [%s] to fillable property to allow mass assignment on [%s].',
+                        $key,
+                        get_class($this)
+                    )
+                );
+            }
+        }
 
-    /**
-     * Get the format for database stored dates.
-     *
-     * @return string
-     */
-    public function getDateFormat(): string
-    {
-        return $this->dateFormat ?: DATE_ATOM;
+        return $this;
     }
 
     /**
@@ -329,6 +406,493 @@ class Model implements Arrayable,
     }
 
     /**
+     * Get the connection resolver instance.
+     *
+     * @return ConnectionResolverInterface
+     * @internal This method is used by the package during initialization to get
+     *           the models to resolve the Elasticsearch connection. You won't
+     *           need it during normal operation. It may change at any time.
+     */
+    public static function getConnectionResolver(): ConnectionResolverInterface
+    {
+        assert(static::$resolver !== null);
+
+        return static::$resolver;
+    }
+
+    /**
+     * Set the connection resolver instance.
+     *
+     * @param ConnectionResolverInterface $resolver
+     *
+     * @return void
+     * @internal This method is used by the package during initialization to get
+     *           the models to resolve the Elasticsearch connection. You won't
+     *           need it during normal operation. It may change at any time.
+     */
+    public static function setConnectionResolver(ConnectionResolverInterface $resolver): void
+    {
+        static::$resolver = $resolver;
+    }
+
+    /**
+     * Handle dynamic static method calls into the method.
+     *
+     * @param string $method
+     * @param array $parameters
+     *
+     * @return mixed
+     */
+    public static function __callStatic(string $method, array $parameters)
+    {
+        return (new static())->$method(...$parameters);
+    }
+
+    /**
+     * Clear the list of booted models so they will be re-booted.
+     *
+     * @return void
+     */
+    public static function clearBootedModels(): void
+    {
+        static::$booted = [];
+        static::$globalScopes = [];
+    }
+
+    /**
+     * Save a new model and return the instance.
+     *
+     * @param array $attributes
+     * @param string|null $id
+     *
+     * @return static
+     * @throws InvalidCastException
+     * @throws JsonEncodingException
+     * @psalm-suppress LessSpecificReturnStatement
+     * @noinspection   PhpUnhandledExceptionInspection
+     */
+    public static function create(array $attributes, string|null $id = null): self
+    {
+        $metadata = [];
+        if (!is_null($id)) {
+            $metadata['_id'] = $id;
+        }
+
+        return tap(
+            (new static())->newInstance($attributes, $metadata),
+            static fn(self $instance) => $instance->save()
+        );
+    }
+
+    /**
+     * Create a new instance of the given model.
+     * This method just provides a convenient way for us to generate fresh
+     * model instances of this current model. It is particularly useful during
+     * the hydration of new objects via the Query instance.
+     *
+     * @param array $attributes Model attributes
+     * @param array $metadata Query result metadata
+     * @param bool $exists Whether the document exists
+     * @param string|null $index Name of the index the document lives in
+     * @param string|null $type (Deprecated) Mapping type of the document
+     *
+     * @return static
+     * @noinspection PhpDeprecationInspection
+     */
+    public function newInstance(
+        array $attributes = [],
+        array $metadata = [],
+        bool $exists = false,
+        string|null $index = null,
+        string|null $type = null
+    ): self {
+        $model = new static([], $exists);
+
+        $model->setRawAttributes($attributes, true);
+        $model->setConnectionName($this->getConnectionName());
+        $model->setResultMetadata($metadata);
+        $model->setIndex($index ?? $this->getIndex());
+        $model->setType($type ?? $this->getType());
+        $model->mergeCasts($this->casts);
+
+        $model->fireModelEvent('retrieved', false);
+
+        return $model;
+    }
+
+    /**
+     * Save the model to the index.
+     *
+     * @return static
+     * @throws InvalidCastException
+     * @throws JsonEncodingException
+     */
+    public function save(): self
+    {
+        $this->mergeAttributesFromClassCasts();
+
+        $query = $this->newQuery();
+
+        // If the "saving" event returns false we'll bail out of the save and
+        // return false, indicating that the save failed. This provides a chance
+        // for any listeners to cancel save operations if validations fail
+        // or whatever.
+        if ($this->fireModelEvent('saving') === false) {
+            return $this;
+        }
+
+        // If the model already exists in the index we can just update our
+        // record that is already in this index using the current ID to only
+        // update this model. Otherwise, we'll just insert it.
+        if ($this->exists) {
+            $saved = !$this->isDirty() || $this->performUpdate($query);
+        }
+
+        // If the model is brand new, we'll insert it into our index and set the
+        // ID attribute on the model to the value of the newly inserted ID.
+        else {
+            $saved = $this->performInsert($query);
+        }
+
+        // If the model is successfully saved, we need to do a few more things
+        // once that is done. We will call the "saved" method here to run any
+        // actions we need to happen after a model gets successfully saved
+        // right here.
+        if ($saved) {
+            $this->finishSave();
+        }
+
+        return $this;
+    }
+
+    /**
+     * Perform a model update operation.
+     *
+     * @param Query<static> $query
+     *
+     * @return bool
+     * @throws InvalidCastException
+     */
+    protected function performUpdate(Query $query): bool
+    {
+        // If the updating event returns false, we will cancel the update
+        // operation so developers can hook Validation systems into their models
+        // and cancel this  operation if the model does not pass validation.
+        // Otherwise, we update.
+        if ($this->fireModelEvent('updating') === false) {
+            return false;
+        }
+
+        // Once we have run the update operation, we will fire the "updated"
+        // event for this model instance. This will allow developers to hook
+        // into these after models are updated, giving them a chance to do any
+        // special processing.
+        $dirty = $this->getDirty();
+
+        if (count($dirty) === 0) {
+            return true;
+        }
+
+        $this->setKeysForSaveQuery($query)
+            ->update($dirty);
+
+        $this->syncChanges();
+
+        $this->fireModelEvent('updated', false);
+
+        return true;
+    }
+
+    /**
+     * Set the keys for a save update query.
+     *
+     * @template TModel of Model
+     *
+     * @param Query<TModel> $query
+     *
+     * @return Query<TModel>
+     * @throws InvalidCastException
+     */
+    protected function setKeysForSaveQuery(Query $query): Query
+    {
+        $query->id($this->getKeyForSaveQuery());
+
+        return $query;
+    }
+
+    /**
+     * Get the primary key value for a save query.
+     *
+     * @return string|null
+     * @throws InvalidCastException
+     */
+    protected function getKeyForSaveQuery(): string|null
+    {
+        return $this->original[self::FIELD_ID] ?? $this->getKey();
+    }
+
+    /**
+     * Perform a model insert operation.
+     *
+     * @param Query<static> $query
+     *
+     * @return bool
+     * @throws InvalidCastException
+     * @throws JsonEncodingException
+     */
+    protected function performInsert(Query $query): bool
+    {
+        if ($this->fireModelEvent('creating') === false) {
+            return false;
+        }
+
+        $attributes = $this->getAttributes();
+
+        if ($id = $this->getKey()) {
+            if (empty($attributes)) {
+                return true;
+            }
+
+            $result = $query->insert($attributes, $id);
+            $this->setAttribute('_type', $result->_type ?? null);
+        } else {
+            $this->insertAndSetId($query, $attributes);
+        }
+
+        // We will go ahead and set the exists property to true, so that it is
+        // set when the created event is fired, just in case the developer tries
+        // to update it  during the event. This will allow them to do so and run
+        // an update here.
+        $this->exists = true;
+
+        $this->wasRecentlyCreated = true;
+
+        $this->fireModelEvent('created', false);
+
+        return true;
+    }
+
+    /**
+     * Get all of the current attributes on the model.
+     *
+     * @return array
+     */
+    public function getAttributes(): array
+    {
+        return $this->attributes;
+    }
+
+    /**
+     * Insert the given attributes and set the ID on the model.
+     *
+     * @param Query<static> $query
+     * @param array $attributes
+     *
+     * @return void
+     * @throws InvalidCastException
+     * @throws JsonEncodingException
+     */
+    protected function insertAndSetId(Query $query, array $attributes): void
+    {
+        $result = $query->insert($attributes);
+
+        if (isset($result->_index)) {
+            $this->setIndex($result->_index);
+        }
+
+        if (isset($result->_type)) {
+            $this->setAttribute('_type', $result->_type);
+        }
+
+        $this->setAttribute(self::FIELD_ID, $result->_id);
+    }
+
+    /**
+     * Perform any actions that are necessary after the model is saved.
+     *
+     * @return void
+     */
+    protected function finishSave(): void
+    {
+        $this->fireModelEvent('saved', false);
+
+        $this->syncOriginal();
+    }
+
+    /**
+     * Destroy the models for the given IDs.
+     *
+     * @param array|int|string|BaseCollection $ids
+     *
+     * @return int
+     * @throws InvalidCastException
+     */
+    public static function destroy(array|BaseCollection|int|string $ids): int
+    {
+        if ($ids instanceof BaseCollection) {
+            $ids = $ids->all();
+        }
+
+        $ids = is_array($ids) ? $ids : func_get_args();
+
+        if (count($ids) === 0) {
+            return 0;
+        }
+
+        // We will actually pull the models from the index and call delete on
+        // each of them individually so that their events get fired properly
+        // with a correct set of attributes in case the developers wants to
+        // check these.
+        $count = 0;
+        $query = (new static())
+            ->newQuery()
+            ->whereIn(self::FIELD_ID, $ids)
+            ->get();
+
+        foreach ($query as $model) {
+            if ($model->delete()) {
+                $count++;
+            }
+        }
+
+        return $count;
+    }
+
+    /**
+     * Retrieves all model documents.
+     *
+     * @param string|null $scrollId
+     *
+     * @return Collection
+     */
+    public static function all(string|null $scrollId = null): Collection
+    {
+        return static::query()->get($scrollId);
+    }
+
+    /**
+     * Begin querying the model.
+     *
+     * @return Query<static>
+     */
+    public static function query(): Query
+    {
+        return (new static())->newQuery();
+    }
+
+    /**
+     * Delete model record
+     *
+     * @return bool
+     * @throws InvalidCastException
+     */
+    public function delete(): bool
+    {
+        $this->mergeAttributesFromClassCasts();
+
+        // If the model doesn't exist, there is nothing to delete so we'll just
+        // return immediately and not do anything else. Otherwise, we will
+        // continue with a deletion process on the model, firing the proper
+        // events, and so forth.
+        if (!$this->exists) {
+            return false;
+        }
+
+        if ($this->fireModelEvent('deleting') === false) {
+            return false;
+        }
+
+        $this->performDeleteOnModel();
+
+        // Once the model has been deleted, we will fire off the deleted event
+        // so that the developers may hook into post-delete operations.
+        $this->fireModelEvent('deleted', false);
+
+        return true;
+    }
+
+    /**
+     * Perform the actual delete query on this model instance.
+     *
+     * @return void
+     * @throws InvalidCastException
+     */
+    protected function performDeleteOnModel(): void
+    {
+        $this->setKeysForSaveQuery($this->newQuery())->delete();
+
+        $this->exists = false;
+    }
+
+    /**
+     * Retrieves a model by key or fails.
+     *
+     * @param string $key
+     *
+     * @return static
+     * @throws DocumentNotFoundException
+     * @psalm-suppress MismatchingDocblockReturnType
+     */
+    public static function findOrFail(string $key): self
+    {
+        $result = static::find($key);
+
+        if (is_null($result)) {
+            throw (new DocumentNotFoundException())->setModel(
+                static::class,
+                $key
+            );
+        }
+
+        return $result;
+    }
+
+    /**
+     * Retrieves a model by key.
+     *
+     * @param string $key
+     *
+     * @return static|null
+     */
+    public static function find(string $key): static|null
+    {
+        return static::query()->id($key)->first();
+    }
+
+    /**
+     * Unset the connection resolver for models.
+     *
+     * @return void
+     * @internal This method is used by the package during initialization to get
+     *           the models to resolve the Elasticsearch connection. You won't
+     *           need it during normal operation. It may change at any time.
+     */
+    public static function unsetConnectionResolver(): void
+    {
+        static::$resolver = null;
+    }
+
+    /**
+     * Get the casts array.
+     *
+     * @return array
+     */
+    public function getCasts(): array
+    {
+        return $this->casts;
+    }
+
+    /**
+     * Get the format for database stored dates.
+     *
+     * @return string
+     */
+    public function getDateFormat(): string
+    {
+        return $this->dateFormat ?: DATE_ATOM;
+    }
+
+    /**
      * Set the date format used by the model.
      *
      * @param string $format
@@ -340,33 +904,6 @@ class Model implements Arrayable,
         $this->dateFormat = $format;
 
         return $this;
-    }
-
-    /**
-     * Transform a raw model value using mutators, casts, etc.
-     *
-     * @param string $key
-     * @param mixed $value
-     *
-     * @return mixed
-     */
-    protected function transformModelValue(string $key, mixed $value): mixed
-    {
-        // If the attribute has a get mutator, we will call that, then return
-        // what it returns as the value, which is useful for transforming values
-        // on  retrieval from the model to a form that is more useful for usage.
-        if ($this->hasGetMutator($key)) {
-            return $this->mutateAttribute($key, $value);
-        }
-
-        // If the attribute exists within the cast array, we will convert it to
-        // an appropriate native PHP type dependent upon the associated value
-        // given with the key in the pair. Dayle made this comment line up.
-        if ($this->hasCast($key)) {
-            return $this->castAttribute($key, $value);
-        }
-
-        return $value;
     }
 
     /**
@@ -407,21 +944,6 @@ class Model implements Arrayable,
     }
 
     /**
-     * Get the connection resolver instance.
-     *
-     * @return ConnectionResolverInterface
-     * @internal This method is used by the package during initialization to get
-     *           the models to resolve the Elasticsearch connection. You won't
-     *           need it during normal operation. It may change at any time.
-     */
-    public static function getConnectionResolver(): ConnectionResolverInterface
-    {
-        assert(static::$resolver !== null);
-
-        return static::$resolver;
-    }
-
-    /**
      * Retrieves the result highlights.
      *
      * @return array<string, mixed>|null
@@ -430,6 +952,47 @@ class Model implements Arrayable,
     public function getHighlight(): array|null
     {
         return $this->getResultMetadataValue('highlight');
+    }
+
+    /**
+     * Retrieves result metadata retrieved from the query
+     *
+     * @param string $key
+     *
+     * @return mixed
+     */
+    public function getResultMetadataValue(string $key): mixed
+    {
+        return array_key_exists($key, $this->resultMetadata)
+            ? $this->transformModelValue($key, $this->resultMetadata[$key])
+            : null;
+    }
+
+    /**
+     * Transform a raw model value using mutators, casts, etc.
+     *
+     * @param string $key
+     * @param mixed $value
+     *
+     * @return mixed
+     */
+    protected function transformModelValue(string $key, mixed $value): mixed
+    {
+        // If the attribute has a get mutator, we will call that, then return
+        // what it returns as the value, which is useful for transforming values
+        // on  retrieval from the model to a form that is more useful for usage.
+        if ($this->hasGetMutator($key)) {
+            return $this->mutateAttribute($key, $value);
+        }
+
+        // If the attribute exists within the cast array, we will convert it to
+        // an appropriate native PHP type dependent upon the associated value
+        // given with the key in the pair. Dayle made this comment line up.
+        if ($this->hasCast($key)) {
+            return $this->castAttribute($key, $value);
+        }
+
+        return $value;
     }
 
     /**
@@ -452,16 +1015,50 @@ class Model implements Arrayable,
     }
 
     /**
-     * Retrieves the model key
+     * Get an attribute from the model.
      *
-     * @return string|null
+     * @param string $key
+     *
+     * @return mixed
      * @throws InvalidCastException
+     * @noinspection PhpDeprecationInspection
      */
-    public function getId(): string|null
+    public function getAttribute(string $key): mixed
     {
-        $id = $this->getAttribute(self::FIELD_ID);
+        if (!$key) {
+            return null;
+        }
 
-        return $id ? (string)$id : null;
+        // If the attribute exists in the metadata array, we will get the value
+        // from there.
+        if (array_key_exists($key, $this->resultMetadata)) {
+            return $this->getResultMetadataValue($key);
+        }
+
+        if ($key === '_index') {
+            return $this->getIndex();
+        }
+
+        if ($key === '_type') {
+            return $this->getType();
+        }
+
+        if ($key === '_score') {
+            return $this->getScore();
+        }
+
+        // If the attribute exists in the attribute array or has a "get" mutator
+        // we will get the attribute's value.
+        if (
+            array_key_exists($key, $this->attributes) ||
+            array_key_exists($key, $this->casts) ||
+            $this->hasGetMutator($key) ||
+            $this->isClassCastable($key)
+        ) {
+            return $this->getAttributeValue($key);
+        }
+
+        return null;
     }
 
     /**
@@ -487,14 +1084,42 @@ class Model implements Arrayable,
     }
 
     /**
-     * Get the value of the model's primary key.
+     * Retrieves the document mapping type.
      *
      * @return string|null
-     * @throws InvalidCastException
+     * @deprecated Mapping types are deprecated as of Elasticsearch 7.0.0
+     * @see        https://www.elastic.co/guide/en/elasticsearch/reference/7.10/removal-of-types.html
      */
-    public function getKey(): string|null
+    #[Deprecated('Mapping types are deprecated as of Elasticsearch 7.0.0')]
+    public function getType(): string|null
     {
-        return $this->getAttribute(self::FIELD_ID);
+        return $this->type;
+    }
+
+    /**
+     * Sets the document mapping type.
+     *
+     * @param string|null $type
+     *
+     * @return void
+     * @deprecated Mapping types are deprecated as of Elasticsearch 7.0.0
+     * @see        https://www.elastic.co/guide/en/elasticsearch/reference/7.10/removal-of-types.html
+     */
+    #[Deprecated(reason: 'Mapping types are deprecated as of Elasticsearch 7.0.0')]
+    public function setType(string|null $type): void
+    {
+        $this->type = $type;
+    }
+
+    /**
+     * Retrieves the result score.
+     *
+     * @return float|null
+     * @internal
+     */
+    public function getScore(): float|null
+    {
+        return $this->getResultMetadataValue('_score');
     }
 
     /**
@@ -513,6 +1138,17 @@ class Model implements Arrayable,
     public function getQueueableId(): string|null
     {
         return $this->getKey();
+    }
+
+    /**
+     * Get the value of the model's primary key.
+     *
+     * @return string|null
+     * @throws InvalidCastException
+     */
+    public function getKey(): string|null
+    {
+        return $this->getAttribute(self::FIELD_ID);
     }
 
     /**
@@ -545,20 +1181,6 @@ class Model implements Arrayable,
     public function setResultMetadata(array $resultMetadata): void
     {
         $this->resultMetadata = $resultMetadata;
-    }
-
-    /**
-     * Retrieves result metadata retrieved from the query
-     *
-     * @param string $key
-     *
-     * @return mixed
-     */
-    public function getResultMetadataValue(string $key): mixed
-    {
-        return array_key_exists($key, $this->resultMetadata)
-            ? $this->transformModelValue($key, $this->resultMetadata[$key])
-            : null;
     }
 
     /**
@@ -624,14 +1246,81 @@ class Model implements Arrayable,
     }
 
     /**
-     * Retrieves the result score.
+     * Get a new query builder scoped to the current model.
      *
-     * @return float|null
-     * @internal
+     * @return Query<static>
+     * @noinspection PhpDeprecationInspection
      */
-    public function getScore(): float|null
+    public function newQuery(): Query
     {
-        return $this->getResultMetadataValue('_score');
+        $query = $this->registerGlobalScopes($this->newQueryBuilder());
+        $query = $query->setModel($this);
+
+        if ($index = $this->getIndex()) {
+            $query->index($index);
+        }
+
+        if ($type = $this->getType()) {
+            $query->type($type);
+        }
+
+        if ($fields = $this->getSelectable()) {
+            $query->select($fields);
+        }
+
+        if ($fields = $this->getUnSelectable()) {
+            $query->unselect($fields);
+        }
+
+        return $query;
+    }
+
+    /**
+     * Register the global scopes for this builder instance.
+     *
+     * @template TModel of Model
+     *
+     * @param Query<TModel> $query
+     *
+     * @return Query<TModel>
+     */
+    public function registerGlobalScopes(Query $query): Query
+    {
+        foreach ($this->getGlobalScopes() as $identifier => $scope) {
+            $query->withGlobalScope($identifier, $scope);
+        }
+
+        return $query;
+    }
+
+    /**
+     * Get a new query builder instance for the connection.
+     *
+     * @return Query<self>
+     */
+    protected function newQueryBuilder(): Query
+    {
+        return static
+            ::resolveConnection($this->getConnectionName())
+            ->newQuery();
+    }
+
+    /**
+     * Resolve a connection instance.
+     *
+     * @param string|null $connection
+     *
+     * @return Connection
+     * @internal This method is used by the package during initialization to get
+     *           the models to resolve the Elasticsearch connection. You won't
+     *           need it during normal operation. It may change at any time.
+     */
+    public static function resolveConnection(
+        string|null $connection = null
+    ): Connection {
+        assert(static::$resolver !== null);
+
+        return static::$resolver->connection($connection);
     }
 
     /**
@@ -642,34 +1331,6 @@ class Model implements Arrayable,
     public function getSelectable(): array
     {
         return $this->selectable ?: [];
-    }
-
-    /**
-     * Retrieves the document mapping type.
-     *
-     * @return string|null
-     * @deprecated Mapping types are deprecated as of Elasticsearch 7.0.0
-     * @see        https://www.elastic.co/guide/en/elasticsearch/reference/7.10/removal-of-types.html
-     */
-    #[Deprecated('Mapping types are deprecated as of Elasticsearch 7.0.0')]
-    public function getType(): string|null
-    {
-        return $this->type;
-    }
-
-    /**
-     * Sets the document mapping type.
-     *
-     * @param string|null $type
-     *
-     * @return void
-     * @deprecated Mapping types are deprecated as of Elasticsearch 7.0.0
-     * @see        https://www.elastic.co/guide/en/elasticsearch/reference/7.10/removal-of-types.html
-     */
-    #[Deprecated(reason: 'Mapping types are deprecated as of Elasticsearch 7.0.0')]
-    public function setType(string|null $type): void
-    {
-        $this->type = $type;
     }
 
     /**
@@ -696,265 +1357,6 @@ class Model implements Arrayable,
     public function setConnection(string $connectionName): void
     {
         $this->setConnectionName($connectionName);
-    }
-
-    /**
-     * Set the connection resolver instance.
-     *
-     * @param ConnectionResolverInterface $resolver
-     *
-     * @return void
-     * @internal This method is used by the package during initialization to get
-     *           the models to resolve the Elasticsearch connection. You won't
-     *           need it during normal operation. It may change at any time.
-     */
-    public static function setConnectionResolver(ConnectionResolverInterface $resolver): void
-    {
-        static::$resolver = $resolver;
-    }
-
-    /**
-     * Handle dynamic static method calls into the method.
-     *
-     * @param string $method
-     * @param array $parameters
-     *
-     * @return mixed
-     */
-    public static function __callStatic(string $method, array $parameters)
-    {
-        return (new static())->$method(...$parameters);
-    }
-
-    /**
-     * Retrieves all model documents.
-     *
-     * @param string|null $scrollId
-     *
-     * @return Collection
-     */
-    public static function all(string|null $scrollId = null): Collection
-    {
-        return static::query()->get($scrollId);
-    }
-
-    /**
-     * Clear the list of booted models so they will be re-booted.
-     *
-     * @return void
-     */
-    public static function clearBootedModels(): void
-    {
-        static::$booted = [];
-        static::$globalScopes = [];
-    }
-
-    /**
-     * Save a new model and return the instance.
-     *
-     * @param array $attributes
-     * @param string|null $id
-     *
-     * @return static
-     * @throws InvalidCastException
-     * @throws JsonEncodingException
-     * @psalm-suppress LessSpecificReturnStatement
-     * @noinspection   PhpUnhandledExceptionInspection
-     */
-    public static function create(array $attributes, string|null $id = null): self
-    {
-        $metadata = [];
-        if (!is_null($id)) {
-            $metadata['_id'] = $id;
-        }
-
-        return tap(
-            (new static())->newInstance($attributes, $metadata),
-            static fn(self $instance) => $instance->save()
-        );
-    }
-
-    /**
-     * Destroy the models for the given IDs.
-     *
-     * @param array|int|string|BaseCollection $ids
-     *
-     * @return int
-     * @throws InvalidCastException
-     */
-    public static function destroy(array|BaseCollection|int|string $ids): int
-    {
-        if ($ids instanceof BaseCollection) {
-            $ids = $ids->all();
-        }
-
-        $ids = is_array($ids) ? $ids : func_get_args();
-
-        if (count($ids) === 0) {
-            return 0;
-        }
-
-        // We will actually pull the models from the index and call delete on
-        // each of them individually so that their events get fired properly
-        // with a correct set of attributes in case the developers wants to
-        // check these.
-        $count = 0;
-        $query = (new static())
-            ->newQuery()
-            ->whereIn(self::FIELD_ID, $ids)
-            ->get();
-
-        foreach ($query as $model) {
-            if ($model->delete()) {
-                $count++;
-            }
-        }
-
-        return $count;
-    }
-
-    /**
-     * Retrieves a model by key.
-     *
-     * @param string $key
-     *
-     * @return static|null
-     */
-    public static function find(string $key): static|null
-    {
-        return static::query()->id($key)->first();
-    }
-
-    /**
-     * Retrieves a model by key or fails.
-     *
-     * @param string $key
-     *
-     * @return static
-     * @throws DocumentNotFoundException
-     * @psalm-suppress MismatchingDocblockReturnType
-     */
-    public static function findOrFail(string $key): self
-    {
-        $result = static::find($key);
-
-        if (is_null($result)) {
-            throw (new DocumentNotFoundException())->setModel(
-                static::class,
-                $key
-            );
-        }
-
-        return $result;
-    }
-
-    /**
-     * Begin querying the model.
-     *
-     * @return Query<static>
-     */
-    public static function query(): Query
-    {
-        return (new static())->newQuery();
-    }
-
-    /**
-     * Resolve a connection instance.
-     *
-     * @param string|null $connection
-     *
-     * @return Connection
-     * @internal This method is used by the package during initialization to get
-     *           the models to resolve the Elasticsearch connection. You won't
-     *           need it during normal operation. It may change at any time.
-     */
-    public static function resolveConnection(
-        string|null $connection = null
-    ): Connection {
-        assert(static::$resolver !== null);
-
-        return static::$resolver->connection($connection);
-    }
-
-    /**
-     * Unset the connection resolver for models.
-     *
-     * @return void
-     * @internal This method is used by the package during initialization to get
-     *           the models to resolve the Elasticsearch connection. You won't
-     *           need it during normal operation. It may change at any time.
-     */
-    public static function unsetConnectionResolver(): void
-    {
-        static::$resolver = null;
-    }
-
-    /**
-     * Bootstrap the model and its traits.
-     *
-     * @return void
-     */
-    protected static function boot(): void
-    {
-        static::bootTraits();
-    }
-
-    /**
-     * Boot all bootable traits on the model.
-     *
-     * @return void
-     */
-    protected static function bootTraits(): void
-    {
-        $class = static::class;
-        $booted = [];
-
-        static::$traitInitializers[$class] = [];
-
-        foreach (class_uses_recursive($class) as $trait) {
-            $method = 'boot' . class_basename($trait);
-
-            if (
-                method_exists($class, $method) &&
-                !in_array($method, $booted, true)
-            ) {
-                forward_static_call([$class, $method]);
-
-                $booted[] = $method;
-            }
-
-            if (method_exists(
-                $class,
-                $method = 'initialize' . class_basename($trait)
-            )) {
-                /** @noinspection UnsupportedStringOffsetOperationsInspection */
-                static::$traitInitializers[$class][] = $method;
-
-                static::$traitInitializers[$class] = array_unique(
-                    static::$traitInitializers[$class]
-                );
-            }
-        }
-    }
-
-    /**
-     * Perform any actions required after the model boots.
-     *
-     * @return void
-     */
-    protected static function booted(): void
-    {
-        //
-    }
-
-    /**
-     * Perform any actions required before the model boots.
-     *
-     * @return void
-     */
-    protected static function booting(): void
-    {
-        //
     }
 
     /**
@@ -1021,6 +1423,19 @@ class Model implements Arrayable,
     }
 
     /**
+     * Determine if the given attribute exists.
+     *
+     * @param mixed $offset
+     *
+     * @return bool
+     * @throws InvalidCastException
+     */
+    public function offsetExists(mixed $offset): bool
+    {
+        return !is_null($this->getAttribute($offset));
+    }
+
+    /**
      * Unset an attribute on the model.
      *
      * @param string $key
@@ -1030,6 +1445,18 @@ class Model implements Arrayable,
     public function __unset(string $key)
     {
         $this->offsetUnset($key);
+    }
+
+    /**
+     * Unset the value for a given offset.
+     *
+     * @param mixed $offset
+     *
+     * @return void
+     */
+    public function offsetUnset(mixed $offset): void
+    {
+        unset($this->attributes[$offset]);
     }
 
     /**
@@ -1046,37 +1473,6 @@ class Model implements Arrayable,
     }
 
     /**
-     * Delete model record
-     *
-     * @return bool
-     * @throws InvalidCastException
-     */
-    public function delete(): bool
-    {
-        $this->mergeAttributesFromClassCasts();
-
-        // If the model doesn't exist, there is nothing to delete so we'll just
-        // return immediately and not do anything else. Otherwise, we will
-        // continue with a deletion process on the model, firing the proper
-        // events, and so forth.
-        if (!$this->exists) {
-            return false;
-        }
-
-        if ($this->fireModelEvent('deleting') === false) {
-            return false;
-        }
-
-        $this->performDeleteOnModel();
-
-        // Once the model has been deleted, we will fire off the deleted event
-        // so that the developers may hook into post-delete operations.
-        $this->fireModelEvent('deleted', false);
-
-        return true;
-    }
-
-    /**
      * Check model is exists
      *
      * @return bool
@@ -1084,55 +1480,6 @@ class Model implements Arrayable,
     public function exists(): bool
     {
         return $this->exists;
-    }
-
-    /**
-     * Fill the model with an array of attributes.
-     *
-     * @param array<string, mixed> $attributes
-     *
-     * @return static
-     *
-     * @throws InvalidCastException
-     * @throws JsonEncodingException
-     * @throws MassAssignmentException
-     */
-    public function fill(array $attributes): self
-    {
-        $totallyGuarded = $this->totallyGuarded();
-
-        foreach ($this->fillableFromArray($attributes) as $key => $value) {
-            // The developers may choose to place some attributes in the "fillable" array
-            // which means only those attributes may be set through mass assignment to
-            // the model, and all others will just get ignored for security reasons.
-            if ($this->isFillable($key)) {
-                $this->setAttribute($key, $value);
-            } elseif ($totallyGuarded) {
-                throw new MassAssignmentException(sprintf(
-                    'Add [%s] to fillable property to allow mass assignment on [%s].',
-                    $key, get_class($this)
-                ));
-            }
-        }
-
-        return $this;
-    }
-
-    /**
-     * Fill the model with an array of attributes. Force mass assignment.
-     *
-     * @param array $attributes
-     *
-     * @return static
-     * @throws InvalidCastException
-     * @throws JsonEncodingException
-     * @throws MassAssignmentException
-     */
-    public function forceFill(array $attributes): self
-    {
-        return static::unguarded(function () use ($attributes) {
-            return $this->fill($attributes);
-        });
     }
 
     /**
@@ -1148,6 +1495,19 @@ class Model implements Arrayable,
             $this,
             'scope' . ucfirst($scope)
         );
+    }
+
+    /**
+     * Determine if two models are not the same.
+     *
+     * @param static|null $model
+     *
+     * @return bool
+     * @throws InvalidCastException
+     */
+    public function isNot(self|null $model): bool
+    {
+        return !$this->is($model);
     }
 
     /**
@@ -1169,25 +1529,16 @@ class Model implements Arrayable,
     }
 
     /**
-     * Determine if two models are not the same.
+     * Retrieves the model key
      *
-     * @param static|null $model
-     *
-     * @return bool
+     * @return string|null
      * @throws InvalidCastException
      */
-    public function isNot(self|null $model): bool
+    public function getId(): string|null
     {
-        return !$this->is($model);
-    }
+        $id = $this->getAttribute(self::FIELD_ID);
 
-    /**
-     * @inheritDoc
-     * @return array
-     */
-    public function jsonSerialize(): array
-    {
-        return $this->toArray();
+        return $id ? (string)$id : null;
     }
 
     /**
@@ -1200,85 +1551,6 @@ class Model implements Arrayable,
     public function newCollection(array $models = []): Collection
     {
         return new Collection($models);
-    }
-
-    /**
-     * Create a new instance of the given model.
-     * This method just provides a convenient way for us to generate fresh
-     * model instances of this current model. It is particularly useful during
-     * the hydration of new objects via the Query instance.
-     *
-     * @param array $attributes Model attributes
-     * @param array $metadata Query result metadata
-     * @param bool $exists Whether the document exists
-     * @param string|null $index Name of the index the document lives in
-     * @param string|null $type (Deprecated) Mapping type of the document
-     *
-     * @return static
-     * @noinspection PhpDeprecationInspection
-     */
-    public function newInstance(
-        array $attributes = [],
-        array $metadata = [],
-        bool $exists = false,
-        string|null $index = null,
-        string|null $type = null
-    ): self {
-        $model = new static([], $exists);
-
-        $model->setRawAttributes($attributes, true);
-        $model->setConnectionName($this->getConnectionName());
-        $model->setResultMetadata($metadata);
-        $model->setIndex($index ?? $this->getIndex());
-        $model->setType($type ?? $this->getType());
-        $model->mergeCasts($this->casts);
-
-        $model->fireModelEvent('retrieved', false);
-
-        return $model;
-    }
-
-    /**
-     * Get a new query builder scoped to the current model.
-     *
-     * @return Query<static>
-     * @noinspection PhpDeprecationInspection
-     */
-    public function newQuery(): Query
-    {
-        $query = $this->registerGlobalScopes($this->newQueryBuilder());
-        $query = $query->setModel($this);
-
-        if ($index = $this->getIndex()) {
-            $query->index($index);
-        }
-
-        if ($type = $this->getType()) {
-            $query->type($type);
-        }
-
-        if ($fields = $this->getSelectable()) {
-            $query->select($fields);
-        }
-
-        if ($fields = $this->getUnSelectable()) {
-            $query->unselect($fields);
-        }
-
-        return $query;
-    }
-
-    /**
-     * Determine if the given attribute exists.
-     *
-     * @param mixed $offset
-     *
-     * @return bool
-     * @throws InvalidCastException
-     */
-    public function offsetExists(mixed $offset): bool
-    {
-        return !is_null($this->getAttribute($offset));
     }
 
     /**
@@ -1311,36 +1583,6 @@ class Model implements Arrayable,
     }
 
     /**
-     * Unset the value for a given offset.
-     *
-     * @param mixed $offset
-     *
-     * @return void
-     */
-    public function offsetUnset(mixed $offset): void
-    {
-        unset($this->attributes[$offset]);
-    }
-
-    /**
-     * Register the global scopes for this builder instance.
-     *
-     * @template TModel of Model
-     *
-     * @param Query<TModel> $query
-     *
-     * @return Query<TModel>
-     */
-    public function registerGlobalScopes(Query $query): Query
-    {
-        foreach ($this->getGlobalScopes() as $identifier => $scope) {
-            $query->withGlobalScope($identifier, $scope);
-        }
-
-        return $query;
-    }
-
-    /**
      * Clone the model into a new, non-existing instance.
      *
      * @param array|null $except
@@ -1353,9 +1595,11 @@ class Model implements Arrayable,
             self::FIELD_ID,
         ];
 
-        $attributes = Arr::except($this->getAttributes(), $except
-            ? array_unique(array_merge($except, $defaults))
-            : $defaults
+        $attributes = Arr::except(
+            $this->getAttributes(),
+            $except
+                ? array_unique(array_merge($except, $defaults))
+                : $defaults
         );
 
         return tap(new static(), static function (
@@ -1364,51 +1608,6 @@ class Model implements Arrayable,
             $instance->setRawAttributes($attributes);
             $instance->fireModelEvent('replicating', false);
         });
-    }
-
-    /**
-     * Save the model to the index.
-     *
-     * @return static
-     * @throws InvalidCastException
-     * @throws JsonEncodingException
-     */
-    public function save(): self
-    {
-        $this->mergeAttributesFromClassCasts();
-
-        $query = $this->newQuery();
-
-        // If the "saving" event returns false we'll bail out of the save and
-        // return false, indicating that the save failed. This provides a chance
-        // for any listeners to cancel save operations if validations fail
-        // or whatever.
-        if ($this->fireModelEvent('saving') === false) {
-            return $this;
-        }
-
-        // If the model already exists in the index we can just update our
-        // record that is already in this index using the current ID to only
-        // update this model. Otherwise, we'll just insert it.
-        if ($this->exists) {
-            $saved = !$this->isDirty() || $this->performUpdate($query);
-        }
-
-        // If the model is brand new, we'll insert it into our index and set the
-        // ID attribute on the model to the value of the newly inserted ID.
-        else {
-            $saved = $this->performInsert($query);
-        }
-
-        // If the model is successfully saved, we need to do a few more things
-        // once that is done. We will call the "saved" method here to run any
-        // actions we need to happen after a model gets successfully saved
-        // right here.
-        if ($saved) {
-            $this->finishSave();
-        }
-
-        return $this;
     }
 
     /**
@@ -1423,16 +1622,6 @@ class Model implements Arrayable,
         return static::withoutEvents(function () {
             return $this->save();
         });
-    }
-
-    /**
-     * Get model as array
-     *
-     * @return array
-     */
-    public function toArray(): array
-    {
-        return $this->attributesToArray();
     }
 
     /**
@@ -1452,6 +1641,25 @@ class Model implements Arrayable,
     }
 
     /**
+     * @inheritDoc
+     * @return array
+     */
+    public function jsonSerialize(): array
+    {
+        return $this->toArray();
+    }
+
+    /**
+     * Get model as array
+     *
+     * @return array
+     */
+    public function toArray(): array
+    {
+        return $this->attributesToArray();
+    }
+
+    /**
      * Determine if the model uses timestamps.
      *
      * @return bool
@@ -1459,190 +1667,6 @@ class Model implements Arrayable,
     final public function usesTimestamps(): bool
     {
         return false;
-    }
-
-    /**
-     * Check if the model needs to be booted and if so, do it.
-     *
-     * @return void
-     */
-    protected function bootIfNotBooted(): void
-    {
-        if (!isset(static::$booted[static::class])) {
-            static::$booted[static::class] = true;
-
-            $this->fireModelEvent('booting', false);
-
-            static::booting();
-            static::boot();
-            static::booted();
-
-            $this->fireModelEvent('booted', false);
-        }
-    }
-
-    /**
-     * Perform any actions that are necessary after the model is saved.
-     *
-     * @return void
-     */
-    protected function finishSave(): void
-    {
-        $this->fireModelEvent('saved', false);
-
-        $this->syncOriginal();
-    }
-
-    /**
-     * Get the primary key value for a save query.
-     *
-     * @return string|null
-     * @throws InvalidCastException
-     */
-    protected function getKeyForSaveQuery(): string|null
-    {
-        return $this->original[self::FIELD_ID] ?? $this->getKey();
-    }
-
-    /**
-     * Initialize any initializable traits on the model.
-     *
-     * @return void
-     */
-    protected function initializeTraits(): void
-    {
-        foreach (static::$traitInitializers[static::class] as $method) {
-            $this->{$method}();
-        }
-    }
-
-    /**
-     * Insert the given attributes and set the ID on the model.
-     *
-     * @param Query<static> $query
-     * @param array $attributes
-     *
-     * @return void
-     * @throws InvalidCastException
-     * @throws JsonEncodingException
-     */
-    protected function insertAndSetId(Query $query, array $attributes): void
-    {
-        $result = $query->insert($attributes);
-
-        if (isset($result->_index)) {
-            $this->setIndex($result->_index);
-        }
-
-        if (isset($result->_type)) {
-            $this->setAttribute('_type', $result->_type);
-        }
-
-        $this->setAttribute(self::FIELD_ID, $result->_id);
-    }
-
-    /**
-     * Get a new query builder instance for the connection.
-     *
-     * @return Query<self>
-     */
-    protected function newQueryBuilder(): Query
-    {
-        return static
-            ::resolveConnection($this->getConnectionName())
-            ->newQuery();
-    }
-
-    /**
-     * Perform the actual delete query on this model instance.
-     *
-     * @return void
-     * @throws InvalidCastException
-     */
-    protected function performDeleteOnModel(): void
-    {
-        $this->setKeysForSaveQuery($this->newQuery())->delete();
-
-        $this->exists = false;
-    }
-
-    /**
-     * Perform a model insert operation.
-     *
-     * @param Query<static> $query
-     *
-     * @return bool
-     * @throws InvalidCastException
-     * @throws JsonEncodingException
-     */
-    protected function performInsert(Query $query): bool
-    {
-        if ($this->fireModelEvent('creating') === false) {
-            return false;
-        }
-
-        $attributes = $this->getAttributes();
-
-        if ($id = $this->getKey()) {
-            if (empty($attributes)) {
-                return true;
-            }
-
-            $result = $query->insert($attributes, $id);
-            $this->setAttribute('_type', $result->_type ?? null);
-        } else {
-            $this->insertAndSetId($query, $attributes);
-        }
-
-        // We will go ahead and set the exists property to true, so that it is
-        // set when the created event is fired, just in case the developer tries
-        // to update it  during the event. This will allow them to do so and run
-        // an update here.
-        $this->exists = true;
-
-        $this->wasRecentlyCreated = true;
-
-        $this->fireModelEvent('created', false);
-
-        return true;
-    }
-
-    /**
-     * Perform a model update operation.
-     *
-     * @param Query<static> $query
-     *
-     * @return bool
-     * @throws InvalidCastException
-     */
-    protected function performUpdate(Query $query): bool
-    {
-        // If the updating event returns false, we will cancel the update
-        // operation so developers can hook Validation systems into their models
-        // and cancel this  operation if the model does not pass validation.
-        // Otherwise, we update.
-        if ($this->fireModelEvent('updating') === false) {
-            return false;
-        }
-
-        // Once we have run the update operation, we will fire the "updated"
-        // event for this model instance. This will allow developers to hook
-        // into these after models are updated, giving them a chance to do any
-        // special processing.
-        $dirty = $this->getDirty();
-
-        if (count($dirty) === 0) {
-            return true;
-        }
-
-        $this->setKeysForSaveQuery($query)
-            ->update($dirty);
-
-        $this->syncChanges();
-
-        $this->fireModelEvent('updated', false);
-
-        return true;
     }
 
     /**
@@ -1682,22 +1706,5 @@ class Model implements Arrayable,
         }
 
         return $value;
-    }
-
-    /**
-     * Set the keys for a save update query.
-     *
-     * @template TModel of Model
-     *
-     * @param Query<TModel> $query
-     *
-     * @return Query<TModel>
-     * @throws InvalidCastException
-     */
-    protected function setKeysForSaveQuery(Query $query): Query
-    {
-        $query->id($this->getKeyForSaveQuery());
-
-        return $query;
     }
 }

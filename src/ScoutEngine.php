@@ -35,7 +35,7 @@ class ScoutEngine extends Engine
      * ScoutEngine constructor.
      *
      * @param Elastic $elastic
-     * @param string  $index
+     * @param string $index
      */
     public function __construct(Elastic $elastic, string $index)
     {
@@ -103,38 +103,6 @@ class ScoutEngine extends Engine
     }
 
     /**
-     * Map the given results to instances of the given model.
-     *
-     * @param Builder $builder
-     * @param mixed   $results
-     * @param Model   $model
-     *
-     * @return Collection
-     */
-    public function map(Builder $builder, $results, $model): Collection
-    {
-        if ((int)$results['hits']['total'] === 0) {
-            return Collection::make();
-        }
-
-        $keys = collect($results['hits']['hits'])
-            ->pluck('_id')
-            ->values()
-            ->all();
-
-        $models = $model
-            ->whereIn($model->getKeyName(), $keys)
-            ->get()
-            ->keyBy($model->getKeyName());
-
-        $collection = new Collection($results['hits']['hits']);
-
-        return $collection->map(static fn(
-            array $hit
-        ) => $models[$hit['_id']]);
-    }
-
-    /**
      * @param mixed $results
      *
      * @return Collection
@@ -148,8 +116,8 @@ class ScoutEngine extends Engine
      * Perform the given search on the engine.
      *
      * @param Builder $builder
-     * @param int     $perPage
-     * @param int     $page
+     * @param int $perPage
+     * @param int $page
      *
      * @return array|callable
      */
@@ -172,77 +140,7 @@ class ScoutEngine extends Engine
      * Perform the given search on the engine.
      *
      * @param Builder $builder
-     *
-     * @return array|callable
-     */
-    public function search(Builder $builder): array|callable
-    {
-        return $this->performSearch($builder, array_filter([
-            'numericFilters' => $this->filters($builder),
-            'size' => $builder->limit,
-        ]));
-    }
-
-    /**
-     * Update the given model in the index.
-     *
-     * @param Collection $models
-     *
-     * @return void
-     */
-    public function update($models): void
-    {
-        $params = [
-            'body' => [],
-        ];
-
-        $models->each(function (Model $model) use (&$params) {
-            $params['body'][] = [
-                'update' => [
-                    '_id' => $model->getKey(),
-                    '_index' => $this->index,
-                    '_type' => $model->searchableAs(),
-                ],
-            ];
-
-            $params['body'][] = [
-                'doc' => $model->toSearchableArray(),
-                'doc_as_upsert' => true,
-            ];
-        });
-
-        $this->elastic->bulk($params);
-    }
-
-    /**
-     * Get the filter array for the query.
-     *
-     * @param Builder $builder
-     *
-     * @return array
-     */
-    protected function filters(Builder $builder): array
-    {
-        return collect($builder->wheres)
-            ->map(
-            /**
-             * @param mixed      $value
-             * @param int|string $key
-             *
-             * @return array
-             */
-                static fn(mixed $value, int|string $key): array => [
-                    'match_phrase' => [$key => $value],
-                ])
-            ->values()
-            ->all();
-    }
-
-    /**
-     * Perform the given search on the engine.
-     *
-     * @param Builder $builder
-     * @param array   $options
+     * @param array $options
      *
      * @return array|callable
      */
@@ -288,5 +186,108 @@ class ScoutEngine extends Engine
         }
 
         return $this->elastic->search($params);
+    }
+
+    /**
+     * Perform the given search on the engine.
+     *
+     * @param Builder $builder
+     *
+     * @return array|callable
+     */
+    public function search(Builder $builder): array|callable
+    {
+        return $this->performSearch($builder, array_filter([
+            'numericFilters' => $this->filters($builder),
+            'size' => $builder->limit,
+        ]));
+    }
+
+    /**
+     * Get the filter array for the query.
+     *
+     * @param Builder $builder
+     *
+     * @return array
+     */
+    protected function filters(Builder $builder): array
+    {
+        return collect($builder->wheres)
+            ->map(
+            /**
+             * @param mixed $value
+             * @param int|string $key
+             *
+             * @return array
+             */
+                static fn(mixed $value, int|string $key): array => [
+                    'match_phrase' => [$key => $value],
+                ]
+            )
+            ->values()
+            ->all();
+    }
+
+    /**
+     * Map the given results to instances of the given model.
+     *
+     * @param Builder $builder
+     * @param mixed $results
+     * @param Model $model
+     *
+     * @return Collection
+     */
+    public function map(Builder $builder, $results, $model): Collection
+    {
+        if ((int)$results['hits']['total'] === 0) {
+            return Collection::make();
+        }
+
+        $keys = collect($results['hits']['hits'])
+            ->pluck('_id')
+            ->values()
+            ->all();
+
+        $models = $model
+            ->whereIn($model->getKeyName(), $keys)
+            ->get()
+            ->keyBy($model->getKeyName());
+
+        $collection = new Collection($results['hits']['hits']);
+
+        return $collection->map(static fn(
+            array $hit
+        ) => $models[$hit['_id']]);
+    }
+
+    /**
+     * Update the given model in the index.
+     *
+     * @param Collection $models
+     *
+     * @return void
+     */
+    public function update($models): void
+    {
+        $params = [
+            'body' => [],
+        ];
+
+        $models->each(function (Model $model) use (&$params) {
+            $params['body'][] = [
+                'update' => [
+                    '_id' => $model->getKey(),
+                    '_index' => $this->index,
+                    '_type' => $model->searchableAs(),
+                ],
+            ];
+
+            $params['body'][] = [
+                'doc' => $model->toSearchableArray(),
+                'doc_as_upsert' => true,
+            ];
+        });
+
+        $this->elastic->bulk($params);
     }
 }

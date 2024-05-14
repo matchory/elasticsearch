@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-if ( ! function_exists('config_path')) {
+if (!function_exists('config_path')) {
     /**
      * Get the configuration path.
      *
@@ -12,11 +12,11 @@ if ( ! function_exists('config_path')) {
      */
     function config_path(string $path = ''): string
     {
-        return \app()->basePath() . '/config' . ($path ? '/' . $path : $path);
+        return app()->basePath() . '/config' . ($path ? '/' . $path : $path);
     }
 }
 
-if ( ! function_exists('base_path')) {
+if (!function_exists('base_path')) {
     /**
      * Get the path to the base of the install.
      *
@@ -26,7 +26,7 @@ if ( ! function_exists('base_path')) {
      */
     function base_path(string $path = ''): string
     {
-        return \app()->basePath() . ($path ? '/' . $path : $path);
+        return app()->basePath() . ($path ? '/' . $path : $path);
     }
 }
 

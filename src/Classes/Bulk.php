@@ -64,7 +64,7 @@ class Bulk
     public string|null $type = null;
 
     /**
-     * @param Query    $query
+     * @param Query $query
      * @param int|null $autocommitAfter
      */
     public function __construct(Query $query, int|null $autocommitAfter = null)
@@ -74,24 +74,30 @@ class Bulk
     }
 
     /**
-     * Filter by _id
+     * Get Bulk body
      *
-     * @param string|null $_id
-     *
-     * @return $this
+     * @return array
      */
-    public function _id(string|null $_id = null): self
+    public function body(): array
     {
-        $this->_id = $_id;
+        return $this->body;
+    }
 
-        return $this;
+    /**
+     * Add pending document for deletion
+     *
+     * @return bool
+     */
+    public function delete(): bool
+    {
+        return $this->action('delete');
     }
 
     /**
      * Add pending document abstract action
      *
      * @param string $actionType
-     * @param array  $data
+     * @param array $data
      *
      * @return bool
      */
@@ -105,7 +111,7 @@ class Bulk
             ],
         ];
 
-        if ( ! empty($data)) {
+        if (!empty($data)) {
             $this->body['body'][] = $actionType === 'update'
                 ? ['doc' => $data]
                 : $data;
@@ -126,13 +132,68 @@ class Bulk
     }
 
     /**
-     * Get Bulk body
+     * Get the index name
      *
-     * @return array
+     * @return string|null
      */
-    public function body(): array
+    protected function getIndex(): string|null
     {
-        return $this->body;
+        return $this->index ?: $this->query->getIndex();
+    }
+
+    /**
+     * Get the type name
+     *
+     * @return string|null
+     * @deprecated Mapping types are deprecated as of Elasticsearch 7.0.0
+     * @see        https://www.elastic.co/guide/en/elasticsearch/reference/7.10/removal-of-types.html
+     */
+    #[Deprecated(reason: 'Mapping types are deprecated as of Elasticsearch 7.0.0')]
+    protected function getType(): string|null
+    {
+        return $this->type ?: $this->query->getType();
+    }
+
+    /**
+     * Reset names
+     *
+     * @return void
+     */
+    public function reset(): void
+    {
+        $this->index();
+        $this->type();
+    }
+
+    /**
+     * Set the index name
+     *
+     * @param string|null $index
+     *
+     * @return $this
+     */
+    public function index(string|null $index = null): self
+    {
+        $this->index = $index;
+
+        return $this;
+    }
+
+    /**
+     * Set the type name
+     *
+     * @param string|null $type
+     *
+     * @return $this
+     * @deprecated Mapping types are deprecated as of Elasticsearch 7.0.0
+     * @see        https://www.elastic.co/guide/en/elasticsearch/reference/7.10/removal-of-types.html
+     */
+    #[Deprecated(reason: 'Mapping types are deprecated as of Elasticsearch 7.0.0')]
+    public function type(string|null $type = null): self
+    {
+        $this->type = $type;
+
+        return $this;
     }
 
     /**
@@ -159,16 +220,6 @@ class Bulk
     }
 
     /**
-     * Add pending document for deletion
-     *
-     * @return bool
-     */
-    public function delete(): bool
-    {
-        return $this->action('delete');
-    }
-
-    /**
      * Just an alias for _id() method
      *
      * @param string|null $_id
@@ -181,15 +232,15 @@ class Bulk
     }
 
     /**
-     * Set the index name
+     * Filter by _id
      *
-     * @param string|null $index
+     * @param string|null $_id
      *
      * @return $this
      */
-    public function index(string|null $index = null): self
+    public function _id(string|null $_id = null): self
     {
-        $this->index = $index;
+        $this->_id = $_id;
 
         return $this;
     }
@@ -207,34 +258,6 @@ class Bulk
     }
 
     /**
-     * Reset names
-     *
-     * @return void
-     */
-    public function reset(): void
-    {
-        $this->index();
-        $this->type();
-    }
-
-    /**
-     * Set the type name
-     *
-     * @param string|null $type
-     *
-     * @return $this
-     * @deprecated Mapping types are deprecated as of Elasticsearch 7.0.0
-     * @see        https://www.elastic.co/guide/en/elasticsearch/reference/7.10/removal-of-types.html
-     */
-    #[Deprecated(reason: 'Mapping types are deprecated as of Elasticsearch 7.0.0')]
-    public function type(string|null $type = null): self
-    {
-        $this->type = $type;
-
-        return $this;
-    }
-
-    /**
      * Add pending document for update
      *
      * @param array $data
@@ -244,28 +267,5 @@ class Bulk
     public function update(array $data = []): bool
     {
         return $this->action('update', $data);
-    }
-
-    /**
-     * Get the index name
-     *
-     * @return string|null
-     */
-    protected function getIndex(): string|null
-    {
-        return $this->index ?: $this->query->getIndex();
-    }
-
-    /**
-     * Get the type name
-     *
-     * @return string|null
-     * @deprecated Mapping types are deprecated as of Elasticsearch 7.0.0
-     * @see        https://www.elastic.co/guide/en/elasticsearch/reference/7.10/removal-of-types.html
-     */
-    #[Deprecated(reason: 'Mapping types are deprecated as of Elasticsearch 7.0.0')]
-    protected function getType(): string|null
-    {
-        return $this->type ?: $this->query->getType();
     }
 }

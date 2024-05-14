@@ -22,7 +22,7 @@ class Pagination extends LengthAwarePaginator
      * Render the paginator using the given view.
      *
      * @param string|null $view
-     * @param array       $data
+     * @param array $data
      *
      * @return Htmlable
      */

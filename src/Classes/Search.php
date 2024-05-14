@@ -55,8 +55,8 @@ class Search
     protected $settings;
 
     /**
-     * @param Query               $query
-     * @param string              $queryString
+     * @param Query $query
+     * @param string $queryString
      * @param callable|array|null $settings
      */
     public function __construct(

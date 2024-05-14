@@ -8,6 +8,7 @@ use Illuminate\Contracts\Support\Arrayable;
 use Illuminate\Support\Collection as BaseCollection;
 use JsonException;
 use stdClass;
+
 use function array_map;
 use function is_array;
 use function json_encode;
@@ -47,6 +48,38 @@ class Collection extends BaseCollection
         protected array|null $aggregations = null
     ) {
         parent::__construct($items);
+    }
+
+    public static function fromResponse(
+        array $response,
+        array|null $items = null
+    ): self {
+        $items = $items ?? $response['hits']['hits'] ?? [];
+
+        $maxScore = (float)$response['hits']['max_score'];
+        $duration = (float)$response['took'];
+        $timedOut = (bool)$response['timed_out'];
+        $scrollId = (string)($response['_scroll_id'] ?? null);
+        /** @var stdClass $shards */
+        $shards = (object)$response['_shards'];
+        $suggestions = $response['suggest'] ?? [];
+        $aggregations = $response['aggregations'] ?? [];
+        $total = (int)(is_array($response['hits']['total'])
+            ? $response['hits']['total']['value']
+            : $response['hits']['total']
+        );
+
+        return new self(
+            $items,
+            $total,
+            $maxScore,
+            $duration,
+            $timedOut,
+            $scrollId,
+            $shards,
+            $suggestions,
+            $aggregations,
+        );
     }
 
     public function getAggregations(): BaseCollection
@@ -91,54 +124,9 @@ class Collection extends BaseCollection
         return $this->total;
     }
 
-    public static function fromResponse(
-        array $response,
-        array|null $items = null
-    ): self {
-        $items = $items ?? $response['hits']['hits'] ?? [];
-
-        $maxScore = (float)$response['hits']['max_score'];
-        $duration = (float)$response['took'];
-        $timedOut = (bool)$response['timed_out'];
-        $scrollId = (string)($response['_scroll_id'] ?? null);
-        /** @var stdClass $shards */
-        $shards = (object)$response['_shards'];
-        $suggestions = $response['suggest'] ?? [];
-        $aggregations = $response['aggregations'] ?? [];
-        $total = (int)(is_array($response['hits']['total'])
-            ? $response['hits']['total']['value']
-            : $response['hits']['total']
-        );
-
-        return new self(
-            $items,
-            $total,
-            $maxScore,
-            $duration,
-            $timedOut,
-            $scrollId,
-            $shards,
-            $suggestions,
-            $aggregations,
-        );
-    }
-
     public function isTimedOut(): bool|null
     {
         return $this->timedOut;
-    }
-
-    /**
-     * @inheritDoc
-     * @psalm-suppress DocblockTypeContradiction
-     */
-    public function toArray(): array
-    {
-        return array_map(static function ($item) {
-            return $item instanceof Arrayable
-                ? $item->toArray()
-                : $item;
-        }, $this->items);
     }
 
     /**
@@ -155,5 +143,18 @@ class Collection extends BaseCollection
             $this->toArray(),
             JSON_THROW_ON_ERROR | $options
         );
+    }
+
+    /**
+     * @inheritDoc
+     * @psalm-suppress DocblockTypeContradiction
+     */
+    public function toArray(): array
+    {
+        return array_map(static function ($item) {
+            return $item instanceof Arrayable
+                ? $item->toArray()
+                : $item;
+        }, $this->items);
     }
 }

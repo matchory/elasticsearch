@@ -11,6 +11,7 @@ use Matchory\Elasticsearch\Classes\Search;
 use Matchory\Elasticsearch\Model;
 use Matchory\Elasticsearch\Query;
 use stdClass;
+
 use function array_filter;
 use function array_key_exists;
 use function array_merge;
@@ -23,6 +24,7 @@ use function is_array;
 use function is_string;
 use function tap;
 use function value;
+
 use const SORT_REGULAR;
 
 trait BuildsFluentQueries
@@ -384,6 +386,25 @@ trait BuildsFluentQueries
     }
 
     /**
+     * Adds a term filter for the `_id` field.
+     *
+     * @param string|null $id
+     *
+     * @return $this
+     */
+    public function id(string|null $id = null): static
+    {
+        $this->id = $id;
+        $this->filter[] = [
+            'term' => [
+                Query::FIELD_ID => $id,
+            ],
+        ];
+
+        return $this;
+    }
+
+    /**
      * Add an aggregation to the query.
      *
      * An aggregation summarizes your data as metrics, statistics, or other
@@ -507,6 +528,224 @@ trait BuildsFluentQueries
     }
 
     /**
+     * Adds a filter to the query
+     *
+     * @param Closure|string $name
+     * @param int|string|null $operator
+     * @param mixed|null $value
+     *
+     * @return $this
+     * @throws InvalidArgumentException
+     */
+    public function where(
+        Closure|string $name,
+        int|string|null $operator = Query::OPERATOR_EQUAL,
+        mixed $value = null
+    ): static {
+        if ($name instanceof Closure) {
+            $name($this);
+
+            return $this;
+        }
+
+        if (!$this->isOperator((string)$operator)) {
+            $value = $operator;
+            $operator = Query::OPERATOR_EQUAL;
+        }
+
+        switch ((string)$operator) {
+            case 'eq':
+            case Query::OPERATOR_EQUAL:
+                if ($name === Query::FIELD_ID) {
+                    return $this->id((string)$value);
+                }
+
+                return $this->termFilter($name, (string)$value);
+
+            case 'gt':
+            case Query::OPERATOR_GREATER_THAN:
+                return $this->rangeFilter(
+                    $name,
+                    'gt',
+                    $value
+                );
+
+            case 'gte':
+            case Query::OPERATOR_GREATER_THAN_OR_EQUAL:
+                return $this->rangeFilter(
+                    $name,
+                    'gte',
+                    $value
+                );
+
+            case 'lt':
+            case Query::OPERATOR_LOWER_THAN:
+                return $this->rangeFilter(
+                    $name,
+                    'lt',
+                    $value
+                );
+
+            case 'lte':
+            case Query::OPERATOR_LOWER_THAN_OR_EQUAL:
+                return $this->rangeFilter(
+                    $name,
+                    'lte',
+                    $value
+                );
+
+            case Query::OPERATOR_LIKE:
+                return $this->must('match', [
+                    $name => $value,
+                ]);
+
+            case Query::OPERATOR_EXISTS:
+                return $this->whereExists($name, (bool)$value);
+
+            default:
+                throw new InvalidArgumentException(
+                    "Unknown operator '{$operator}'"
+                );
+        }
+    }
+
+    /**
+     * check if it's a valid operator
+     *
+     * @param string $string
+     *
+     * @return bool
+     */
+    protected function isOperator(string $string): bool
+    {
+        return in_array(
+            $string,
+            $this->operators,
+            true
+        );
+    }
+
+    /**
+     * Shorthand to add a "term" filter.
+     *
+     * @param string $field Name of the field to add a filter for
+     * @param mixed $value Filter value. Either a string value,
+     *                                     an array of Elasticsearch parameters,
+     *                                     or a callable that returns either of
+     *                                     the previous.
+     *
+     * @return $this
+     */
+    public function termFilter(string $field, mixed $value): static
+    {
+        return $this->filter('term', [
+            $field => value($value, $this, $field),
+        ]);
+    }
+
+    /**
+     * Shorthand to add a "range" filter.
+     *
+     * @param string $field Name of the field to add a filter
+     *                                             for
+     * @param callable|array|string $operator Range comparison operator as a
+     *                                             string, an array of custom range
+     *                                             comparison parameters or a
+     *                                             callable that returns either of
+     *                                             the previous.
+     * @param callable|array|string|null $value Filter value. Either a string
+     *                                             value, an array of Elasticsearch
+     *                                             parameters, or a callable that
+     *                                             returns either of the previous.
+     *                                             Only used if a string operator has
+     *                                             been passed as the second argument
+     *
+     * @return $this
+     * @example $query->rangeFilter('year', ['gte' => '2006'])
+     * @example $query->rangeFilter('year', ['gte' => '2006', 'lt' => '2021'])
+     * @example $query->rangeFilter('year', fn($q, $field) => 'lt', '2021')
+     * @example $query->rangeFilter('year', fn($q, $field) => ['lt' => '2021'])
+     *
+     * @example $query->rangeFilter('year', 'gt', '2006')
+     */
+    public function rangeFilter(
+        string $field,
+        mixed $operator,
+        mixed $value = null
+    ): static {
+        $operator = value($operator, $this, $field);
+
+        if (is_string($operator) && $value) {
+            return $this->filter('range', [
+                $field => [
+                    $operator => value($value, $this, $field),
+                ],
+            ]);
+        }
+
+        return $this->filter('range', [
+            [
+                $field => $operator,
+            ],
+        ]);
+    }
+
+    /**
+     * Adds a must condition to the query.
+     *
+     * @param string $type Query type
+     * @param array $parameters Parameters to the query
+     *
+     * @return $this
+     */
+    public function must(string $type, array $parameters): static
+    {
+        $this->must[] = [
+            $type => $parameters,
+        ];
+
+        return $this;
+    }
+
+    /**
+     * Set the query where exists clause
+     *
+     * @param string $name
+     * @param bool $exists
+     *
+     * @return $this
+     */
+    public function whereExists(string $name, bool $exists = true): static
+    {
+        if ($exists) {
+            return $this->must('exists', [
+                'field' => $name,
+            ]);
+        }
+
+        return $this->mustNot('exists', [
+            'field' => $name,
+        ]);
+    }
+
+    /**
+     * Adds a must_not condition to the query.
+     *
+     * @param string $type Query type
+     * @param array $parameters Parameters to the query
+     *
+     * @return $this
+     */
+    public function mustNot(string $type, array $parameters): static
+    {
+        $this->must_not[] = [
+            $type => $parameters,
+        ];
+
+        return $this;
+    }
+
+    /**
      * Set the collapse field
      *
      * @param string $field
@@ -546,22 +785,27 @@ trait BuildsFluentQueries
     }
 
     /**
-     * Adds a term filter for the `_id` field.
+     * @template TKey of array-key
+     * @template TValue
      *
-     * @param string|null $id
+     * @param array<TKey, TValue> $args
      *
-     * @return $this
+     * @return list<TValue>
      */
-    public function id(string|null $id = null): static
+    private function flattenArgs(array $args): array
     {
-        $this->id = $id;
-        $this->filter[] = [
-            'term' => [
-                Query::FIELD_ID => $id,
-            ],
-        ];
+        $flattened = [];
 
-        return $this;
+        foreach ($args as $arg) {
+            if (is_array($arg)) {
+                /** @noinspection SlowArrayOperationsInLoopInspection */
+                $flattened = array_merge($flattened, $arg);
+            } else {
+                $flattened[] = $arg;
+            }
+        }
+
+        return $flattened;
     }
 
     /**
@@ -619,40 +863,6 @@ trait BuildsFluentQueries
     }
 
     /**
-     * Adds a must condition to the query.
-     *
-     * @param string $type Query type
-     * @param array $parameters Parameters to the query
-     *
-     * @return $this
-     */
-    public function must(string $type, array $parameters): static
-    {
-        $this->must[] = [
-            $type => $parameters,
-        ];
-
-        return $this;
-    }
-
-    /**
-     * Adds a must_not condition to the query.
-     *
-     * @param string $type Query type
-     * @param array $parameters Parameters to the query
-     *
-     * @return $this
-     */
-    public function mustNot(string $type, array $parameters): static
-    {
-        $this->must_not[] = [
-            $type => $parameters,
-        ];
-
-        return $this;
-    }
-
-    /**
      * @param string $path
      *
      * @return $this
@@ -700,53 +910,6 @@ trait BuildsFluentQueries
     {
         return $this->filter('prefix', [
             $field => value($value, $this, $field),
-        ]);
-    }
-
-    /**
-     * Shorthand to add a "range" filter.
-     *
-     * @param string $field Name of the field to add a filter
-     *                                             for
-     * @param callable|array|string $operator Range comparison operator as a
-     *                                             string, an array of custom range
-     *                                             comparison parameters or a
-     *                                             callable that returns either of
-     *                                             the previous.
-     * @param callable|array|string|null $value Filter value. Either a string
-     *                                             value, an array of Elasticsearch
-     *                                             parameters, or a callable that
-     *                                             returns either of the previous.
-     *                                             Only used if a string operator has
-     *                                             been passed as the second argument
-     *
-     * @return $this
-     * @example $query->rangeFilter('year', ['gte' => '2006'])
-     * @example $query->rangeFilter('year', ['gte' => '2006', 'lt' => '2021'])
-     * @example $query->rangeFilter('year', fn($q, $field) => 'lt', '2021')
-     * @example $query->rangeFilter('year', fn($q, $field) => ['lt' => '2021'])
-     *
-     * @example $query->rangeFilter('year', 'gt', '2006')
-     */
-    public function rangeFilter(
-        string $field,
-        mixed $operator,
-        mixed $value = null
-    ): static {
-        $operator = value($operator, $this, $field);
-
-        if (is_string($operator) && $value) {
-            return $this->filter('range', [
-                $field => [
-                    $operator => value($value, $this, $field),
-                ],
-            ]);
-        }
-
-        return $this->filter('range', [
-            [
-                $field => $operator,
-            ],
         ]);
     }
 
@@ -824,6 +987,37 @@ trait BuildsFluentQueries
         return $this->filter('regexp', [
             $field => $parameters,
         ]);
+    }
+
+    private function resolveRegexpFlags(int $flags): string|null
+    {
+        $stringFlags = [];
+
+        if ($flags & Query::REGEXP_FLAG_ALL) {
+            $stringFlags[] = 'ALL';
+        }
+
+        if ($flags & Query::REGEXP_FLAG_COMPLEMENT) {
+            $stringFlags[] = 'COMPLEMENT';
+        }
+
+        if ($flags & Query::REGEXP_FLAG_INTERVAL) {
+            $stringFlags[] = 'INTERVAL';
+        }
+
+        if ($flags & Query::REGEXP_FLAG_INTERSECTION) {
+            $stringFlags[] = 'INTERSECTION';
+        }
+
+        if ($flags & Query::REGEXP_FLAG_ANYSTRING) {
+            $stringFlags[] = 'ANYSTRING';
+        }
+
+        if (empty($stringFlags)) {
+            return null;
+        }
+
+        return implode('|', $stringFlags);
     }
 
     /**
@@ -912,19 +1106,24 @@ trait BuildsFluentQueries
         /** @var list<string> $fields */
         $fields = $this->flattenArgs($args);
 
-        $this->source[Query::SOURCE_INCLUDES] = array_values(array_unique(array_merge(
-            $this->source[Query::SOURCE_INCLUDES] ?? [],
-            $fields
-        )));
+        $this->source[Query::SOURCE_INCLUDES] = array_values(
+            array_unique(
+                array_merge(
+                    $this->source[Query::SOURCE_INCLUDES] ?? [],
+                    $fields
+                )
+            )
+        );
 
-        $this->source[Query::SOURCE_EXCLUDES] = array_values(array_filter(
-            $this->source[Query::SOURCE_EXCLUDES] ?? [], function ($field) {
-            return !in_array(
-                $field,
-                $this->source[Query::SOURCE_INCLUDES] ?? [],
-                false
-            );
-        }));
+        $this->source[Query::SOURCE_EXCLUDES] = array_values(
+            array_filter(
+                $this->source[Query::SOURCE_EXCLUDES] ?? [],
+                fn($field) => !in_array(
+                    $field,
+                    $this->source[Query::SOURCE_INCLUDES] ?? [],
+                )
+            )
+        );
 
         return $this;
     }
@@ -958,21 +1157,101 @@ trait BuildsFluentQueries
     }
 
     /**
-     * Shorthand to add a "term" filter.
+     * Sets the document mapping type to restrict the query to.
      *
-     * @param string $field Name of the field to add a filter for
-     * @param mixed $value Filter value. Either a string value,
-     *                                     an array of Elasticsearch parameters,
-     *                                     or a callable that returns either of
-     *                                     the previous.
+     * @param string $type Name of the document mapping type
+     *
+     * @return $this
+     * @deprecated Mapping types are deprecated as of Elasticsearch 7.0.0
+     * @see        https://www.elastic.co/guide/en/elasticsearch/reference/7.10/removal-of-types.html
+     */
+    #[Deprecated(reason: 'Mapping types are deprecated as of Elasticsearch 7.0.0')]
+    public function type(string $type): static
+    {
+        /**
+         * @noinspection   PhpDeprecationInspection
+         * @psalm-suppress DeprecatedProperty
+         */
+        $this->type = $type;
+
+        return $this;
+    }
+
+    /**
+     * Set the ignored fields to not be returned
+     *
+     * @param mixed ...$args
      *
      * @return $this
      */
-    public function termFilter(string $field, mixed $value): static
+    public function unselect(...$args): static
     {
-        return $this->filter('term', [
-            $field => value($value, $this, $field),
+        /** @var list<string> $fields */
+        $fields = $this->flattenArgs($args);
+
+        $this->source[Query::SOURCE_EXCLUDES] = array_values(
+            array_unique(
+                array_merge(
+                    $this->source[Query::SOURCE_EXCLUDES] ?? [],
+                    $fields
+                )
+            )
+        );
+
+        $this->source[Query::SOURCE_INCLUDES] = array_values(
+            array_filter(
+                $this->source[Query::SOURCE_INCLUDES] ?? [],
+                fn($field) => !in_array(
+                    $field,
+                    $this->source[Query::SOURCE_EXCLUDES] ?? [],
+                )
+            )
+        );
+
+        return $this;
+    }
+
+    /**
+     * Set the query where between clause
+     *
+     * @param string $name
+     * @param mixed $firstValue
+     * @param mixed|null $lastValue
+     *
+     * @return $this
+     */
+    public function whereBetween(
+        string $name,
+        mixed $firstValue,
+        mixed $lastValue = null
+    ): static {
+        if (is_array($firstValue) && count($firstValue) === 2) {
+            [$firstValue, $lastValue] = $firstValue;
+        }
+
+        return $this->filter('range', [
+            $name => [
+                'gte' => $firstValue,
+                'lte' => $lastValue,
+            ],
         ]);
+    }
+
+    /**
+     * Set the query where in clause
+     *
+     * @param Closure|string $name
+     * @param mixed|array $value
+     *
+     * @return $this
+     */
+    public function whereIn(Closure|string $name, mixed $value = []): static
+    {
+        if ($name instanceof Closure) {
+            return tap($this, $name);
+        }
+
+        return $this->termsFilter($name, $value);
     }
 
     /**
@@ -1012,202 +1291,6 @@ trait BuildsFluentQueries
             $field => $value,
             'boost' => $boost,
         ]);
-    }
-
-    /**
-     * Sets the document mapping type to restrict the query to.
-     *
-     * @param string $type Name of the document mapping type
-     *
-     * @return $this
-     * @deprecated Mapping types are deprecated as of Elasticsearch 7.0.0
-     * @see        https://www.elastic.co/guide/en/elasticsearch/reference/7.10/removal-of-types.html
-     */
-    #[Deprecated(reason: 'Mapping types are deprecated as of Elasticsearch 7.0.0')]
-    public function type(string $type): static
-    {
-        /**
-         * @noinspection   PhpDeprecationInspection
-         * @psalm-suppress DeprecatedProperty
-         */
-        $this->type = $type;
-
-        return $this;
-    }
-
-    /**
-     * Set the ignored fields to not be returned
-     *
-     * @param mixed ...$args
-     *
-     * @return $this
-     */
-    public function unselect(...$args): static
-    {
-        /** @var list<string> $fields */
-        $fields = $this->flattenArgs($args);
-
-        $this->source[Query::SOURCE_EXCLUDES] = array_values(array_unique(array_merge(
-            $this->source[Query::SOURCE_EXCLUDES] ?? [],
-            $fields
-        )));
-
-        $this->source[Query::SOURCE_INCLUDES] = array_values(array_filter(
-            $this->source[Query::SOURCE_INCLUDES] ?? [], function ($field) {
-            return !in_array(
-                $field,
-                $this->source[Query::SOURCE_EXCLUDES] ?? [],
-                false
-            );
-        }));
-
-        return $this;
-    }
-
-    /**
-     * Adds a filter to the query
-     *
-     * @param Closure|string $name
-     * @param int|string|null $operator
-     * @param mixed|null $value
-     *
-     * @return $this
-     * @throws InvalidArgumentException
-     */
-    public function where(
-        Closure|string $name,
-        int|string|null $operator = Query::OPERATOR_EQUAL,
-        mixed $value = null
-    ): static {
-        if ($name instanceof Closure) {
-            $name($this);
-
-            return $this;
-        }
-
-        if (!$this->isOperator((string)$operator)) {
-            $value = $operator;
-            $operator = Query::OPERATOR_EQUAL;
-        }
-
-        switch ((string)$operator) {
-            case 'eq':
-            case Query::OPERATOR_EQUAL:
-                if ($name === Query::FIELD_ID) {
-                    return $this->id((string)$value);
-                }
-
-                return $this->termFilter($name, (string)$value);
-
-            case 'gt':
-            case Query::OPERATOR_GREATER_THAN:
-                return $this->rangeFilter(
-                    $name,
-                    'gt',
-                    $value
-                );
-
-            case 'gte':
-            case Query::OPERATOR_GREATER_THAN_OR_EQUAL:
-                return $this->rangeFilter(
-                    $name,
-                    'gte',
-                    $value
-                );
-
-            case 'lt':
-            case Query::OPERATOR_LOWER_THAN:
-                return $this->rangeFilter(
-                    $name,
-                    'lt',
-                    $value
-                );
-
-            case 'lte':
-            case Query::OPERATOR_LOWER_THAN_OR_EQUAL:
-                return $this->rangeFilter(
-                    $name,
-                    'lte',
-                    $value
-                );
-
-            case Query::OPERATOR_LIKE:
-                return $this->must('match', [
-                    $name => $value,
-                ]);
-
-            case Query::OPERATOR_EXISTS:
-                return $this->whereExists($name, (bool)$value);
-
-            default:
-                throw new InvalidArgumentException(
-                    "Unknown operator '{$operator}'"
-                );
-        }
-    }
-
-    /**
-     * Set the query where between clause
-     *
-     * @param string $name
-     * @param mixed $firstValue
-     * @param mixed|null $lastValue
-     *
-     * @return $this
-     */
-    public function whereBetween(
-        string $name,
-        mixed $firstValue,
-        mixed $lastValue = null
-    ): static {
-        if (is_array($firstValue) && count($firstValue) === 2) {
-            [$firstValue, $lastValue] = $firstValue;
-        }
-
-        return $this->filter('range', [
-            $name => [
-                'gte' => $firstValue,
-                'lte' => $lastValue,
-            ],
-        ]);
-    }
-
-    /**
-     * Set the query where exists clause
-     *
-     * @param string $name
-     * @param bool $exists
-     *
-     * @return $this
-     */
-    public function whereExists(string $name, bool $exists = true): static
-    {
-        if ($exists) {
-            return $this->must('exists', [
-                'field' => $name,
-            ]);
-        }
-
-        return $this->mustNot('exists', [
-            'field' => $name,
-        ]);
-    }
-
-    /**
-     * Set the query where in clause
-     *
-     * @param Closure|string $name
-     * @param mixed|array $value
-     *
-     * @return $this
-     */
-    public function whereIn(Closure|string $name, mixed $value = []): static
-    {
-        if ($name instanceof Closure) {
-            return tap($this, $name);
-        }
-
-        return $this->termsFilter($name, $value);
     }
 
     /**
@@ -1415,16 +1498,6 @@ trait BuildsFluentQueries
     }
 
     /**
-     * Retrieves the number of hits to limit the query to.
-     *
-     * @return int
-     */
-    protected function getSize(): int
-    {
-        return $this->size;
-    }
-
-    /**
      * Get the query offset
      *
      * @return int
@@ -1447,73 +1520,12 @@ trait BuildsFluentQueries
     }
 
     /**
-     * check if it's a valid operator
+     * Retrieves the number of hits to limit the query to.
      *
-     * @param string $string
-     *
-     * @return bool
+     * @return int
      */
-    protected function isOperator(string $string): bool
+    protected function getSize(): int
     {
-        return in_array(
-            $string,
-            $this->operators,
-            true
-        );
-    }
-
-    /**
-     * @template TKey of array-key
-     * @template TValue
-     *
-     * @param array<TKey, TValue> $args
-     *
-     * @return list<TValue>
-     */
-    private function flattenArgs(array $args): array
-    {
-        $flattened = [];
-
-        foreach ($args as $arg) {
-            if (is_array($arg)) {
-                /** @noinspection SlowArrayOperationsInLoopInspection */
-                $flattened = array_merge($flattened, $arg);
-            } else {
-                $flattened[] = $arg;
-            }
-        }
-
-        return $flattened;
-    }
-
-    private function resolveRegexpFlags(int $flags): string|null
-    {
-        $stringFlags = [];
-
-        if ($flags & Query::REGEXP_FLAG_ALL) {
-            $stringFlags[] = 'ALL';
-        }
-
-        if ($flags & Query::REGEXP_FLAG_COMPLEMENT) {
-            $stringFlags[] = 'COMPLEMENT';
-        }
-
-        if ($flags & Query::REGEXP_FLAG_INTERVAL) {
-            $stringFlags[] = 'INTERVAL';
-        }
-
-        if ($flags & Query::REGEXP_FLAG_INTERSECTION) {
-            $stringFlags[] = 'INTERSECTION';
-        }
-
-        if ($flags & Query::REGEXP_FLAG_ANYSTRING) {
-            $stringFlags[] = 'ANYSTRING';
-        }
-
-        if (empty($stringFlags)) {
-            return null;
-        }
-
-        return implode('|', $stringFlags);
+        return $this->size;
     }
 }
