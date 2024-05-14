@@ -5,22 +5,15 @@ declare(strict_types=1);
 namespace Matchory\Elasticsearch\Interfaces;
 
 use Elasticsearch\Client;
-use Psr\Log\LoggerInterface;
 
 interface ClientFactoryInterface
 {
     /**
-     * Creates a new client
+     * Creates a new client from the given configuration array.
      *
-     * @param array                $hosts
-     * @param LoggerInterface|null $logger
-     * @param callable|null        $handler
+     * @param array<string, mixed> $config
      *
      * @return Client
      */
-    public function createClient(
-        array $hosts,
-        LoggerInterface|null $logger = null,
-        callable|null $handler = null
-    ): Client;
+    public function createClient(array $config): Client;
 }

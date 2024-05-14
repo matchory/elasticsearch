@@ -8,7 +8,6 @@ use InvalidArgumentException;
 use Matchory\Elasticsearch\Interfaces\ClientFactoryInterface;
 use Matchory\Elasticsearch\Interfaces\ConnectionInterface;
 use Matchory\Elasticsearch\Interfaces\ConnectionResolverInterface;
-use Psr\Log\LoggerInterface;
 use Psr\SimpleCache\CacheInterface;
 use function is_null;
 
@@ -47,14 +46,13 @@ class ConnectionManager implements ConnectionResolverInterface
      * @param array $configuration
      * @param ClientFactoryInterface $clientFactory
      * @param CacheInterface|null $cache
-     * @param LoggerInterface|null $logger
      */
     public function __construct(
-        protected array $configuration,
+        protected array                           $configuration,
         protected readonly ClientFactoryInterface $clientFactory,
-        protected readonly ?CacheInterface $cache = null,
-        protected readonly ?LoggerInterface $logger = null
-    ) {
+        protected readonly ?CacheInterface        $cache = null,
+    )
+    {
     }
 
     /**
@@ -80,9 +78,10 @@ class ConnectionManager implements ConnectionResolverInterface
      * @return void
      */
     public function addConnection(
-        string $name,
+        string              $name,
         ConnectionInterface $connection
-    ): void {
+    ): void
+    {
         $this->connections[$name] = $connection;
     }
 
@@ -149,8 +148,7 @@ class ConnectionManager implements ConnectionResolverInterface
      */
     protected function makeConnection(string $name): ConnectionInterface
     {
-        $config = $this->configuration[self::CONFIG_KEY_CONNECTIONS][$name]
-            ?? null;
+        $config = $this->configuration[self::CONFIG_KEY_CONNECTIONS][$name] ?? null;
 
         if (!$config) {
             throw new InvalidArgumentException(
@@ -158,11 +156,7 @@ class ConnectionManager implements ConnectionResolverInterface
             );
         }
 
-        $client = $this->clientFactory->createClient(
-            $config[self::CONFIG_KEY_SERVERS],
-            $this->logger,
-            $config[self::CONFIG_KEY_HANDLER] ?? null
-        );
+        $client = $this->clientFactory->createClient($config);
 
         return new Connection(
             $client,

@@ -5,7 +5,6 @@ declare(strict_types=1);
 
 namespace Matchory\Elasticsearch\Tests;
 
-use Elasticsearch\Client;
 use Matchory\Elasticsearch\Connection;
 use Matchory\Elasticsearch\ConnectionManager;
 use Matchory\Elasticsearch\Factories\ClientFactory;
@@ -107,28 +106,7 @@ class ConnectionManagerTest extends TestCase
     {
         /** @var LoggerInterface&Mock $logger */
         $logger = $this->mock(LoggerInterface::class);
-        $callback = static function ($clientBuilderLogger) use ($logger) {
-            self::assertSame($logger, $clientBuilderLogger);
-        };
-        $clientFactory = new class($callback) extends ClientFactory {
-            protected $callback;
-
-            public function __construct(callable $callback)
-            {
-                $this->callback = $callback;
-            }
-
-            public function createClient(
-                array $hosts,
-                ?LoggerInterface $logger = null,
-                ?callable $handler = null
-            ): Client {
-                $callback = $this->callback;
-                $callback($logger);
-
-                return parent::createClient($hosts);
-            }
-        };
+        $clientFactory = new ClientFactory($logger);
         $instance = new ConnectionManager(
             [
                 'connections' => [
@@ -141,7 +119,6 @@ class ConnectionManagerTest extends TestCase
             ],
             $clientFactory,
             null,
-            $logger
         );
         $instance->connection('foo');
     }
@@ -167,9 +144,7 @@ class ConnectionManagerTest extends TestCase
         self::assertTrue($instance->hasConnection('foo'));
     }
 
-    /** @noinspection PhpUndefinedMethodInspection
-     * @noinspection PhpUnusedParameterInspection
-     */
+    /** @noinspection PhpUndefinedMethodInspection */
     public function testProxiesCallsToDefaultConnection(): void
     {
         $manager = new ConnectionManager(
@@ -192,6 +167,7 @@ class ConnectionManagerTest extends TestCase
             });
 
         $manager->addConnection('', $connection);
+        // @phpstan-ignore-next-line
         $manager->test($expected);
     }
 }

@@ -23,11 +23,13 @@ use Matchory\Elasticsearch\Factories\ClientFactory;
 use Matchory\Elasticsearch\Interfaces\ClientFactoryInterface;
 use Matchory\Elasticsearch\Interfaces\ConnectionInterface;
 use Matchory\Elasticsearch\Interfaces\ConnectionResolverInterface;
+use Psr\Log\LoggerInterface;
 use Psr\SimpleCache\CacheInterface;
-
 use function class_exists;
 use function config_path;
+use function file_exists;
 use function method_exists;
+use function trigger_deprecation;
 use function version_compare;
 
 /**
@@ -86,10 +88,23 @@ class ElasticsearchServiceProvider extends ServiceProvider
 
     protected function configure(): void
     {
-        $this->mergeConfigFrom(__DIR__ . '/../config/es.php', 'es');
+        if (file_exists(__DIR__ . '/../config/es.php')) {
+            $configPath = __DIR__ . '/../config/es.php';
+            trigger_deprecation(
+                'matchory/elasticsearch',
+                '3.0.0',
+                'The "es.php" configuration file is deprecated. Use "elasticsearch.php" instead.'
+            );
+        } else {
+            $configPath = __DIR__ . '/../config/elasticsearch.php';
+        }
+
+        $configKey = basename($configPath, '.php');
+
+        $this->mergeConfigFrom($configPath, $configKey);
         $this->publishes([
             __DIR__ . '/../config/' => config_path(),
-        ], 'es.config');
+        ], "{$configKey}.config");
 
         // Autoconfiguration with lumen framework.
         if (
@@ -112,9 +127,15 @@ class ElasticsearchServiceProvider extends ServiceProvider
             ClientFactory::class
         );
 
+        if ($this->app->bound('elasticsearch.logger')) {
+            $this->app->when(ClientFactory::class)
+                ->needs(LoggerInterface::class)
+                ->give('elasticsearch.logger');
+        }
+
         $this->app->alias(
             ClientFactoryInterface::class,
-            'es.factory'
+            'elasticsearch.factory'
         );
     }
 
@@ -149,27 +170,21 @@ class ElasticsearchServiceProvider extends ServiceProvider
             ConnectionResolverInterface::class,
             function (Application $app) {
                 $factory = $app->make(ClientFactoryInterface::class);
-
                 $cache = $app->bound(CacheInterface::class)
                     ? $app->make(CacheInterface::class)
-                    : null;
-
-                $logger = Config::get('es.logger') && $app->bound('es.logger')
-                    ? $app->make('es.logger')
                     : null;
 
                 return new ConnectionManager(
                     Config::get('es', []),
                     $factory,
                     $cache,
-                    $logger
                 );
             }
         );
 
         $this->app->alias(
             ConnectionResolverInterface::class,
-            'es.resolver'
+            'elasticsearch.resolver'
         );
 
         $this->app->alias(
@@ -193,7 +208,7 @@ class ElasticsearchServiceProvider extends ServiceProvider
 
         $this->app->alias(
             ConnectionInterface::class,
-            'es.connection'
+            'elasticsearch.connection'
         );
     }
 
@@ -204,15 +219,15 @@ class ElasticsearchServiceProvider extends ServiceProvider
      */
     protected function registerLogger(): void
     {
-        $this->app->bind('es.logger', fn(Application $app) => new Logger(
-            $app->make('log')->channel(Config::get('es.logger'))
+        $this->app->bind('elasticsearch.logger', fn(Application $app) => new Logger(
+            $app->make('log')->channel(Config::get('elasticsearch.logger'))
         ));
     }
 
     protected function registerScoutEngine(): void
     {
         // Resolve Laravel Scout engine.
-        if ( ! class_exists(EngineManager::class)) {
+        if (!class_exists(EngineManager::class)) {
             return;
         }
 
@@ -220,8 +235,8 @@ class ElasticsearchServiceProvider extends ServiceProvider
             $this->app
                 ->make(EngineManager::class)
                 ->extend('es', function () {
-                    $connectionName = Config::get('scout.es.connection');
-                    $config = Config::get("es.connections.{$connectionName}");
+                    $connectionName = Config::get('scout.elasticsearch.connection');
+                    $config = Config::get("elasticsearch.connections.{$connectionName}");
                     $elastic = ElasticBuilder
                         ::create()
                         ->setHosts($config['servers'])
