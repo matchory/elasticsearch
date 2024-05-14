@@ -8,7 +8,7 @@ use Elasticsearch\ClientBuilder as ElasticBuilder;
 use Illuminate\Contracts\Container\BindingResolutionException;
 use Illuminate\Contracts\Events\Dispatcher;
 use Illuminate\Contracts\Foundation\Application;
-use Illuminate\Log\Logger;
+use Illuminate\Contracts\Foundation\CachesConfiguration;
 use Illuminate\Support\Facades\Config;
 use Illuminate\Support\ServiceProvider;
 use Illuminate\Support\Str;
@@ -28,6 +28,7 @@ use Psr\SimpleCache\CacheInterface;
 
 use function class_exists;
 use function config_path;
+use function dirname;
 use function file_exists;
 use function method_exists;
 use function trigger_deprecation;
@@ -76,24 +77,29 @@ class ElasticsearchServiceProvider extends ServiceProvider
         $this->registerScoutEngine();
     }
 
+
+    /**
+     * @throws BindingResolutionException
+     */
     protected function configure(): void
     {
-        if (file_exists(__DIR__ . '/../config/es.php')) {
-            $configPath = __DIR__ . '/../config/es.php';
+        if (file_exists($this->packageConfigPath('es.php'))) {
+            $configPath = $this->packageConfigPath('es.php');
             trigger_deprecation(
                 'matchory/elasticsearch',
                 '3.0.0',
                 'The "es.php" configuration file is deprecated. Use "elasticsearch.php" instead.'
             );
         } else {
-            $configPath = __DIR__ . '/../config/elasticsearch.php';
+            $configPath = $this->packageConfigPath('elasticsearch.php');
         }
 
         $configKey = basename($configPath, '.php');
 
         $this->mergeConfigFrom($configPath, $configKey);
+        $this->mergeLoggingChannelsFrom($this->packageConfigPath('logging.php'));
         $this->publishes([
-            __DIR__ . '/../config/' => config_path(),
+            $this->packageConfigPath() => config_path(),
         ], "{$configKey}.config");
 
         // Autoconfiguration with lumen framework.
@@ -123,10 +129,7 @@ class ElasticsearchServiceProvider extends ServiceProvider
                         ->setHosts($config['servers'])
                         ->build();
 
-                    return new ScoutEngine(
-                        $elastic,
-                        $config['index']
-                    );
+                    return new ScoutEngine($elastic, $config['index']);
                 });
         } catch (BindingResolutionException) {
             // Class is not resolved.
@@ -178,9 +181,12 @@ class ElasticsearchServiceProvider extends ServiceProvider
      */
     protected function registerLogger(): void
     {
-        $this->app->bind('elasticsearch.logger', fn(Application $app) => new Logger(
-            $app->make('log')->channel(Config::get('elasticsearch.logger'))
-        ));
+        $this->app->bind(
+            'elasticsearch.logger',
+            fn(Application $app) => $app
+                ->make(LoggerInterface::class)
+                ->channel('elasticsearch')
+        );
     }
 
     /**
@@ -195,11 +201,9 @@ class ElasticsearchServiceProvider extends ServiceProvider
             ClientFactory::class
         );
 
-        if ($this->app->bound('elasticsearch.logger')) {
-            $this->app->when(ClientFactory::class)
-                ->needs(LoggerInterface::class)
-                ->give('elasticsearch.logger');
-        }
+        $this->app->when(ClientFactory::class)
+            ->needs(LoggerInterface::class)
+            ->give('elasticsearch.logger');
 
         $this->app->alias(
             ClientFactoryInterface::class,
@@ -274,5 +278,29 @@ class ElasticsearchServiceProvider extends ServiceProvider
             ConnectionInterface::class,
             'elasticsearch.connection'
         );
+    }
+
+    /**
+     * @throws BindingResolutionException
+     */
+    private function mergeLoggingChannelsFrom(string $file): void
+    {
+        if (!($this->app instanceof CachesConfiguration && $this->app->configurationIsCached())) {
+            $packageLoggingConfig = require $file;
+
+            $config = $this->app->make('config');
+            $config->set(
+                'logging.channels',
+                array_merge(
+                    $packageLoggingConfig['channels'] ?? [],
+                    $config->get('logging.channels', [])
+                )
+            );
+        }
+    }
+
+    private function packageConfigPath(string $path = ''): string
+    {
+        return dirname(__DIR__) . '/config' . ($path ? '/' . $path : $path);
     }
 }
