@@ -41,6 +41,8 @@ readonly class ClientFactory implements ClientFactoryInterface
             $config['logger'] = $this->logger;
         }
 
+        unset($config['index']);
+
         return ClientBuilder::fromConfig($config);
     }
 }
