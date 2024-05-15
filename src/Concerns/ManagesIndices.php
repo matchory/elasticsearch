@@ -17,7 +17,7 @@ trait ManagesIndices
      *
      * @return array
      */
-    public function createIndex(string $name, ?callable $callback = null): array
+    public function createIndex(string $name, callable|null $callback = null): array
     {
         $index = new Index($name, $callback);
 
@@ -35,7 +35,7 @@ trait ManagesIndices
      * @throws RuntimeException
      * @see Query::createIndex()
      */
-    public function create(?callable $callback = null): array
+    public function create(callable|null $callback = null): array
     {
         $index = $this->getIndex();
 

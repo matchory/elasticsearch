@@ -8,6 +8,7 @@ use Matchory\Elasticsearch\Tests\Traits\ESQueryTrait;
 use PHPUnit\Framework\ExpectationFailedException;
 use PHPUnit\Framework\MockObject\ClassAlreadyExistsException;
 use PHPUnit\Framework\MockObject\ClassIsFinalException;
+use PHPUnit\Framework\MockObject\ClassIsReadonlyException;
 use PHPUnit\Framework\MockObject\DuplicateMethodException;
 use PHPUnit\Framework\MockObject\InvalidMethodNameException;
 use PHPUnit\Framework\MockObject\OriginalConstructorInvocationRequiredException;
@@ -21,12 +22,7 @@ class WhereTest extends TestCase
 {
     use ESQueryTrait;
 
-    /**
-     * Filter operators
-     *
-     * @var array
-     */
-    protected $operators = [
+    protected array $operators = [
         '=',
         '!=',
         '>',
@@ -40,9 +36,9 @@ class WhereTest extends TestCase
     /**
      * Test the where() method.
      *
-     * @return void
      * @throws ClassAlreadyExistsException
      * @throws ClassIsFinalException
+     * @throws ClassIsReadonlyException
      * @throws DuplicateMethodException
      * @throws ExpectationFailedException
      * @throws InvalidArgumentException
@@ -98,13 +94,7 @@ class WhereTest extends TestCase
     }
 
     /**
-     * @param string     $name
-     * @param string     $operator
      * @param mixed|null $value
-     *
-     * @return array
-     * @throws \InvalidArgumentException
-     * @throws \PHPUnit\Framework\InvalidArgumentException
      * @throws ClassAlreadyExistsException
      * @throws ClassIsFinalException
      * @throws DuplicateMethodException
@@ -113,11 +103,14 @@ class WhereTest extends TestCase
      * @throws ReflectionException
      * @throws RuntimeException
      * @throws UnknownTypeException
+     * @throws \InvalidArgumentException
+     * @throws \PHPUnit\Framework\InvalidArgumentException
+     * @throws ClassIsReadonlyException
      */
     protected function getActual(
         string $name,
         string $operator = '=',
-        $value = null
+        mixed $value = null
     ): array {
         return $this
             ->getQueryObject()
@@ -126,20 +119,17 @@ class WhereTest extends TestCase
     }
 
     /**
-     * @param string     $name
-     * @param string     $operator
      * @param mixed|null $value
      *
-     * @return array
      */
     protected function getExpected(
         string $name,
         string $operator = '=',
-        $value = null
+        mixed $value = null
     ): array {
         $query = $this->getQueryArray();
 
-        if ( ! in_array(
+        if (!in_array(
             $operator,
             $this->operators,
             true

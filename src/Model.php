@@ -47,12 +47,13 @@ use function is_array;
 use function is_null;
 use function json_encode;
 use function method_exists;
-use function settype;
 use function sprintf;
 use function tap;
+use function trigger_error;
 use function ucfirst;
 
 use const DATE_ATOM;
+use const E_USER_DEPRECATED;
 
 /**
  * Elasticsearch data model
@@ -494,17 +495,14 @@ class Model implements Arrayable,
      * @param array $metadata Query result metadata
      * @param bool $exists Whether the document exists
      * @param string|null $index Name of the index the document lives in
-     * @param string|null $type (Deprecated) Mapping type of the document
      *
      * @return static
-     * @noinspection PhpDeprecationInspection
      */
     public function newInstance(
         array $attributes = [],
         array $metadata = [],
         bool $exists = false,
         string|null $index = null,
-        string|null $type = null
     ): self {
         $model = new static([], $exists);
 
@@ -512,7 +510,6 @@ class Model implements Arrayable,
         $model->setConnectionName($this->getConnectionName());
         $model->setResultMetadata($metadata);
         $model->setIndex($index ?? $this->getIndex());
-        $model->setType($type ?? $this->getType());
         $model->mergeCasts($this->casts);
 
         $model->fireModelEvent('retrieved', false);
@@ -918,6 +915,16 @@ class Model implements Arrayable,
     #[Deprecated(replacement: '%class%->getConnectionName()')]
     public function getConnection(): string|null
     {
+        @trigger_error(
+            sprintf(
+                'Since matchory/elasticsearch 3.0.0: The %s method is deprecated. ' .
+                'Use the connection manager to create connections instead. It provides a simpler ' .
+                'way to manage connections. This method will be removed in the next major version.',
+                __METHOD__
+            ),
+            E_USER_DEPRECATED
+        );
+
         return $this->getConnectionName();
     }
 
@@ -1021,7 +1028,6 @@ class Model implements Arrayable,
      *
      * @return mixed
      * @throws InvalidCastException
-     * @noinspection PhpDeprecationInspection
      */
     public function getAttribute(string $key): mixed
     {
@@ -1037,10 +1043,6 @@ class Model implements Arrayable,
 
         if ($key === '_index') {
             return $this->getIndex();
-        }
-
-        if ($key === '_type') {
-            return $this->getType();
         }
 
         if ($key === '_score') {
@@ -1081,34 +1083,6 @@ class Model implements Arrayable,
     public function setIndex(string|null $index): void
     {
         $this->index = $index;
-    }
-
-    /**
-     * Retrieves the document mapping type.
-     *
-     * @return string|null
-     * @deprecated Mapping types are deprecated as of Elasticsearch 7.0.0
-     * @see        https://www.elastic.co/guide/en/elasticsearch/reference/7.10/removal-of-types.html
-     */
-    #[Deprecated('Mapping types are deprecated as of Elasticsearch 7.0.0')]
-    public function getType(): string|null
-    {
-        return $this->type;
-    }
-
-    /**
-     * Sets the document mapping type.
-     *
-     * @param string|null $type
-     *
-     * @return void
-     * @deprecated Mapping types are deprecated as of Elasticsearch 7.0.0
-     * @see        https://www.elastic.co/guide/en/elasticsearch/reference/7.10/removal-of-types.html
-     */
-    #[Deprecated(reason: 'Mapping types are deprecated as of Elasticsearch 7.0.0')]
-    public function setType(string|null $type): void
-    {
-        $this->type = $type;
     }
 
     /**
@@ -1249,7 +1223,6 @@ class Model implements Arrayable,
      * Get a new query builder scoped to the current model.
      *
      * @return Query<static>
-     * @noinspection PhpDeprecationInspection
      */
     public function newQuery(): Query
     {
@@ -1258,10 +1231,6 @@ class Model implements Arrayable,
 
         if ($index = $this->getIndex()) {
             $query->index($index);
-        }
-
-        if ($type = $this->getType()) {
-            $query->type($type);
         }
 
         if ($fields = $this->getSelectable()) {
@@ -1517,13 +1486,11 @@ class Model implements Arrayable,
      *
      * @return bool
      * @throws InvalidCastException
-     * @noinspection PhpDeprecationInspection
      */
     public function is(self|null $model): bool
     {
         return !is_null($model) &&
             $this->getId() === $model->getId() &&
-            $this->getType() === $model->getType() &&
             $this->getIndex() === $model->getIndex() &&
             $this->getConnectionName() === $model->getConnectionName();
     }
@@ -1667,44 +1634,5 @@ class Model implements Arrayable,
     final public function usesTimestamps(): bool
     {
         return false;
-    }
-
-    /**
-     * Set attributes casting
-     *
-     * @param string $name
-     * @param mixed $value
-     *
-     * @return mixed
-     * @deprecated This method will be removed in the next major version.
-     */
-    #[Deprecated('This method will be removed in the next major version.')]
-    protected function setAttributeType(string $name, mixed $value): mixed
-    {
-        $castTypes = [
-            'boolean',
-            'bool',
-            'integer',
-            'int',
-            'float',
-            'double',
-            'string',
-            'array',
-            'object',
-            'null',
-        ];
-
-        if (
-            array_key_exists($name, $this->casts) &&
-            in_array(
-                $this->casts[$name],
-                $castTypes,
-                true
-            )
-        ) {
-            settype($value, $this->casts[$name]);
-        }
-
-        return $value;
     }
 }

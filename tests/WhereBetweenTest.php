@@ -9,6 +9,7 @@ use PHPUnit\Framework\ExpectationFailedException;
 use PHPUnit\Framework\InvalidArgumentException;
 use PHPUnit\Framework\MockObject\ClassAlreadyExistsException;
 use PHPUnit\Framework\MockObject\ClassIsFinalException;
+use PHPUnit\Framework\MockObject\ClassIsReadonlyException;
 use PHPUnit\Framework\MockObject\DuplicateMethodException;
 use PHPUnit\Framework\MockObject\InvalidMethodNameException;
 use PHPUnit\Framework\MockObject\OriginalConstructorInvocationRequiredException;
@@ -24,14 +25,15 @@ class WhereBetweenTest extends TestCase
     /**
      * @throws ClassAlreadyExistsException
      * @throws ClassIsFinalException
+     * @throws ClassIsReadonlyException
      * @throws DuplicateMethodException
+     * @throws ExpectationFailedException
      * @throws InvalidArgumentException
      * @throws InvalidMethodNameException
      * @throws OriginalConstructorInvocationRequiredException
      * @throws ReflectionException
      * @throws RuntimeException
      * @throws UnknownTypeException
-     * @throws ExpectationFailedException
      * @throws \SebastianBergmann\RecursionContext\InvalidArgumentException
      * @test
      */
@@ -49,22 +51,20 @@ class WhereBetweenTest extends TestCase
     }
 
     /**
-     * @param      $name
-     * @param      $first
-     * @param null $last
+     * @param int|array{int, int} $first
      *
-     * @return array
-     * @throws InvalidArgumentException
      * @throws ClassAlreadyExistsException
      * @throws ClassIsFinalException
      * @throws DuplicateMethodException
+     * @throws InvalidArgumentException
      * @throws InvalidMethodNameException
      * @throws OriginalConstructorInvocationRequiredException
      * @throws ReflectionException
      * @throws RuntimeException
      * @throws UnknownTypeException
+     * @throws ClassIsReadonlyException
      */
-    protected function getActual($name, $first, $last = null): array
+    protected function getActual(string $name, int|array $first, int|null $last = null): array
     {
         return $this
             ->getQueryObject()
@@ -72,14 +72,7 @@ class WhereBetweenTest extends TestCase
             ->toArray();
     }
 
-    /**
-     * @param $name
-     * @param $first
-     * @param $last
-     *
-     * @return array
-     */
-    protected function getExpected($name, $first, $last = null): array
+    protected function getExpected(string $name, int|array $first, int|null $last = null): array
     {
         $query = $this->getQueryArray();
 

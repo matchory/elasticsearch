@@ -6,7 +6,6 @@ namespace Matchory\Elasticsearch\Concerns;
 
 use Closure;
 use InvalidArgumentException;
-use JetBrains\PhpStorm\Deprecated;
 use Matchory\Elasticsearch\Classes\Search;
 use Matchory\Elasticsearch\Model;
 use Matchory\Elasticsearch\Query;
@@ -277,28 +276,6 @@ trait BuildsFluentQueries
     protected array|null $source = null;
 
     /**
-     * Mapping type
-     *
-     * Each document indexed is associated with a `_type` and an `_id`.
-     * The `_type` field is indexed in order to make searching by type name fast
-     * The value of the `_type` field is accessible in queries, aggregations,
-     * scripts, and when sorting.
-     * Note that mapping types are deprecated as of 6.0.0:
-     * Indices created in Elasticsearch 7.0.0 or later no longer accept a
-     * `_default_` mapping. Indices created in 6.x will continue to function as
-     * before in Elasticsearch 6.x. Types are deprecated in APIs in 7.0, with
-     * breaking changes to the index creation, put mapping, get mapping, put
-     * template, get template and get field mappings APIs.
-     *
-     * @var string|null
-     * @deprecated Mapping types are deprecated as of Elasticsearch 7.0.0
-     * @see        https://www.elastic.co/guide/en/elasticsearch/reference/7.10/removal-of-types.html
-     * @see        https://www.elastic.co/guide/en/elasticsearch/reference/7.10/mapping-type-field.html
-     */
-    #[Deprecated(reason: 'Mapping types are deprecated as of Elasticsearch 7.0.0')]
-    protected string|null $type = null;
-
-    /**
      * Retrieves the ID the query is restricted to.
      *
      * @return string|null
@@ -353,36 +330,6 @@ trait BuildsFluentQueries
     public function getSearchType(): string|null
     {
         return $this->searchType;
-    }
-
-    /**
-     * Retrieves the document mapping type the query is restricted to.
-     *
-     * @return string|null
-     * @deprecated Mapping types are deprecated as of Elasticsearch 7.0.0
-     * @see        https://www.elastic.co/guide/en/elasticsearch/reference/7.10/removal-of-types.html
-     */
-    #[Deprecated(reason: 'Mapping types are deprecated as of Elasticsearch 7.0.0')]
-    public function getType(): string|null
-    {
-        /**
-         * @noinspection   PhpDeprecationInspection
-         * @psalm-suppress DeprecatedProperty
-         */
-        return $this->type;
-    }
-
-    /**
-     * @param string|null $id ID to filter by
-     *
-     * @return $this
-     * @deprecated Use id() instead
-     * @see        Query::id()
-     */
-    #[Deprecated(replacement: '%class%->id(%parameter0%)')]
-    public function _id(string|null $id = null): static
-    {
-        return $this->id($id);
     }
 
     /**
@@ -1157,27 +1104,6 @@ trait BuildsFluentQueries
     }
 
     /**
-     * Sets the document mapping type to restrict the query to.
-     *
-     * @param string $type Name of the document mapping type
-     *
-     * @return $this
-     * @deprecated Mapping types are deprecated as of Elasticsearch 7.0.0
-     * @see        https://www.elastic.co/guide/en/elasticsearch/reference/7.10/removal-of-types.html
-     */
-    #[Deprecated(reason: 'Mapping types are deprecated as of Elasticsearch 7.0.0')]
-    public function type(string $type): static
-    {
-        /**
-         * @noinspection   PhpDeprecationInspection
-         * @psalm-suppress DeprecatedProperty
-         */
-        $this->type = $type;
-
-        return $this;
-    }
-
-    /**
      * Set the ignored fields to not be returned
      *
      * @param mixed ...$args
@@ -1505,18 +1431,6 @@ trait BuildsFluentQueries
     protected function getSkip(): int
     {
         return $this->from;
-    }
-
-    /**
-     * Get the query limit
-     *
-     * @return int
-     * @deprecated Use getSize() instead
-     */
-    #[Deprecated(replacement: '%class%->getSize()')]
-    protected function getTake(): int
-    {
-        return $this->getSize();
     }
 
     /**

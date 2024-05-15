@@ -8,6 +8,7 @@ use Matchory\Elasticsearch\Tests\Traits\ESQueryTrait;
 use PHPUnit\Framework\ExpectationFailedException;
 use PHPUnit\Framework\MockObject\ClassAlreadyExistsException;
 use PHPUnit\Framework\MockObject\ClassIsFinalException;
+use PHPUnit\Framework\MockObject\ClassIsReadonlyException;
 use PHPUnit\Framework\MockObject\DuplicateMethodException;
 use PHPUnit\Framework\MockObject\InvalidMethodNameException;
 use PHPUnit\Framework\MockObject\OriginalConstructorInvocationRequiredException;
@@ -22,9 +23,9 @@ class IgnoreTest extends TestCase
     use ESQueryTrait;
 
     /**
-     * @return void
      * @throws ClassAlreadyExistsException
      * @throws ClassIsFinalException
+     * @throws ClassIsReadonlyException
      * @throws DuplicateMethodException
      * @throws ExpectationFailedException
      * @throws InvalidArgumentException
@@ -49,9 +50,6 @@ class IgnoreTest extends TestCase
     }
 
     /**
-     * @param int ...$args
-     *
-     * @return array
      * @throws ClassAlreadyExistsException
      * @throws ClassIsFinalException
      * @throws DuplicateMethodException
@@ -61,6 +59,7 @@ class IgnoreTest extends TestCase
      * @throws RuntimeException
      * @throws UnknownTypeException
      * @throws \PHPUnit\Framework\InvalidArgumentException
+     * @throws ClassIsReadonlyException
      */
     protected function getActual(int ...$args): array
     {

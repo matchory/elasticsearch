@@ -29,6 +29,3 @@ if (!function_exists('base_path')) {
         return app()->basePath() . ($path ? '/' . $path : $path);
     }
 }
-
-
-

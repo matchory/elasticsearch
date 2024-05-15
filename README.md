@@ -2320,7 +2320,7 @@ $documents->url($page)
 
 ### Getting the query array without execution
 ```php
-ES::type("my_type")->search("hello")->where("views", ">", 150)->query();
+ES::type("my_type")->search("hello")->where("views", ">", 150)->toArray();
 ```
 
 ### Getting the original elasticsearch response

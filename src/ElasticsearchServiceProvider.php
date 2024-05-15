@@ -31,8 +31,10 @@ use function config_path;
 use function dirname;
 use function file_exists;
 use function method_exists;
-use function trigger_deprecation;
+use function trigger_error;
 use function version_compare;
+
+use const E_USER_DEPRECATED;
 
 /**
  * Class ElasticsearchServiceProvider
@@ -85,10 +87,10 @@ class ElasticsearchServiceProvider extends ServiceProvider
     {
         if (file_exists($this->packageConfigPath('es.php'))) {
             $configPath = $this->packageConfigPath('es.php');
-            trigger_deprecation(
-                'matchory/elasticsearch',
-                '3.0.0',
-                'The "es.php" configuration file is deprecated. Use "elasticsearch.php" instead.'
+            @trigger_error(
+                "Since matchory/elasticsearch 3.0.0: The 'es.php' configuration file is deprecated. " .
+                "Use 'elasticsearch.php' instead.",
+                E_USER_DEPRECATED
             );
         } else {
             $configPath = $this->packageConfigPath('elasticsearch.php');
@@ -250,14 +252,12 @@ class ElasticsearchServiceProvider extends ServiceProvider
             'es'
         );
 
-        $this->app->extend('es', function (ConnectionResolverInterface $resolver) {
-            trigger_deprecation(
-                'matchory/elasticsearch',
-                '3.0.0',
-                'The "es" alias is deprecated. Use "elasticsearch" instead.'
+        $this->app->beforeResolving('es', function () {
+            @trigger_error(
+                "Since matchory/elasticsearch 3.0.0: The 'es' alias is deprecated. " .
+                "Use 'elasticsearch' instead.",
+                E_USER_DEPRECATED
             );
-
-            return $resolver;
         });
     }
 
@@ -274,10 +274,7 @@ class ElasticsearchServiceProvider extends ServiceProvider
                 ->connection()
         );
 
-        $this->app->alias(
-            ConnectionInterface::class,
-            'elasticsearch.connection'
-        );
+        $this->app->alias(ConnectionInterface::class, 'elasticsearch.connection');
     }
 
     /**

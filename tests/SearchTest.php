@@ -43,18 +43,14 @@ class SearchTest extends TestCase
     public function testSearchMethod(): void
     {
         self::assertEquals(
-            $this->getExpected('foo', 1),
-            $this->getActual('foo', 1)
+            $this->getExpected('foo'),
+            $this->getActual('foo')
         );
     }
 
     /**
      * Get The actual results.
      *
-     * @param string $q
-     * @param int    $boost
-     *
-     * @return mixed
      * @throws \PHPUnit\Framework\InvalidArgumentException
      * @throws ClassAlreadyExistsException
      * @throws ClassIsFinalException
@@ -75,11 +71,6 @@ class SearchTest extends TestCase
 
     /**
      * Get The expected results.
-     *
-     * @param array|string $body
-     * @param int|float    $boost
-     *
-     * @return array
      */
     protected function getExpected(array|string $body, int|float $boost = 1): array
     {

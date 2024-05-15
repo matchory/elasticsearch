@@ -30,8 +30,10 @@ use Sentry\State\HubInterface;
 
 use function assert;
 use function json_encode;
-use function trigger_deprecation;
+use function sprintf;
+use function trigger_error;
 
+use const E_USER_DEPRECATED;
 use const JSON_THROW_ON_ERROR;
 
 /**
@@ -126,6 +128,16 @@ class Connection implements ConnectionInterface
     #[Deprecated]
     public static function setConnectionResolver(Resolver $resolver): void
     {
+        @trigger_error(
+            sprintf(
+                'Since matchory/elasticsearch 3.0.0: The %s method is deprecated. ' .
+                'Use the connection manager to create connections instead. It provides a simpler ' .
+                'way to manage connections. This method will be removed in the next major version.',
+                __METHOD__
+            ),
+            E_USER_DEPRECATED
+        );
+
         static::$resolver = $resolver;
     }
 
@@ -145,12 +157,14 @@ class Connection implements ConnectionInterface
         ClientBuilder $clientBuilder,
         array $config
     ): ClientBuilder {
-        trigger_deprecation(
-            'matchory/elasticsearch',
-            '3.0.0',
-            'The %s method is deprecated. Use the connection manager to create connections instead. It provides a ' .
-            'simpler way to manage connections. This method will be removed in the next major version.',
-            __METHOD__
+        @trigger_error(
+            sprintf(
+                'Since matchory/elasticsearch 3.0.0: The %s method is deprecated. ' .
+                'Use the connection manager to create connections instead. It provides a simpler ' .
+                'way to manage connections. This method will be removed in the next major version.',
+                __METHOD__
+            ),
+            E_USER_DEPRECATED
         );
 
         if (Arr::get($config, 'logging.enabled')) {
@@ -184,12 +198,14 @@ class Connection implements ConnectionInterface
     #[Deprecated(reason: 'Use the connection manager to create connections instead.')]
     public static function create(mixed $config): Query
     {
-        trigger_deprecation(
-            'matchory/elasticsearch',
-            '3.0.0',
-            'The %s method is deprecated. Use the connection manager to create connections instead. It provides a ' .
-            'simpler way to manage connections. This method will be removed in the next major version.',
-            __METHOD__
+        @trigger_error(
+            sprintf(
+                'Since matchory/elasticsearch 3.0.0: The %s method is deprecated. ' .
+                'Use the connection manager to create connections instead. It provides a simpler ' .
+                'way to manage connections. This method will be removed in the next major version.',
+                __METHOD__
+            ),
+            E_USER_DEPRECATED
         );
 
         $app = App::getFacadeApplication();
@@ -216,10 +232,6 @@ class Connection implements ConnectionInterface
     ): object {
         if (!isset($parameters[Query::PARAM_INDEX]) && $index = $index ?? $this->index) {
             $parameters[Query::PARAM_INDEX] = $index;
-        }
-
-        if ($type) {
-            $parameters[Query::PARAM_TYPE] = $type;
         }
 
         if ($this->reportQueries) {
@@ -278,12 +290,14 @@ class Connection implements ConnectionInterface
         // TODO: This is deprecated behaviour and should be removed in the next
         //       major version.
         if ($connection) {
-            trigger_deprecation(
-                'matchory/elasticsearch',
-                '3.0.0',
-                'Passing the connection name to %s is deprecated. Use the proper connection instance directly ' .
-                'instead. This parameter will be removed in the next major version.',
-                __METHOD__
+            @trigger_error(
+                sprintf(
+                    'Passing the connection name to %s is deprecated. ' .
+                    'Use the proper connection instance directly instead. ' .
+                    'This parameter will be removed in the next major version.',
+                    __METHOD__
+                ),
+                E_USER_DEPRECATED
             );
 
             /** @noinspection PhpDeprecationInspection */
@@ -307,12 +321,14 @@ class Connection implements ConnectionInterface
     #[Deprecated(reason: 'Use the connection manager to create connections instead.')]
     public function connection(string $name): Query
     {
-        trigger_deprecation(
-            'matchory/elasticsearch',
-            '3.0.0',
-            'The %s method is deprecated. Use the connection manager to create connections instead. It provides a ' .
-            'simpler way to manage connections. This method will be removed in the next major version.',
-            __METHOD__
+        @trigger_error(
+            sprintf(
+                'Since matchory/elasticsearch 3.0.0: The %s method is deprecated. ' .
+                'Use the connection manager to create connections instead. It provides a simpler ' .
+                'way to manage connections. This method will be removed in the next major version.',
+                __METHOD__
+            ),
+            E_USER_DEPRECATED
         );
 
         return $this->newQuery($name);
@@ -367,12 +383,14 @@ class Connection implements ConnectionInterface
     #[Deprecated(reason: 'Use the connection manager to create connections instead.')]
     public function isLoaded(string $name): bool
     {
-        trigger_deprecation(
-            'matchory/elasticsearch',
-            '3.0.0',
-            'The %s method is deprecated. Use the connection manager to create connections instead. It provides a ' .
-            'simpler way to manage connections. This method will be removed in the next major version.',
-            __METHOD__
+        @trigger_error(
+            sprintf(
+                'Since matchory/elasticsearch 3.0.0: The %s method is deprecated. ' .
+                'Use the connection manager to create connections instead. It provides a simpler ' .
+                'way to manage connections. This method will be removed in the next major version.',
+                __METHOD__
+            ),
+            E_USER_DEPRECATED
         );
 
         return (bool)static::$resolver->connection($name);

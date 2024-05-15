@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Matchory\Elasticsearch\Tests;
 
 use Matchory\Elasticsearch\Tests\Traits\ESQueryTrait;
+
 use PHPUnit\Framework\ExpectationFailedException;
 use PHPUnit\Framework\MockObject\ClassAlreadyExistsException;
 use PHPUnit\Framework\MockObject\ClassIsFinalException;
@@ -18,13 +19,13 @@ use PHPUnit\Framework\MockObject\UnknownTypeException;
 use PHPUnit\Framework\TestCase;
 use SebastianBergmann\RecursionContext\InvalidArgumentException;
 
-class WhereNotInTest extends TestCase
+class SizeTest extends TestCase
 {
 
     use ESQueryTrait;
 
     /**
-     * Test the whereNotIn() method.
+     * Test the take() method.
      *
      * @throws ClassAlreadyExistsException
      * @throws ClassIsFinalException
@@ -39,32 +40,27 @@ class WhereNotInTest extends TestCase
      * @throws UnknownTypeException
      * @throws \PHPUnit\Framework\InvalidArgumentException
      */
-    public function testWhereNotInMethod(): void
+    public function testTakeMethod(): void
     {
-        self::assertEquals(
-            $this->getExpected('status', ['pending', 'draft']),
-            $this->getActual('status', ['pending', 'draft'])
-        );
+        self::assertEquals($this->getExpected(15), $this->getActual(15));
     }
 
+
     /**
-     * @param string $name
-     * @param array  $value
-     *
-     * @return array
+     * Get The expected results.
      */
-    protected function getExpected(string $name, array $value = []): array
+    protected function getExpected(int $size): array
     {
         $query = $this->getQueryArray();
-
-        $query['body']['query']['bool']['must_not'][] = [
-            'terms' => [$name => $value],
-        ];
+        $query['size'] = $size;
 
         return $query;
     }
 
+
     /**
+     * Get The actual results.
+     *
      * @throws \PHPUnit\Framework\InvalidArgumentException
      * @throws ClassAlreadyExistsException
      * @throws ClassIsFinalException
@@ -76,11 +72,8 @@ class WhereNotInTest extends TestCase
      * @throws RuntimeException
      * @throws UnknownTypeException
      */
-    protected function getActual(string $name, array $value = []): array
+    protected function getActual(int $size): array
     {
-        return $this
-            ->getQueryObject()
-            ->whereNotIn($name, $value)
-            ->toArray();
+        return $this->getQueryObject()->take($size)->toArray();
     }
 }

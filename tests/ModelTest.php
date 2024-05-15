@@ -248,17 +248,6 @@ class ModelTest extends TestCase
     {
     }
 
-    public function testGetType(): void
-    {
-        $model = new Model();
-
-        self::assertNull($model->getType());
-
-        $model->setType('foo');
-
-        self::assertSame('foo', $model->getType());
-    }
-
     public function testGetUnSelectable(): void
     {
     }

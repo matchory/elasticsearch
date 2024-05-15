@@ -61,6 +61,6 @@ class OrderTest extends TestCase
         return $this
             ->getQueryObject()
             ->orderBy($field, $direction)
-            ->query();
+            ->toArray();
     }
 }

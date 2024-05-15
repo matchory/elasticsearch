@@ -6,7 +6,6 @@ namespace Matchory\Elasticsearch\Concerns;
 
 use DateTime;
 use Illuminate\Support\Facades\Request;
-use JetBrains\PhpStorm\Deprecated;
 use JsonException;
 use Matchory\Elasticsearch\Classes\Bulk;
 use Matchory\Elasticsearch\Collection;
@@ -627,19 +626,6 @@ trait ExecutesQueries
                 'query' => Request::query(),
             ]
         );
-    }
-
-    /**
-     * Keeping around for backwards compatibility
-     *
-     * @return array
-     * @deprecated Use toArray() instead
-     * @see        Query::toArray()
-     */
-    #[Deprecated(replacement: '%class%->toArray()')]
-    public function query(): array
-    {
-        return $this->toArray();
     }
 
     /**

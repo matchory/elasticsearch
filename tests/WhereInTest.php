@@ -8,6 +8,7 @@ use Matchory\Elasticsearch\Tests\Traits\ESQueryTrait;
 use PHPUnit\Framework\ExpectationFailedException;
 use PHPUnit\Framework\MockObject\ClassAlreadyExistsException;
 use PHPUnit\Framework\MockObject\ClassIsFinalException;
+use PHPUnit\Framework\MockObject\ClassIsReadonlyException;
 use PHPUnit\Framework\MockObject\DuplicateMethodException;
 use PHPUnit\Framework\MockObject\InvalidMethodNameException;
 use PHPUnit\Framework\MockObject\OriginalConstructorInvocationRequiredException;
@@ -22,9 +23,9 @@ class WhereInTest extends TestCase
     use ESQueryTrait;
 
     /**
-     * @return void
      * @throws ClassAlreadyExistsException
      * @throws ClassIsFinalException
+     * @throws ClassIsReadonlyException
      * @throws DuplicateMethodException
      * @throws ExpectationFailedException
      * @throws InvalidArgumentException
@@ -45,11 +46,6 @@ class WhereInTest extends TestCase
     }
 
     /**
-     * @param string $name
-     * @param array  $value
-     *
-     * @return array
-     * @throws \PHPUnit\Framework\InvalidArgumentException
      * @throws ClassAlreadyExistsException
      * @throws ClassIsFinalException
      * @throws DuplicateMethodException
@@ -58,6 +54,8 @@ class WhereInTest extends TestCase
      * @throws ReflectionException
      * @throws RuntimeException
      * @throws UnknownTypeException
+     * @throws \PHPUnit\Framework\InvalidArgumentException
+     * @throws ClassIsReadonlyException
      */
     protected function getActual(string $name, array $value = []): array
     {

@@ -11,7 +11,6 @@ use Illuminate\Contracts\Support\Arrayable;
 use Illuminate\Contracts\Support\Jsonable;
 use Illuminate\Support\Traits\ForwardsCalls;
 use IteratorAggregate;
-use JetBrains\PhpStorm\Deprecated;
 use JsonException;
 use JsonSerializable;
 use Matchory\Elasticsearch\Concerns\AppliesScopes;
@@ -125,8 +124,6 @@ class Query implements Arrayable, JsonSerializable, Jsonable, IteratorAggregate
 
     public const PARAM_SIZE = 'size';
 
-    public const PARAM_TYPE = 'type';
-
     public const REGEXP_FLAG_ALL = 1;
 
     public const REGEXP_FLAG_ANYSTRING = 16;
@@ -153,22 +150,11 @@ class Query implements Arrayable, JsonSerializable, Jsonable, IteratorAggregate
     ];
 
     /**
-     * @deprecated Use getConnection()->getClient() to access the client instead
-     * @see        ConnectionInterface::getClient()
-     * @see        Query::getConnection()
-     */
-    #[Deprecated(replacement: '%class%->getConnection()->getClient()')]
-    public null $client = null;
-
-    /**
      * Elastic model instance.
      *
      * @psalm-var T
-     * @deprecated Use getModel() instead
-     * @see        Query::getModel()
      */
-    #[Deprecated(replacement: '%class%->getModel()')]
-    public Model $model;
+    private Model $model;
 
     /**
      * Elasticsearch connection instance
@@ -199,8 +185,6 @@ class Query implements Arrayable, JsonSerializable, Jsonable, IteratorAggregate
          * We set a plain model here so there's always a model instance set.
          * This avoids errors in methods that rely on a model.
          *
-         * @noinspection   PhpDeprecationInspection
-         * @psalm-suppress DeprecatedProperty
          * @psalm-suppress PossiblyInvalidPropertyAssignmentValue
          */
         $this->model = $model ?? new Model();
@@ -258,8 +242,7 @@ class Query implements Arrayable, JsonSerializable, Jsonable, IteratorAggregate
      * if the query builder is used without models.
      *
      * @return T Model instance used for the current query.
-     * @noinspection PhpDocSignatureInspection, PhpDeprecationInspection
-     * @psalm-suppress DeprecatedProperty
+     * @noinspection PhpDocSignatureInspection
      */
     public function getModel(): Model
     {
@@ -276,7 +259,6 @@ class Query implements Arrayable, JsonSerializable, Jsonable, IteratorAggregate
      * @psalm-param TModel $model
      *
      * @return static<TModel> Query builder instance for chaining.
-     * @noinspection PhpDeprecationInspection
      */
     public function setModel(Model $model): static
     {
@@ -378,14 +360,6 @@ class Query implements Arrayable, JsonSerializable, Jsonable, IteratorAggregate
 
         if ($index = $query->getIndex()) {
             $params[self::PARAM_INDEX] = $index;
-        }
-
-        /**
-         * @noinspection   PhpDeprecationInspection
-         * @psalm-suppress DeprecatedMethod
-         */
-        if ($type = $query->getType()) {
-            $params[self::PARAM_TYPE] = $type;
         }
 
         return $params;

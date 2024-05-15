@@ -88,15 +88,14 @@ class CreateIndexCommand extends Command
             }
 
             if (isset($config['mappings'])) {
-                foreach ($config['mappings'] as $type => $mapping) {
+                foreach ($config['mappings'] as $mapping) {
                     $this->info(
-                        "Creating mapping for type: {$type} in index: {$index}"
+                        "Creating mapping for index: {$index}"
                     );
 
                     // Create mapping for type from config file
                     $client->indices()->putMapping([
                         'index' => $index,
-                        'type' => $type,
                         'body' => $mapping,
                         'include_type_name' => true,
                     ]);

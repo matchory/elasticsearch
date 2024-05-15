@@ -1,10 +1,23 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Matchory\Elasticsearch\Tests;
 
 use Matchory\Elasticsearch\Tests\Traits\ESQueryTrait;
 
+use PHPUnit\Framework\ExpectationFailedException;
+use PHPUnit\Framework\MockObject\ClassAlreadyExistsException;
+use PHPUnit\Framework\MockObject\ClassIsFinalException;
+use PHPUnit\Framework\MockObject\ClassIsReadonlyException;
+use PHPUnit\Framework\MockObject\DuplicateMethodException;
+use PHPUnit\Framework\MockObject\InvalidMethodNameException;
+use PHPUnit\Framework\MockObject\OriginalConstructorInvocationRequiredException;
+use PHPUnit\Framework\MockObject\ReflectionException;
+use PHPUnit\Framework\MockObject\RuntimeException;
+use PHPUnit\Framework\MockObject\UnknownTypeException;
 use PHPUnit\Framework\TestCase;
+use SebastianBergmann\RecursionContext\InvalidArgumentException;
 
 class WhereNotBetweenTest extends TestCase
 {
@@ -13,19 +26,31 @@ class WhereNotBetweenTest extends TestCase
 
     /**
      * Test the whereNotBetween() method.
-     * @return void
+     *
+     * @throws ClassAlreadyExistsException
+     * @throws ClassIsFinalException
+     * @throws ClassIsReadonlyException
+     * @throws DuplicateMethodException
+     * @throws ExpectationFailedException
+     * @throws InvalidArgumentException
+     * @throws InvalidMethodNameException
+     * @throws OriginalConstructorInvocationRequiredException
+     * @throws ReflectionException
+     * @throws RuntimeException
+     * @throws UnknownTypeException
+     * @throws \PHPUnit\Framework\InvalidArgumentException
      */
     public function testWhereNotBetweenMethod(): void
     {
 
         self::assertEquals(
-            $this->getExpected("views", 500, 1000),
-            $this->getActual("views", 500, 1000)
+            $this->getExpected('views', 500, 1000),
+            $this->getActual('views', 500, 1000)
         );
 
         self::assertEquals(
-            $this->getExpected("views", [500, 1000]),
-            $this->getActual("views", [500, 1000])
+            $this->getExpected('views', [500, 1000]),
+            $this->getActual('views', [500, 1000])
         );
 
     }
@@ -33,12 +58,8 @@ class WhereNotBetweenTest extends TestCase
 
     /**
      * Get The expected results.
-     * @param $name
-     * @param $first_value
-     * @param $second_value
-     * @return array
      */
-    protected function getExpected($name, $first_value, $second_value = null)
+    protected function getExpected($name, $first_value, $second_value = null): array
     {
         $query = $this->getQueryArray();
 
@@ -47,7 +68,7 @@ class WhereNotBetweenTest extends TestCase
             $first_value = $first_value[0];
         }
 
-        $query["body"]["query"]["bool"]["must_not"][] = ["range" => [$name => ["gte" => $first_value, "lte" => $second_value]]];
+        $query['body']['query']['bool']['must_not'][] = ['range' => [$name => ['gte' => $first_value, 'lte' => $second_value]]];
 
         return $query;
     }
@@ -55,13 +76,20 @@ class WhereNotBetweenTest extends TestCase
 
     /**
      * Get The actual results.
-     * @param $name
-     * @param $first_value
-     * @param $second_value
-     * @return mixed
+     *
+     * @throws \PHPUnit\Framework\InvalidArgumentException
+     * @throws ClassAlreadyExistsException
+     * @throws ClassIsFinalException
+     * @throws ClassIsReadonlyException
+     * @throws DuplicateMethodException
+     * @throws InvalidMethodNameException
+     * @throws OriginalConstructorInvocationRequiredException
+     * @throws ReflectionException
+     * @throws RuntimeException
+     * @throws UnknownTypeException
      */
-    protected function getActual($name, $first_value, $second_value = null)
+    protected function getActual($name, $first_value, $second_value = null): array
     {
-        return $this->getQueryObject()->whereNotBetween($name, $first_value, $second_value)->query();
+        return $this->getQueryObject()->whereNotBetween($name, $first_value, $second_value)->toArray();
     }
 }
