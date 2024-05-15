@@ -229,6 +229,12 @@ class Query implements Arrayable, JsonSerializable, Jsonable, IteratorAggregate
             return $this->callNamedScope($method, $parameters);
         }
 
+        if (!method_exists($this->getModel(), $method)) {
+            throw new BadMethodCallException(
+                "Method {$method} does not exist."
+            );
+        }
+
         return $this->forwardCallTo(
             $this->getModel(),
             $method,
