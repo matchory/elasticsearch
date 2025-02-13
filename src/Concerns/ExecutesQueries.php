@@ -213,7 +213,7 @@ trait ExecutesQueries
      */
     public function update(
         array $attributes,
-        int|string $id = null
+        int|string|null $id = null
     ): object {
         if ($id) {
             $this->id((string)$id);
@@ -280,7 +280,7 @@ trait ExecutesQueries
      * @noinspection PhpDocSignatureInspection
      */
     public function firstOr(
-        callable|string $scrollId = null,
+        callable|string|null $scrollId = null,
         callable|null $callback = null
     ): Model|null {
         if (is_callable($scrollId)) {
@@ -480,7 +480,6 @@ trait ExecutesQueries
             $metadata,
             true,
             $document[Query::FIELD_INDEX] ?? null,
-            $document[Query::FIELD_TYPE] ?? null,
         );
     }
 

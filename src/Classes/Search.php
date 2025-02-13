@@ -62,7 +62,7 @@ class Search
     public function __construct(
         Query $query,
         string $queryString,
-        callable|array $settings = null
+        callable|array|null $settings = null
     ) {
         $this->query = $query;
         $this->queryString = $queryString;

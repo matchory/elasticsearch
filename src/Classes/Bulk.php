@@ -151,7 +151,7 @@ class Bulk
     #[Deprecated(reason: 'Mapping types are deprecated as of Elasticsearch 7.0.0')]
     protected function getType(): string|null
     {
-        return $this->type ?: $this->query->getType();
+        return $this->type;
     }
 
     /**

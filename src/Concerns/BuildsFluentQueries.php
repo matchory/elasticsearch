@@ -384,7 +384,7 @@ trait BuildsFluentQueries
      */
     public function aggregate(
         string $name,
-        array|string $settings = null
+        array|string|null $settings = null
     ): static {
         $field = is_string($settings) ? $settings : $name;
         $settings = is_array($settings)
@@ -1007,7 +1007,7 @@ trait BuildsFluentQueries
      */
     public function search(
         string|null $queryString = null,
-        callable|array $settings = null,
+        callable|array|null $settings = null,
         int|null $boost = null
     ): static {
         if ($queryString) {

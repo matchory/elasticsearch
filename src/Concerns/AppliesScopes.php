@@ -191,7 +191,7 @@ trait AppliesScopes
      *
      * @return $this
      */
-    public function withoutGlobalScopes(array $scopes = null): static
+    public function withoutGlobalScopes(array|null $scopes = null): static
     {
         if (!is_array($scopes)) {
             $scopes = array_keys($this->scopes);

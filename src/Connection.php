@@ -53,7 +53,7 @@ class Connection implements ConnectionInterface
      * @todo remove in next major version
      */
     #[Deprecated]
-    private static Resolver $resolver;
+    protected static Resolver $resolver;
 
     /**
      * Cache instance to be used for this connection. In Laravel applications,

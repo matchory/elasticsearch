@@ -58,11 +58,11 @@ use const E_USER_DEPRECATED;
 /**
  * Elasticsearch data model
  *
- * @property-read string|null _id
- * @property-read string|null _index
- * @property-read string|null _type
- * @property-read float|null _score
- * @property-read array|null highlight
+ * @property-read string|null $_id
+ * @property-read string|null $_index
+ * @property-read string|null $_type
+ * @property-read float|null $_score
+ * @property-read array|null $highlight
  *
  * @package Matchory\Elasticsearch
  */
@@ -1556,7 +1556,7 @@ class Model implements Arrayable,
      *
      * @return static
      */
-    public function replicate(array $except = null): self
+    public function replicate(array|null $except = null): self
     {
         $defaults = [
             self::FIELD_ID,
