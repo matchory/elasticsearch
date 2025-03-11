@@ -42,12 +42,12 @@ class DistanceTest extends TestCase
     {
         self::assertEquals(
             $this->getExpected('location', ['lat' => -33.8688197, 'lon' => 151.20929550000005], '10km'),
-            $this->getActual('location', ['lat' => -33.8688197, 'lon' => 151.20929550000005], '10km')
+            $this->getActual('location', ['lat' => -33.8688197, 'lon' => 151.20929550000005], '10km'),
         );
 
         self::assertNotEquals(
             $this->getExpected('location', ['lat' => -33.8688197, 'lon' => 151.20929550000005], '10km'),
-            $this->getActual('location', ['lat' => -33.8688197, 'lon' => 151.20929550000005], '15km')
+            $this->getActual('location', ['lat' => -33.8688197, 'lon' => 151.20929550000005], '15km'),
         );
     }
 
@@ -59,8 +59,8 @@ class DistanceTest extends TestCase
         $query['body']['query']['bool']['filter'][] = [
             'geo_distance' => [
                 $field => $value,
-                'distance' => $distance
-            ]
+                'distance' => $distance,
+            ],
         ];
 
         return $query;

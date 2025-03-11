@@ -40,7 +40,7 @@ class BodyTest extends TestCase
 
         self::assertEquals(
             $this->getExpected($body),
-            $this->getActual($body)
+            $this->getActual($body),
         );
     }
 

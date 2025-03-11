@@ -20,7 +20,6 @@ use SebastianBergmann\RecursionContext\InvalidArgumentException;
 
 class SkipTest extends TestCase
 {
-
     use ESQueryTrait;
 
     /**
@@ -43,7 +42,7 @@ class SkipTest extends TestCase
     {
         self::assertEquals(
             $this->getExpected(10),
-            $this->getActual(10)
+            $this->getActual(10),
         );
     }
 

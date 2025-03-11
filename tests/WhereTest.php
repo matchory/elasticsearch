@@ -54,42 +54,42 @@ class WhereTest extends TestCase
     {
         self::assertEquals(
             $this->getExpected('status', 'published'),
-            $this->getActual('status', 'published')
+            $this->getActual('status', 'published'),
         );
 
         self::assertEquals(
             $this->getExpected('status', '=', 'published'),
-            $this->getActual('status', '=', 'published')
+            $this->getActual('status', '=', 'published'),
         );
 
         self::assertEquals(
             $this->getExpected('views', '>', 1000),
-            $this->getActual('views', '>', 1000)
+            $this->getActual('views', '>', 1000),
         );
 
         self::assertEquals(
             $this->getExpected('views', '>=', 1000),
-            $this->getActual('views', '>=', 1000)
+            $this->getActual('views', '>=', 1000),
         );
 
         self::assertEquals(
             $this->getExpected('views', '<=', 1000),
-            $this->getActual('views', '<=', 1000)
+            $this->getActual('views', '<=', 1000),
         );
 
         self::assertEquals(
             $this->getExpected('content', 'like', 'hello'),
-            $this->getActual('content', 'like', 'hello')
+            $this->getActual('content', 'like', 'hello'),
         );
 
         self::assertEquals(
             $this->getExpected('website', 'exists', true),
-            $this->getActual('website', 'exists', true)
+            $this->getActual('website', 'exists', true),
         );
 
         self::assertEquals(
             $this->getExpected('website', 'exists', false),
-            $this->getActual('website', 'exists', false)
+            $this->getActual('website', 'exists', false),
         );
     }
 
@@ -110,7 +110,7 @@ class WhereTest extends TestCase
     protected function getActual(
         string $name,
         string $operator = '=',
-        mixed $value = null
+        mixed $value = null,
     ): array {
         return $this
             ->getQueryObject()
@@ -125,14 +125,14 @@ class WhereTest extends TestCase
     protected function getExpected(
         string $name,
         string $operator = '=',
-        mixed $value = null
+        mixed $value = null,
     ): array {
         $query = $this->getQueryArray();
 
         if (!in_array(
             $operator,
             $this->operators,
-            true
+            true,
         )) {
             $value = $operator;
             $operator = '=';

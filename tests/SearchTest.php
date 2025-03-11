@@ -20,7 +20,6 @@ use SebastianBergmann\RecursionContext\InvalidArgumentException;
 
 class SearchTest extends TestCase
 {
-
     use ESQueryTrait;
 
     /**
@@ -44,7 +43,7 @@ class SearchTest extends TestCase
     {
         self::assertEquals(
             $this->getExpected('foo'),
-            $this->getActual('foo')
+            $this->getActual('foo'),
         );
     }
 

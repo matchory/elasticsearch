@@ -41,12 +41,12 @@ class WhereBetweenTest extends TestCase
     {
         self::assertEquals(
             $this->getExpected('views', 500, 1000),
-            $this->getActual('views', 500, 1000)
+            $this->getActual('views', 500, 1000),
         );
 
         self::assertEquals(
             $this->getExpected('views', [500, 1000]),
-            $this->getActual('views', [500, 1000])
+            $this->getActual('views', [500, 1000]),
         );
     }
 

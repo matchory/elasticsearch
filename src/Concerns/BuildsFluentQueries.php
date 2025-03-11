@@ -384,7 +384,7 @@ trait BuildsFluentQueries
      */
     public function aggregate(
         string $name,
-        array|string|null $settings = null
+        array|string|null $settings = null,
     ): static {
         $field = is_string($settings) ? $settings : $name;
         $settings = is_array($settings)
@@ -433,7 +433,7 @@ trait BuildsFluentQueries
     public function distance(
         Closure|string $name,
         mixed $value,
-        string $distance
+        string $distance,
     ): static {
         if ($name instanceof Closure) {
             return tap($this, $name);
@@ -467,7 +467,7 @@ trait BuildsFluentQueries
     public function firstWhere(
         Closure|string $name,
         int|string|null $operator = Query::OPERATOR_EQUAL,
-        mixed $value = null
+        mixed $value = null,
     ): Model|null {
         return $this
             ->where($name, $operator, $value)
@@ -487,7 +487,7 @@ trait BuildsFluentQueries
     public function where(
         Closure|string $name,
         int|string|null $operator = Query::OPERATOR_EQUAL,
-        mixed $value = null
+        mixed $value = null,
     ): static {
         if ($name instanceof Closure) {
             $name($this);
@@ -495,26 +495,26 @@ trait BuildsFluentQueries
             return $this;
         }
 
-        if (!$this->isOperator((string)$operator)) {
+        if (!$this->isOperator((string) $operator)) {
             $value = $operator;
             $operator = Query::OPERATOR_EQUAL;
         }
 
-        switch ((string)$operator) {
+        switch ((string) $operator) {
             case 'eq':
             case Query::OPERATOR_EQUAL:
                 if ($name === Query::FIELD_ID) {
-                    return $this->id((string)$value);
+                    return $this->id((string) $value);
                 }
 
-                return $this->termFilter($name, (string)$value);
+                return $this->termFilter($name, (string) $value);
 
             case 'gt':
             case Query::OPERATOR_GREATER_THAN:
                 return $this->rangeFilter(
                     $name,
                     'gt',
-                    $value
+                    $value,
                 );
 
             case 'gte':
@@ -522,7 +522,7 @@ trait BuildsFluentQueries
                 return $this->rangeFilter(
                     $name,
                     'gte',
-                    $value
+                    $value,
                 );
 
             case 'lt':
@@ -530,7 +530,7 @@ trait BuildsFluentQueries
                 return $this->rangeFilter(
                     $name,
                     'lt',
-                    $value
+                    $value,
                 );
 
             case 'lte':
@@ -538,7 +538,7 @@ trait BuildsFluentQueries
                 return $this->rangeFilter(
                     $name,
                     'lte',
-                    $value
+                    $value,
                 );
 
             case Query::OPERATOR_LIKE:
@@ -547,11 +547,11 @@ trait BuildsFluentQueries
                 ]);
 
             case Query::OPERATOR_EXISTS:
-                return $this->whereExists($name, (bool)$value);
+                return $this->whereExists($name, (bool) $value);
 
             default:
                 throw new InvalidArgumentException(
-                    "Unknown operator '{$operator}'"
+                    "Unknown operator '{$operator}'",
                 );
         }
     }
@@ -568,7 +568,7 @@ trait BuildsFluentQueries
         return in_array(
             $string,
             $this->operators,
-            true
+            true,
         );
     }
 
@@ -618,7 +618,7 @@ trait BuildsFluentQueries
     public function rangeFilter(
         string $field,
         mixed $operator,
-        mixed $value = null
+        mixed $value = null,
     ): static {
         $operator = value($operator, $this, $field);
 
@@ -767,7 +767,7 @@ trait BuildsFluentQueries
     {
         $this->ignores = array_merge(
             $this->ignores,
-            $this->flattenArgs($args)
+            $this->flattenArgs($args),
         );
 
         $this->ignores = array_unique($this->ignores);
@@ -802,7 +802,7 @@ trait BuildsFluentQueries
      */
     public function matchFilter(
         string $field,
-        mixed $value
+        mixed $value,
     ): static {
         return $this->filter('match', [
             $field => value($value, $this, $field),
@@ -899,15 +899,15 @@ trait BuildsFluentQueries
         mixed $value,
         int|null $flags = null,
         bool|null $caseSensitivity = null,
-        int|null $maxDeterminizedStates = null
+        int|null $maxDeterminizedStates = null,
     ): static {
         $value = value($value, $this, $field);
 
         if (is_array($value) || (
-                $flags === null &&
+            $flags === null &&
                 $caseSensitivity === null &&
                 $maxDeterminizedStates === null
-            )) {
+        )) {
             return $this->filter('regexp', [
                 $field => $value,
             ]);
@@ -1008,13 +1008,13 @@ trait BuildsFluentQueries
     public function search(
         string|null $queryString = null,
         callable|array|null $settings = null,
-        int|null $boost = null
+        int|null $boost = null,
     ): static {
         if ($queryString) {
             $search = new Search(
                 $this,
                 $queryString,
-                $settings
+                $settings,
             );
 
             $search->boost($boost ?? 1);
@@ -1057,9 +1057,9 @@ trait BuildsFluentQueries
             array_unique(
                 array_merge(
                     $this->source[Query::SOURCE_INCLUDES] ?? [],
-                    $fields
-                )
-            )
+                    $fields,
+                ),
+            ),
         );
 
         $this->source[Query::SOURCE_EXCLUDES] = array_values(
@@ -1068,8 +1068,8 @@ trait BuildsFluentQueries
                 fn($field) => !in_array(
                     $field,
                     $this->source[Query::SOURCE_INCLUDES] ?? [],
-                )
-            )
+                ),
+            ),
         );
 
         return $this;
@@ -1119,9 +1119,9 @@ trait BuildsFluentQueries
             array_unique(
                 array_merge(
                     $this->source[Query::SOURCE_EXCLUDES] ?? [],
-                    $fields
-                )
-            )
+                    $fields,
+                ),
+            ),
         );
 
         $this->source[Query::SOURCE_INCLUDES] = array_values(
@@ -1130,8 +1130,8 @@ trait BuildsFluentQueries
                 fn($field) => !in_array(
                     $field,
                     $this->source[Query::SOURCE_EXCLUDES] ?? [],
-                )
-            )
+                ),
+            ),
         );
 
         return $this;
@@ -1149,7 +1149,7 @@ trait BuildsFluentQueries
     public function whereBetween(
         string $name,
         mixed $firstValue,
-        mixed $lastValue = null
+        mixed $lastValue = null,
     ): static {
         if (is_array($firstValue) && count($firstValue) === 2) {
             [$firstValue, $lastValue] = $firstValue;
@@ -1203,7 +1203,7 @@ trait BuildsFluentQueries
     public function termsFilter(
         string $field,
         mixed $value,
-        int|float|null $boost = null
+        int|float|null $boost = null,
     ): static {
         $value = value($value, $this, $field);
 
@@ -1231,7 +1231,7 @@ trait BuildsFluentQueries
     public function whereNot(
         Closure|string $name,
         string $operator = Query::OPERATOR_EQUAL,
-        $value = null
+        $value = null,
     ): static {
         if ($name instanceof Closure) {
             return tap($this, $name);
@@ -1297,7 +1297,7 @@ trait BuildsFluentQueries
     public function whereNotBetween(
         string $name,
         mixed $firstValue,
-        mixed $lastValue = null
+        mixed $lastValue = null,
     ): static {
         if (is_array($firstValue) && count($firstValue) === 2) {
             [$firstValue, $lastValue] = $firstValue;
@@ -1343,7 +1343,7 @@ trait BuildsFluentQueries
      */
     public function wildcardFilter(
         string $field,
-        mixed $value
+        mixed $value,
     ): static {
         return $this->filter('wildcard', [
             $field => value($value, $this, $field),
@@ -1365,7 +1365,7 @@ trait BuildsFluentQueries
             // TODO: Shouldn't the body-defined source take precedence here?
             $body[Query::FIELD_SOURCE] = array_merge(
                 $source,
-                $this->source
+                $this->source,
             );
         }
 
@@ -1403,7 +1403,7 @@ trait BuildsFluentQueries
 
             $body[self::FIELD_SORT] = array_unique(
                 array_merge($sortFields, $this->sort),
-                SORT_REGULAR
+                SORT_REGULAR,
             );
         }
 
@@ -1414,7 +1414,7 @@ trait BuildsFluentQueries
 
             $body[self::FIELD_AGGS] = array_merge(
                 $aggregations,
-                $this->aggregations
+                $this->aggregations,
             );
         }
 

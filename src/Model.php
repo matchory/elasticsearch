@@ -6,30 +6,26 @@ namespace Matchory\Elasticsearch;
 
 use ArrayAccess;
 use BadMethodCallException;
-use Illuminate\Contracts\Events\Dispatcher;
-use Illuminate\Contracts\Queue\QueueableEntity;
-use Illuminate\Contracts\Routing\UrlRoutable;
-use Illuminate\Contracts\Support\Arrayable;
-use Illuminate\Contracts\Support\Jsonable;
-use Illuminate\Database\Eloquent\Concerns\GuardsAttributes;
-use Illuminate\Database\Eloquent\Concerns\HasAttributes;
-use Illuminate\Database\Eloquent\Concerns\HasEvents;
-use Illuminate\Database\Eloquent\Concerns\HidesAttributes;
-use Illuminate\Database\Eloquent\InvalidCastException;
-use Illuminate\Database\Eloquent\JsonEncodingException;
-use Illuminate\Database\Eloquent\MassAssignmentException;
-use Illuminate\Support\Arr;
-use Illuminate\Support\Collection as BaseCollection;
-use Illuminate\Support\Str;
-use Illuminate\Support\Traits\ForwardsCalls;
+use Illuminate\Contracts\{Events\Dispatcher,
+    Queue\QueueableEntity,
+    Routing\UrlRoutable,
+    Support\Arrayable,
+    Support\Jsonable};
+use Illuminate\Database\Eloquent\{Concerns\GuardsAttributes,
+    Concerns\HasAttributes,
+    Concerns\HasEvents,
+    Concerns\HidesAttributes,
+    InvalidCastException,
+    JsonEncodingException,
+    MassAssignmentException};
+use Illuminate\Support\{Arr, Collection as BaseCollection, Str, Traits\ForwardsCalls};
 use InvalidArgumentException;
 use JetBrains\PhpStorm\Deprecated;
 use JsonException;
 use JsonSerializable;
 use Matchory\Elasticsearch\Concerns\HasGlobalScopes;
 use Matchory\Elasticsearch\Exceptions\DocumentNotFoundException;
-use Matchory\Elasticsearch\Interfaces\ConnectionInterface as Connection;
-use Matchory\Elasticsearch\Interfaces\ConnectionResolverInterface;
+use Matchory\Elasticsearch\Interfaces\{ConnectionInterface as Connection, ConnectionResolverInterface};
 use ReturnTypeWillChange;
 
 use function array_key_exists;
@@ -66,12 +62,13 @@ use const E_USER_DEPRECATED;
  *
  * @package Matchory\Elasticsearch
  */
-class Model implements Arrayable,
-                       ArrayAccess,
-                       Jsonable,
-                       JsonSerializable,
-                       QueueableEntity,
-                       UrlRoutable
+class Model implements
+    Arrayable,
+    ArrayAccess,
+    Jsonable,
+    JsonSerializable,
+    QueueableEntity,
+    UrlRoutable
 {
     use ForwardsCalls;
     use HasAttributes;
@@ -183,7 +180,7 @@ class Model implements Arrayable,
      */
     final public function __construct(
         array $attributes = [],
-        bool $exists = false
+        bool $exists = false,
     ) {
         $this->exists = $exists;
 
@@ -267,13 +264,13 @@ class Model implements Arrayable,
 
             if (method_exists(
                 $class,
-                $method = 'initialize' . class_basename($trait)
+                $method = 'initialize' . class_basename($trait),
             )) {
                 /** @noinspection UnsupportedStringOffsetOperationsInspection */
                 static::$traitInitializers[$class][] = $method;
 
                 static::$traitInitializers[$class] = array_unique(
-                    static::$traitInitializers[$class]
+                    static::$traitInitializers[$class],
                 );
             }
         }
@@ -344,8 +341,8 @@ class Model implements Arrayable,
                     sprintf(
                         'Add [%s] to fillable property to allow mass assignment on [%s].',
                         $key,
-                        get_class($this)
-                    )
+                        get_class($this),
+                    ),
                 );
             }
         }
@@ -481,7 +478,7 @@ class Model implements Arrayable,
 
         return tap(
             (new static())->newInstance($attributes, $metadata),
-            static fn(self $instance) => $instance->save()
+            static fn(self $instance) => $instance->save(),
         );
     }
 
@@ -837,7 +834,7 @@ class Model implements Arrayable,
         if (is_null($result)) {
             throw (new DocumentNotFoundException())->setModel(
                 static::class,
-                $key
+                $key,
             );
         }
 
@@ -920,9 +917,9 @@ class Model implements Arrayable,
                 'Since matchory/elasticsearch 3.0.0: The %s method is deprecated. ' .
                 'Use the connection manager to create connections instead. It provides a simpler ' .
                 'way to manage connections. This method will be removed in the next major version.',
-                __METHOD__
+                __METHOD__,
             ),
-            E_USER_DEPRECATED
+            E_USER_DEPRECATED,
         );
 
         return $this->getConnectionName();
@@ -1191,7 +1188,7 @@ class Model implements Arrayable,
     final public function resolveChildRouteBinding(
         $childType,
         $value,
-        $field = null
+        $field = null,
     ): self|null {
         return $this->resolveRouteBinding($value, $field);
     }
@@ -1215,7 +1212,7 @@ class Model implements Arrayable,
             ->newQuery()
             ->firstWhere(
                 $field ?? $this->getRouteKeyName(),
-                $value
+                $value,
             );
     }
 
@@ -1269,8 +1266,7 @@ class Model implements Arrayable,
      */
     protected function newQueryBuilder(): Query
     {
-        return static
-            ::resolveConnection($this->getConnectionName())
+        return static::resolveConnection($this->getConnectionName())
             ->newQuery();
     }
 
@@ -1285,7 +1281,7 @@ class Model implements Arrayable,
      *           need it during normal operation. It may change at any time.
      */
     public static function resolveConnection(
-        string|null $connection = null
+        string|null $connection = null,
     ): Connection {
         assert(static::$resolver !== null);
 
@@ -1342,7 +1338,7 @@ class Model implements Arrayable,
         return $this->forwardCallTo(
             $this->newQuery(),
             $method,
-            $parameters
+            $parameters,
         );
     }
 
@@ -1462,7 +1458,7 @@ class Model implements Arrayable,
     {
         return method_exists(
             $this,
-            'scope' . ucfirst($scope)
+            'scope' . ucfirst($scope),
         );
     }
 
@@ -1505,7 +1501,7 @@ class Model implements Arrayable,
     {
         $id = $this->getAttribute(self::FIELD_ID);
 
-        return $id ? (string)$id : null;
+        return $id ? (string) $id : null;
     }
 
     /**
@@ -1566,11 +1562,11 @@ class Model implements Arrayable,
             $this->getAttributes(),
             $except
                 ? array_unique(array_merge($except, $defaults))
-                : $defaults
+                : $defaults,
         );
 
         return tap(new static(), static function (
-            self $instance
+            self $instance,
         ) use ($attributes) {
             $instance->setRawAttributes($attributes);
             $instance->fireModelEvent('replicating', false);
@@ -1603,7 +1599,7 @@ class Model implements Arrayable,
     {
         return json_encode(
             $this->jsonSerialize(),
-            JSON_THROW_ON_ERROR | $options
+            JSON_THROW_ON_ERROR | $options,
         );
     }
 

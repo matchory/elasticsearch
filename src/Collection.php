@@ -45,26 +45,27 @@ class Collection extends BaseCollection
         protected string|null $scrollId = null,
         protected stdClass|null $shards = null,
         protected array|null $suggestions = null,
-        protected array|null $aggregations = null
+        protected array|null $aggregations = null,
     ) {
         parent::__construct($items);
     }
 
     public static function fromResponse(
         array $response,
-        array|null $items = null
+        array|null $items = null,
     ): self {
         $items = $items ?? $response['hits']['hits'] ?? [];
 
-        $maxScore = (float)$response['hits']['max_score'];
-        $duration = (float)$response['took'];
-        $timedOut = (bool)$response['timed_out'];
-        $scrollId = (string)($response['_scroll_id'] ?? null);
+        $maxScore = (float) $response['hits']['max_score'];
+        $duration = (float) $response['took'];
+        $timedOut = (bool) $response['timed_out'];
+        $scrollId = (string) ($response['_scroll_id'] ?? null);
         /** @var stdClass $shards */
-        $shards = (object)$response['_shards'];
+        $shards = (object) $response['_shards'];
         $suggestions = $response['suggest'] ?? [];
         $aggregations = $response['aggregations'] ?? [];
-        $total = (int)(is_array($response['hits']['total'])
+        $total = (int) (
+            is_array($response['hits']['total'])
             ? $response['hits']['total']['value']
             : $response['hits']['total']
         );
@@ -89,8 +90,7 @@ class Collection extends BaseCollection
 
     public function getAllSuggestions(): BaseCollection
     {
-        return BaseCollection
-            ::make($this->suggestions)
+        return BaseCollection::make($this->suggestions)
             ->mapInto(BaseCollection::class);
     }
 
@@ -141,7 +141,7 @@ class Collection extends BaseCollection
     {
         return json_encode(
             $this->toArray(),
-            JSON_THROW_ON_ERROR | $options
+            JSON_THROW_ON_ERROR | $options,
         );
     }
 

@@ -7,14 +7,8 @@ namespace Matchory\Elasticsearch\Concerns;
 use DateTime;
 use Illuminate\Support\Facades\Request;
 use JsonException;
-use Matchory\Elasticsearch\Classes\Bulk;
-use Matchory\Elasticsearch\Collection;
-use Matchory\Elasticsearch\Exceptions\DocumentNotFoundException;
-use Matchory\Elasticsearch\Model;
-use Matchory\Elasticsearch\Pagination;
-use Matchory\Elasticsearch\Query;
-use Psr\SimpleCache\CacheInterface;
-use Psr\SimpleCache\InvalidArgumentException;
+use Matchory\Elasticsearch\{Classes\Bulk, Collection, Exceptions\DocumentNotFoundException, Model, Pagination, Query};
+use Psr\SimpleCache\{CacheInterface, InvalidArgumentException};
 
 use function array_diff_key;
 use function array_flip;
@@ -83,8 +77,8 @@ trait ExecutesQueries
             }
         }
 
-        return (object)$this->getConnection()->getClient()->bulk(
-            $params
+        return (object) $this->getConnection()->getClient()->bulk(
+            $params,
         );
     }
 
@@ -117,7 +111,7 @@ trait ExecutesQueries
             $this->getConnection()->getClient()->clearScroll([
                 'scroll_id' => $scrollId,
                 'client' => ['ignore' => $this->getIgnores()],
-            ])
+            ]),
         );
     }
 
@@ -135,10 +129,10 @@ trait ExecutesQueries
             $query[Query::PARAM_SIZE],
             $query[Query::PARAM_FROM],
             $query['body']['_source'],
-            $query['body']['sort']
+            $query['body']['sort'],
         );
 
-        return (int)$this
+        return (int) $this
             ->getConnection()
             ->getClient()
             ->count($query)['count'];
@@ -182,8 +176,8 @@ trait ExecutesQueries
 
         $parameters = $this->addBaseParams($parameters);
 
-        return (object)$this->getConnection()->getClient()->update(
-            $parameters
+        return (object) $this->getConnection()->getClient()->update(
+            $parameters,
         );
     }
 
@@ -213,10 +207,10 @@ trait ExecutesQueries
      */
     public function update(
         array $attributes,
-        int|string|null $id = null
+        int|string|null $id = null,
     ): object {
         if ($id) {
-            $this->id((string)$id);
+            $this->id((string) $id);
         }
 
         unset(
@@ -239,8 +233,8 @@ trait ExecutesQueries
 
         $parameters = $this->addBaseParams($parameters);
 
-        return (object)$this->getConnection()->getClient()->update(
-            $parameters
+        return (object) $this->getConnection()->getClient()->update(
+            $parameters,
         );
     }
 
@@ -264,8 +258,8 @@ trait ExecutesQueries
 
         $parameters = $this->addBaseParams($parameters);
 
-        return (object)$this->getConnection()->getClient()->delete(
-            $parameters
+        return (object) $this->getConnection()->getClient()->delete(
+            $parameters,
         );
     }
 
@@ -281,7 +275,7 @@ trait ExecutesQueries
      */
     public function firstOr(
         callable|string|null $scrollId = null,
-        callable|null $callback = null
+        callable|null $callback = null,
     ): Model|null {
         if (is_callable($scrollId)) {
             $callback = $scrollId;
@@ -360,7 +354,7 @@ trait ExecutesQueries
                 ->scroll([
                     Query::PARAM_SCROLL => $this->getScroll(),
                     Query::PARAM_BODY => [
-                        Query::PARAM_SCROLL_ID => $scrollId
+                        Query::PARAM_SCROLL_ID => $scrollId,
                     ],
                 ]);
         } else {
@@ -377,7 +371,7 @@ trait ExecutesQueries
                     $result,
                     $this->cacheTtl instanceof DateTime
                         ? $this->cacheTtl->getTimestamp()
-                        : $this->cacheTtl
+                        : $this->cacheTtl,
                 );
             } catch (InvalidArgumentException) {
             }
@@ -452,7 +446,7 @@ trait ExecutesQueries
         $results = $response[Query::FIELD_HITS][Query::FIELD_NESTED_HITS] ?? [];
         $documents = array_map(
             fn(array $document): Model => $this->createModelInstance($document),
-            $results
+            $results,
         );
 
         return Collection::fromResponse($response, $documents);
@@ -501,7 +495,7 @@ trait ExecutesQueries
 
         /** @var T $instance */
         $instance = $this->createModelInstance(
-            $response[Query::FIELD_HITS][Query::FIELD_NESTED_HITS][0]
+            $response[Query::FIELD_HITS][Query::FIELD_NESTED_HITS][0],
         );
 
         return $instance;
@@ -526,7 +520,7 @@ trait ExecutesQueries
 
         throw (new DocumentNotFoundException())->setModel(
             get_class($this->getModel()),
-            $id ?? []
+            $id ?? [],
         );
     }
 
@@ -589,7 +583,7 @@ trait ExecutesQueries
     public function paginate(
         int $perPage = 10,
         string $pageName = 'page',
-        int|null $page = null
+        int|null $page = null,
     ): Pagination {
         $this->take($perPage);
 
@@ -605,7 +599,7 @@ trait ExecutesQueries
                 $collection,
                 $collection->getTotal() ?? 0,
                 $perPage,
-                $page
+                $page,
             );
         }
 
@@ -623,7 +617,7 @@ trait ExecutesQueries
             [
                 'path' => Request::url(),
                 'query' => Request::query(),
-            ]
+            ],
         );
     }
 

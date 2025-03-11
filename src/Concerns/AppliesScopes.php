@@ -6,8 +6,7 @@ namespace Matchory\Elasticsearch\Concerns;
 
 use Closure;
 use Illuminate\Support\Arr;
-use Matchory\Elasticsearch\Interfaces\ScopeInterface;
-use Matchory\Elasticsearch\Query;
+use Matchory\Elasticsearch\{Interfaces\ScopeInterface, Query};
 
 use function array_keys;
 use function array_unshift;
@@ -136,7 +135,7 @@ trait AppliesScopes
             // Then we'll return out the query.
             $query = $query->callNamedScope(
                 $scope,
-                (array)$parameters
+                (array) $parameters,
             );
         }
 
@@ -153,13 +152,13 @@ trait AppliesScopes
      */
     protected function callNamedScope(
         string $scope,
-        array $parameters = []
+        array $parameters = [],
     ): static {
         return $this->callScope(fn(mixed ...$parameters): mixed => $this
             ->getModel()
             ->callNamedScope(
                 $scope,
-                $parameters
+                $parameters,
             ), $parameters);
     }
 
@@ -173,7 +172,7 @@ trait AppliesScopes
      */
     public function withGlobalScope(
         string $identifier,
-        ScopeInterface|Closure $scope
+        ScopeInterface|Closure $scope,
     ): static {
         $this->scopes[$identifier] = $scope;
 

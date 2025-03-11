@@ -41,7 +41,7 @@ trait ResolvesConnections
      */
     public function mockClient(): MockObject
     {
-        if ( ! $this->elasticsearchClient) {
+        if (! $this->elasticsearchClient) {
             $this->elasticsearchClient = $this
                 ->getMockBuilder(Client::class)
                 ->disableOriginalConstructor()
@@ -104,7 +104,7 @@ trait ResolvesConnections
 
         $application->instance(
             ConnectionResolverInterface::class,
-            $resolver
+            $resolver,
         );
     }
 }

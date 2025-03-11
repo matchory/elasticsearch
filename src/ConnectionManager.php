@@ -5,9 +5,7 @@ declare(strict_types=1);
 namespace Matchory\Elasticsearch;
 
 use InvalidArgumentException;
-use Matchory\Elasticsearch\Interfaces\ClientFactoryInterface;
-use Matchory\Elasticsearch\Interfaces\ConnectionInterface;
-use Matchory\Elasticsearch\Interfaces\ConnectionResolverInterface;
+use Matchory\Elasticsearch\Interfaces\{ClientFactoryInterface, ConnectionInterface, ConnectionResolverInterface};
 use Psr\SimpleCache\CacheInterface;
 
 use function is_null;
@@ -52,8 +50,7 @@ class ConnectionManager implements ConnectionResolverInterface
         protected array $configuration,
         protected readonly ClientFactoryInterface $clientFactory,
         protected readonly CacheInterface|null $cache = null,
-    ) {
-    }
+    ) {}
 
     /**
      * Dynamically pass methods to the default connection.
@@ -112,7 +109,7 @@ class ConnectionManager implements ConnectionResolverInterface
 
         if (!$config) {
             throw new InvalidArgumentException(
-                "Elasticsearch connection [{$name}] not configured."
+                "Elasticsearch connection [{$name}] not configured.",
             );
         }
 
@@ -136,7 +133,7 @@ class ConnectionManager implements ConnectionResolverInterface
      */
     public function addConnection(
         string $name,
-        ConnectionInterface $connection
+        ConnectionInterface $connection,
     ): void {
         $this->connections[$name] = $connection;
     }

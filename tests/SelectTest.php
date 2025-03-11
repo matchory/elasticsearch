@@ -41,7 +41,7 @@ class SelectTest extends TestCase
     {
         self::assertEquals(
             $this->getExpected('foo', 'bar'),
-            $this->getActual('foo', 'bar')
+            $this->getActual('foo', 'bar'),
         );
     }
 

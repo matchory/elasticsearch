@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace Matchory\Elasticsearch\Tests;
 
 use Matchory\Elasticsearch\Tests\Traits\ESQueryTrait;
-
 use PHPUnit\Framework\ExpectationFailedException;
 use PHPUnit\Framework\InvalidArgumentException;
 use PHPUnit\Framework\MockObject\ClassAlreadyExistsException;
@@ -21,7 +20,6 @@ use PHPUnit\Framework\TestCase;
 
 class IndexTest extends TestCase
 {
-
     use ESQueryTrait;
 
     /**

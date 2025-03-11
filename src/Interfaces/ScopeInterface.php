@@ -4,8 +4,7 @@ declare(strict_types=1);
 
 namespace Matchory\Elasticsearch\Interfaces;
 
-use Matchory\Elasticsearch\Model;
-use Matchory\Elasticsearch\Query;
+use Matchory\Elasticsearch\{Model, Query};
 
 interface ScopeInterface
 {

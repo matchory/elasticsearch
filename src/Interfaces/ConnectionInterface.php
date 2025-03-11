@@ -54,7 +54,7 @@ interface ConnectionInterface
     public function insert(
         array $parameters,
         ?string $index = null,
-        ?string $type = null
+        ?string $type = null,
     ): object;
 
     /**

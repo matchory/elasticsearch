@@ -4,8 +4,7 @@ declare(strict_types=1);
 
 namespace Matchory\Elasticsearch;
 
-use Matchory\Elasticsearch\Interfaces\ConnectionInterface;
-use Matchory\Elasticsearch\Interfaces\ConnectionResolverInterface;
+use Matchory\Elasticsearch\Interfaces\{ConnectionInterface, ConnectionResolverInterface};
 
 use function is_null;
 
@@ -54,7 +53,7 @@ class ConnectionResolver implements ConnectionResolverInterface
      */
     public function addConnection(
         string $name,
-        ConnectionInterface $connection
+        ConnectionInterface $connection,
     ): void {
         $this->connections[$name] = $connection;
     }

@@ -20,7 +20,6 @@ use SebastianBergmann\RecursionContext\InvalidArgumentException;
 
 class WhereNotInTest extends TestCase
 {
-
     use ESQueryTrait;
 
     /**
@@ -43,7 +42,7 @@ class WhereNotInTest extends TestCase
     {
         self::assertEquals(
             $this->getExpected('status', ['pending', 'draft']),
-            $this->getActual('status', ['pending', 'draft'])
+            $this->getActual('status', ['pending', 'draft']),
         );
     }
 

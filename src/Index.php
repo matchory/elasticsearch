@@ -167,7 +167,7 @@ class Index
         ) {
             throw new TypeError(
                 'Alias options may be passed as an array, a string ' .
-                'routing key, or literal null.'
+                'routing key, or literal null.',
             );
         }
 
@@ -377,5 +377,3 @@ class Index
         return $this;
     }
 }
-
-

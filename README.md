@@ -224,7 +224,7 @@ multiple servers each. Take a look at the following example:
 ]
 ```
 
-If you'd like to use Elasticsearch with [Laravel Scout](https://laravel.com/docs/8.x/scout#introduction), you can find the scout specific settings in
+If you'd like to use Elastic\Elasticsearch with [Laravel Scout](https://laravel.com/docs/8.x/scout#introduction), you can find the scout specific settings in
 `config/scout.php`.
 
 Artisan commands (Laravel & Lumen)

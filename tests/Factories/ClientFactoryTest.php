@@ -1,4 +1,5 @@
 <?php
+
 /** @noinspection PhpUnhandledExceptionInspection */
 
 declare(strict_types=1);
@@ -22,14 +23,14 @@ class ClientFactoryTest extends TestCase
     public function testCreateClientWithHosts(): void
     {
         $config = [
-            'hosts' => ['foo', 'bar', 'baz']
+            'hosts' => ['foo', 'bar', 'baz'],
         ];
         $factory = new ClientFactory();
         $client = $factory->createClient($config);
 
         self::assertContains(
             $client->transport->getConnection()->getHost(),
-            $config['hosts']
+            $config['hosts'],
         );
     }
 }

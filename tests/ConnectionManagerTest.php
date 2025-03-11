@@ -1,4 +1,5 @@
 <?php
+
 /** @noinspection PhpUnhandledExceptionInspection */
 
 declare(strict_types=1);
@@ -13,7 +14,6 @@ use Matchory\Elasticsearch\Interfaces\ConnectionResolverInterface;
 use Mockery\Mock;
 use Orchestra\Testbench\TestCase;
 use PHPUnit\Framework\ExpectationFailedException;
-use Psr\Log\LoggerInterface;
 use Psr\SimpleCache\CacheInterface;
 use SebastianBergmann\RecursionContext\InvalidArgumentException;
 
@@ -23,7 +23,7 @@ class ConnectionManagerTest extends TestCase
     {
         $instance = new ConnectionManager(
             [],
-            new ClientFactory()
+            new ClientFactory(),
         );
 
         self::assertInstanceOf(ConnectionManager::class, $instance);
@@ -34,7 +34,7 @@ class ConnectionManagerTest extends TestCase
     {
         $instance = new ConnectionManager(
             [],
-            new ClientFactory()
+            new ClientFactory(),
         );
 
         self::assertEmpty($instance->getDefaultConnection());
@@ -52,7 +52,7 @@ class ConnectionManagerTest extends TestCase
     {
         $instance = new ConnectionManager(
             [],
-            new ClientFactory()
+            new ClientFactory(),
         );
         $connection = $this->mock(ConnectionInterface::class);
         $instance->addConnection('', $connection);
@@ -68,7 +68,7 @@ class ConnectionManagerTest extends TestCase
     {
         $manager = new ConnectionManager(
             [],
-            new ClientFactory()
+            new ClientFactory(),
         );
         $c1 = $this->mock(ConnectionInterface::class);
         $c2 = $this->mock(ConnectionInterface::class);
@@ -95,7 +95,7 @@ class ConnectionManagerTest extends TestCase
                 ],
             ],
             new ClientFactory(),
-            $cache
+            $cache,
         );
 
         $connection = $instance->connection('foo');
@@ -111,13 +111,13 @@ class ConnectionManagerTest extends TestCase
     {
         $instance = new ConnectionManager(
             [],
-            new ClientFactory()
+            new ClientFactory(),
         );
 
         self::assertFalse($instance->hasConnection('foo'));
 
         $instance->addConnection('foo', $this->mock(
-            ConnectionInterface::class
+            ConnectionInterface::class,
         ));
 
         self::assertTrue($instance->hasConnection('foo'));
@@ -128,7 +128,7 @@ class ConnectionManagerTest extends TestCase
     {
         $manager = new ConnectionManager(
             [],
-            new ClientFactory()
+            new ClientFactory(),
         );
 
         $expected = 42;

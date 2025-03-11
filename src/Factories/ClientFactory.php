@@ -4,8 +4,7 @@ declare(strict_types=1);
 
 namespace Matchory\Elasticsearch\Factories;
 
-use Elasticsearch\Client;
-use Elasticsearch\ClientBuilder;
+use Elasticsearch\{Client, ClientBuilder};
 use Elasticsearch\Common\Exceptions\RuntimeException;
 use Matchory\Elasticsearch\Interfaces\ClientFactoryInterface;
 use Psr\Log\LoggerInterface;
@@ -16,9 +15,7 @@ use const E_USER_DEPRECATED;
 
 readonly class ClientFactory implements ClientFactoryInterface
 {
-    public function __construct(private LoggerInterface|null $logger = null)
-    {
-    }
+    public function __construct(private LoggerInterface|null $logger = null) {}
 
     /**
      * @inheritDoc
@@ -30,7 +27,7 @@ readonly class ClientFactory implements ClientFactoryInterface
             @trigger_error(
                 "Since matchory/elasticsearch 3.0.0: The 'servers' configuration key is deprecated. " .
                 "Use 'hosts' instead.",
-                E_USER_DEPRECATED
+                E_USER_DEPRECATED,
             );
 
             $config['hosts'] = $config['servers'];

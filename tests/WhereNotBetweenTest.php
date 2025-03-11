@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace Matchory\Elasticsearch\Tests;
 
 use Matchory\Elasticsearch\Tests\Traits\ESQueryTrait;
-
 use PHPUnit\Framework\ExpectationFailedException;
 use PHPUnit\Framework\MockObject\ClassAlreadyExistsException;
 use PHPUnit\Framework\MockObject\ClassIsFinalException;
@@ -21,7 +20,6 @@ use SebastianBergmann\RecursionContext\InvalidArgumentException;
 
 class WhereNotBetweenTest extends TestCase
 {
-
     use ESQueryTrait;
 
     /**
@@ -45,12 +43,12 @@ class WhereNotBetweenTest extends TestCase
 
         self::assertEquals(
             $this->getExpected('views', 500, 1000),
-            $this->getActual('views', 500, 1000)
+            $this->getActual('views', 500, 1000),
         );
 
         self::assertEquals(
             $this->getExpected('views', [500, 1000]),
-            $this->getActual('views', [500, 1000])
+            $this->getActual('views', [500, 1000]),
         );
 
     }

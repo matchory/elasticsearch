@@ -63,8 +63,8 @@ class ReindexCommand extends Command
     public function handle(ConnectionResolverInterface $resolver): void
     {
         $this->connection = $this->option('connection') ?: null;
-        $this->size = (int)$this->option('bulk-size');
-        $this->scroll = (string)$this->option('scroll');
+        $this->size = (int) $this->option('bulk-size');
+        $this->scroll = (string) $this->option('scroll');
 
         if ($this->size <= 0) {
             $this->warn('Invalid size value');
@@ -72,7 +72,7 @@ class ReindexCommand extends Command
             return;
         }
 
-        $originalIndex = (string)$this->argument('index');
+        $originalIndex = (string) $this->argument('index');
         $newIndex = $this->argument('new_index');
 
         if (!array_key_exists($originalIndex, config('elasticsearch.indices', config('es.indices', [])))) {
@@ -103,15 +103,15 @@ class ReindexCommand extends Command
         string $newIndex,
         string|null $scrollId = null,
         int $errors = 0,
-        int $page = 1
+        int $page = 1,
     ): void {
         $connection = $resolver->connection($this->connection);
 
         if ($page === 1) {
-            $pages = (int)ceil(
+            $pages = (int) ceil(
                 $connection
                     ->index($originalIndex)
-                    ->count() / $this->size
+                    ->count() / $this->size,
             );
 
             $this->output->progressStart($pages);
@@ -196,7 +196,7 @@ class ReindexCommand extends Command
             $newIndex,
             $documents['_scroll_id'],
             $errors,
-            $page
+            $page,
         );
     }
 

@@ -22,12 +22,12 @@ class OrderTest extends TestCase
     {
         self::assertEquals(
             $this->getActual('created_at', 'asc'),
-            $this->getExpected('created_at', 'asc')
+            $this->getExpected('created_at', 'asc'),
         );
 
         self::assertEquals(
             $this->getExpected('_score'),
-            $this->getActual('_score')
+            $this->getActual('_score'),
         );
     }
 
@@ -39,7 +39,7 @@ class OrderTest extends TestCase
      */
     protected function getExpected(
         string $field,
-        string $direction = 'desc'
+        string $direction = 'desc',
     ): array {
         $query = $this->getQueryArray();
 
@@ -56,7 +56,7 @@ class OrderTest extends TestCase
      */
     protected function getActual(
         string $field,
-        string $direction = 'desc'
+        string $direction = 'desc',
     ): array {
         return $this
             ->getQueryObject()

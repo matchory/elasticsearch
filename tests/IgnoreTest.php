@@ -41,11 +41,11 @@ class IgnoreTest extends TestCase
     {
         self::assertEquals(
             $this->getExpected(404),
-            $this->getActual(404)
+            $this->getActual(404),
         );
         self::assertEquals(
             $this->getExpected(500, 404),
-            $this->getActual(500, 404)
+            $this->getActual(500, 404),
         );
     }
 

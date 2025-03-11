@@ -60,7 +60,7 @@ class GlobalScopeTest extends TestCase
             public static ConnectionInterface|null $connection = null;
 
             public static function resolveConnection(
-                string|null $connection = null
+                string|null $connection = null,
             ): ConnectionInterface {
                 assert(static::$connection !== null);
 
@@ -69,13 +69,12 @@ class GlobalScopeTest extends TestCase
         };
         $model::$connection = $this->getConnection();
 
-        $scope = static function (Query $query): void {
-        };
+        $scope = static function (Query $query): void {};
 
         $model::addGlobalScope('foo', $scope);
 
         self::assertSame($scope, $model::getGlobalScope(
-            'foo'
+            'foo',
         ));
 
         self::assertNull($model::getGlobalScope('bar'));
@@ -104,7 +103,7 @@ class GlobalScopeTest extends TestCase
             public static ConnectionInterface|null $connection = null;
 
             public static function resolveConnection(
-                string|null $connection = null
+                string|null $connection = null,
             ): ConnectionInterface {
                 assert(static::$connection !== null);
 
@@ -113,8 +112,7 @@ class GlobalScopeTest extends TestCase
         };
         $model::$connection = $this->getConnection();
 
-        $scope = static function (Query $query): void {
-        };
+        $scope = static function (Query $query): void {};
 
         $model::addGlobalScope('foo', $scope);
 
@@ -141,7 +139,7 @@ class GlobalScopeTest extends TestCase
     {
         self::assertEquals(
             $this->getExpected('views', 500),
-            $this->getActual('views', 500)
+            $this->getActual('views', 500),
         );
     }
 
@@ -167,7 +165,7 @@ class GlobalScopeTest extends TestCase
             public static ConnectionInterface|null $connection = null;
 
             public static function resolveConnection(
-                string|null $connection = null
+                string|null $connection = null,
             ): ConnectionInterface {
                 assert(static::$connection !== null);
 
@@ -176,9 +174,8 @@ class GlobalScopeTest extends TestCase
         };
         $model::$connection = $this->getConnection();
         $model::addGlobalScope('foo', static function (
-            Query $query
-        ) {
-        });
+            Query $query,
+        ) {});
 
         self::assertTrue($model::hasGlobalScope('foo'));
         self::assertFalse($model::hasGlobalScope('bar'));
@@ -207,7 +204,7 @@ class GlobalScopeTest extends TestCase
             public static ConnectionInterface|null $connection = null;
 
             public static function resolveConnection(
-                string|null $connection = null
+                string|null $connection = null,
             ): ConnectionInterface {
                 assert(static::$connection !== null);
 
@@ -216,8 +213,7 @@ class GlobalScopeTest extends TestCase
         };
         $model::$connection = $this->getConnection();
 
-        $scope = static function (Query $query): void {
-        };
+        $scope = static function (Query $query): void {};
         $model::addGlobalScope('foo', $scope);
 
         self::assertTrue($model::hasGlobalScope('foo'));
@@ -250,7 +246,7 @@ class GlobalScopeTest extends TestCase
             public static ConnectionInterface|null $connection = null;
 
             public static function resolveConnection(
-                string|null $connection = null
+                string|null $connection = null,
             ): ConnectionInterface {
                 assert(static::$connection !== null);
 
@@ -259,10 +255,8 @@ class GlobalScopeTest extends TestCase
         };
         $model::$connection = $this->getConnection();
 
-        $foo = static function (Query $query): void {
-        };
-        $bar = static function (Query $query): void {
-        };
+        $foo = static function (Query $query): void {};
+        $bar = static function (Query $query): void {};
         $model::addGlobalScope('foo', $foo);
         $model::addGlobalScope('bar', $bar);
 
@@ -298,7 +292,7 @@ class GlobalScopeTest extends TestCase
             public static ConnectionInterface|null $connection = null;
 
             public static function resolveConnection(
-                string|null $connection = null
+                string|null $connection = null,
             ): ConnectionInterface {
                 assert(static::$connection !== null);
 
@@ -307,7 +301,7 @@ class GlobalScopeTest extends TestCase
         };
         $model::$connection = $this->getConnection();
         $model::addGlobalScope('foo', fn(
-            Query $query
+            Query $query,
         ) => $query->where($name, $value));
 
         return $this->getQueryObject($model->newQuery())->toArray();

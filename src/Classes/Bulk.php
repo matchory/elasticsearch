@@ -70,7 +70,7 @@ class Bulk
     public function __construct(Query $query, int|null $autocommitAfter = null)
     {
         $this->query = $query;
-        $this->autocommitAfter = (int)$autocommitAfter;
+        $this->autocommitAfter = (int) $autocommitAfter;
     }
 
     /**
@@ -125,7 +125,7 @@ class Bulk
             $this->autocommitAfter > 0 &&
             $this->operationCount >= $this->autocommitAfter
         ) {
-            return (bool)$this->commit();
+            return (bool) $this->commit();
         }
 
         return true;

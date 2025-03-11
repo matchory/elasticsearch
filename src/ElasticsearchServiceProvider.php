@@ -5,24 +5,20 @@ declare(strict_types=1);
 namespace Matchory\Elasticsearch;
 
 use Elasticsearch\ClientBuilder as ElasticBuilder;
-use Illuminate\Contracts\Container\BindingResolutionException;
-use Illuminate\Contracts\Events\Dispatcher;
-use Illuminate\Contracts\Foundation\Application;
-use Illuminate\Contracts\Foundation\CachesConfiguration;
-use Illuminate\Support\Facades\Config;
-use Illuminate\Support\ServiceProvider;
-use Illuminate\Support\Str;
+use Illuminate\Contracts\{Container\BindingResolutionException,
+    Events\Dispatcher,
+    Foundation\Application,
+    Foundation\CachesConfiguration};
+use Illuminate\Support\{Facades\Config, ServiceProvider, Str};
 use Laravel\Scout\EngineManager;
 use LogicException;
-use Matchory\Elasticsearch\Commands\CreateIndexCommand;
-use Matchory\Elasticsearch\Commands\DropIndexCommand;
-use Matchory\Elasticsearch\Commands\ListIndicesCommand;
-use Matchory\Elasticsearch\Commands\ReindexCommand;
-use Matchory\Elasticsearch\Commands\UpdateIndexCommand;
+use Matchory\Elasticsearch\Commands\{CreateIndexCommand,
+    DropIndexCommand,
+    ListIndicesCommand,
+    ReindexCommand,
+    UpdateIndexCommand};
 use Matchory\Elasticsearch\Factories\ClientFactory;
-use Matchory\Elasticsearch\Interfaces\ClientFactoryInterface;
-use Matchory\Elasticsearch\Interfaces\ConnectionInterface;
-use Matchory\Elasticsearch\Interfaces\ConnectionResolverInterface;
+use Matchory\Elasticsearch\Interfaces\{ClientFactoryInterface, ConnectionInterface, ConnectionResolverInterface};
 use Psr\Log\LoggerInterface;
 use Psr\SimpleCache\CacheInterface;
 
@@ -56,23 +52,23 @@ class ElasticsearchServiceProvider extends ServiceProvider
         // Enable automatic connection resolution in all models
         Model::setConnectionResolver(
             $this->app->make(
-                ConnectionResolverInterface::class
-            )
+                ConnectionResolverInterface::class,
+            ),
         );
 
         // Enable event dispatching in all models
         Model::setEventDispatcher(
             $this->app->make(
-                Dispatcher::class
-            )
+                Dispatcher::class,
+            ),
         );
 
         // TODO: Remove in next major version
         /** @noinspection PhpDeprecationInspection */
         Connection::setConnectionResolver(
             $this->app->make(
-                ConnectionResolverInterface::class
-            )
+                ConnectionResolverInterface::class,
+            ),
         );
 
         // Register the Laravel Scout Engine
@@ -90,7 +86,7 @@ class ElasticsearchServiceProvider extends ServiceProvider
             @trigger_error(
                 "Since matchory/elasticsearch 3.0.0: The 'es.php' configuration file is deprecated. " .
                 "Use 'elasticsearch.php' instead.",
-                E_USER_DEPRECATED
+                E_USER_DEPRECATED,
             );
         } else {
             $configPath = $this->packageConfigPath('elasticsearch.php');
@@ -126,8 +122,7 @@ class ElasticsearchServiceProvider extends ServiceProvider
                 ->extend('elasticsearch', function () {
                     $connectionName = Config::get('scout.elasticsearch.connection');
                     $config = Config::get("elasticsearch.connections.{$connectionName}");
-                    $elastic = ElasticBuilder
-                        ::create()
+                    $elastic = ElasticBuilder::create()
                         ->setHosts($config['servers'])
                         ->build();
 
@@ -187,7 +182,7 @@ class ElasticsearchServiceProvider extends ServiceProvider
             'elasticsearch.logger',
             fn(Application $app) => $app
                 ->make(LoggerInterface::class)
-                ->channel('elasticsearch')
+                ->channel('elasticsearch'),
         );
     }
 
@@ -200,16 +195,16 @@ class ElasticsearchServiceProvider extends ServiceProvider
         // override it if they need to build their client in a specific way
         $this->app->singleton(
             ClientFactoryInterface::class,
-            ClientFactory::class
+            ClientFactory::class,
         );
 
         $this->app->bind(ClientFactory::class, fn(Application $app) => new ClientFactory(
-            $app->make('elasticsearch.logger')
+            $app->make('elasticsearch.logger'),
         ));
 
         $this->app->alias(
             ClientFactoryInterface::class,
-            'elasticsearch.factory'
+            'elasticsearch.factory',
         );
     }
 
@@ -234,29 +229,29 @@ class ElasticsearchServiceProvider extends ServiceProvider
                     $factory,
                     $cache,
                 );
-            }
+            },
         );
 
         $this->app->alias(
             ConnectionResolverInterface::class,
-            'elasticsearch.resolver'
+            'elasticsearch.resolver',
         );
 
         $this->app->alias(
             ConnectionResolverInterface::class,
-            'elasticsearch'
+            'elasticsearch',
         );
 
         $this->app->alias(
             ConnectionResolverInterface::class,
-            'es'
+            'es',
         );
 
         $this->app->beforeResolving('es', function () {
             @trigger_error(
                 "Since matchory/elasticsearch 3.0.0: The 'es' alias is deprecated. " .
                 "Use 'elasticsearch' instead.",
-                E_USER_DEPRECATED
+                E_USER_DEPRECATED,
             );
         });
     }
@@ -271,7 +266,7 @@ class ElasticsearchServiceProvider extends ServiceProvider
             ConnectionInterface::class,
             fn(Application $app): ConnectionInterface => $app
                 ->make(ConnectionResolverInterface::class)
-                ->connection()
+                ->connection(),
         );
 
         $this->app->alias(ConnectionInterface::class, 'elasticsearch.connection');
@@ -290,8 +285,8 @@ class ElasticsearchServiceProvider extends ServiceProvider
                 'logging.channels',
                 array_merge(
                     $packageLoggingConfig['channels'] ?? [],
-                    $config->get('logging.channels', [])
-                )
+                    $config->get('logging.channels', []),
+                ),
             );
         }
     }

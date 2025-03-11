@@ -5,14 +5,14 @@ declare(strict_types=1);
 namespace Matchory\Elasticsearch\Facades;
 
 use Illuminate\Support\Facades\Facade;
-use Matchory\Elasticsearch\Collection;
-use Matchory\Elasticsearch\Interfaces\ConnectionInterface;
-use Matchory\Elasticsearch\Interfaces\ConnectionResolverInterface;
-use Matchory\Elasticsearch\Model;
-use Matchory\Elasticsearch\Pagination;
-use Matchory\Elasticsearch\Query;
+use Matchory\Elasticsearch\{Collection,
+    Interfaces\ConnectionInterface,
+    Interfaces\ConnectionResolverInterface,
+    Model,
+    Pagination,
+    Query};
 
-use function class_alias;
+    use function class_alias;
 
 class_alias(Elasticsearch::class, 'Matchory\Elasticsearch\Facades\ES');
 

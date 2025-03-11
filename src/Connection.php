@@ -5,24 +5,18 @@ declare(strict_types=1);
 namespace Matchory\Elasticsearch;
 
 use BadMethodCallException;
-use Elasticsearch\Client;
-use Elasticsearch\ClientBuilder;
+use Elasticsearch\{Client, ClientBuilder};
 use Illuminate\Cache\Repository;
 use Illuminate\Contracts\Container\BindingResolutionException;
 use Illuminate\Foundation\Application;
-use Illuminate\Support\Arr;
-use Illuminate\Support\Facades\App;
-use Illuminate\Support\Facades\Cache;
-use Illuminate\Support\Traits\ForwardsCalls;
+use Illuminate\Support\{Arr, Facades\App, Facades\Cache, Traits\ForwardsCalls};
 use InvalidArgumentException;
 use JetBrains\PhpStorm\Deprecated;
 use JsonException;
-use Matchory\Elasticsearch\Interfaces\ClientFactoryInterface;
-use Matchory\Elasticsearch\Interfaces\ConnectionInterface;
-use Matchory\Elasticsearch\Interfaces\ConnectionResolverInterface as Resolver;
-use Monolog\Handler\StreamHandler;
-use Monolog\Level;
-use Monolog\Logger;
+use Matchory\Elasticsearch\Interfaces\{ClientFactoryInterface,
+    ConnectionInterface,
+    ConnectionResolverInterface as Resolver};
+use Monolog\{Handler\StreamHandler, Level, Logger};
 use Psr\SimpleCache\CacheInterface;
 use Sentry\Breadcrumb;
 use Sentry\Laravel\ServiceProvider as SentryProvider;
@@ -106,7 +100,7 @@ class Connection implements ConnectionInterface
         Client $client,
         CacheInterface|null $cache = null,
         string|null $index = null,
-        bool $reportQueries = true
+        bool $reportQueries = true,
     ) {
         $this->client = $client;
         $this->index = $index;
@@ -133,9 +127,9 @@ class Connection implements ConnectionInterface
                 'Since matchory/elasticsearch 3.0.0: The %s method is deprecated. ' .
                 'Use the connection manager to create connections instead. It provides a simpler ' .
                 'way to manage connections. This method will be removed in the next major version.',
-                __METHOD__
+                __METHOD__,
             ),
-            E_USER_DEPRECATED
+            E_USER_DEPRECATED,
         );
 
         static::$resolver = $resolver;
@@ -155,16 +149,16 @@ class Connection implements ConnectionInterface
     #[Deprecated(reason: 'Use the connection manager to create connections instead.')]
     public static function configureLogging(
         ClientBuilder $clientBuilder,
-        array $config
+        array $config,
     ): ClientBuilder {
         @trigger_error(
             sprintf(
                 'Since matchory/elasticsearch 3.0.0: The %s method is deprecated. ' .
                 'Use the connection manager to create connections instead. It provides a simpler ' .
                 'way to manage connections. This method will be removed in the next major version.',
-                __METHOD__
+                __METHOD__,
             ),
-            E_USER_DEPRECATED
+            E_USER_DEPRECATED,
         );
 
         if (Arr::get($config, 'logging.enabled')) {
@@ -172,8 +166,8 @@ class Connection implements ConnectionInterface
             $logger->pushHandler(
                 new StreamHandler(
                     Arr::get($config, 'logging.location'),
-                    Arr::get($config, 'logging.level', Level::Info)
-                )
+                    Arr::get($config, 'logging.level', Level::Info),
+                ),
             );
 
             $clientBuilder->setLogger($logger);
@@ -203,15 +197,15 @@ class Connection implements ConnectionInterface
                 'Since matchory/elasticsearch 3.0.0: The %s method is deprecated. ' .
                 'Use the connection manager to create connections instead. It provides a simpler ' .
                 'way to manage connections. This method will be removed in the next major version.',
-                __METHOD__
+                __METHOD__,
             ),
-            E_USER_DEPRECATED
+            E_USER_DEPRECATED,
         );
 
         $app = App::getFacadeApplication();
         $client = $app->make(ClientFactoryInterface::class)->createClient(
             $config['servers'],
-            $config['handler'] ?? null
+            $config['handler'] ?? null,
         );
 
         return (new static($client, $config['index'] ?? null))->newQuery();
@@ -228,7 +222,7 @@ class Connection implements ConnectionInterface
     public function insert(
         array $parameters,
         string|null $index = null,
-        string|null $type = null
+        string|null $type = null,
     ): object {
         if (!isset($parameters[Query::PARAM_INDEX]) && $index = $index ?? $this->index) {
             $parameters[Query::PARAM_INDEX] = $index;
@@ -238,7 +232,7 @@ class Connection implements ConnectionInterface
             $this->reportQuery($parameters);
         }
 
-        return (object)$this->client->index($parameters);
+        return (object) $this->client->index($parameters);
     }
 
     private function reportQuery(array $query): void
@@ -257,9 +251,11 @@ class Connection implements ConnectionInterface
             /** @noinspection PhpUnhandledExceptionInspection */
             $sentry->addBreadcrumb(
                 new Breadcrumb(
-                    Breadcrumb::LEVEL_INFO, Breadcrumb::TYPE_DEFAULT,
-                    'elasticsearch.query', json_encode($query, JSON_THROW_ON_ERROR) ?: '',
-                )
+                    Breadcrumb::LEVEL_INFO,
+                    Breadcrumb::TYPE_DEFAULT,
+                    'elasticsearch.query',
+                    json_encode($query, JSON_THROW_ON_ERROR) ?: '',
+                ),
             );
         } catch (JsonException) {
             // We don't want errors during reporting to bubble up to
@@ -295,9 +291,9 @@ class Connection implements ConnectionInterface
                     'Passing the connection name to %s is deprecated. ' .
                     'Use the proper connection instance directly instead. ' .
                     'This parameter will be removed in the next major version.',
-                    __METHOD__
+                    __METHOD__,
                 ),
-                E_USER_DEPRECATED
+                E_USER_DEPRECATED,
             );
 
             /** @noinspection PhpDeprecationInspection */
@@ -326,9 +322,9 @@ class Connection implements ConnectionInterface
                 'Since matchory/elasticsearch 3.0.0: The %s method is deprecated. ' .
                 'Use the connection manager to create connections instead. It provides a simpler ' .
                 'way to manage connections. This method will be removed in the next major version.',
-                __METHOD__
+                __METHOD__,
             ),
-            E_USER_DEPRECATED
+            E_USER_DEPRECATED,
         );
 
         return $this->newQuery($name);
@@ -388,11 +384,11 @@ class Connection implements ConnectionInterface
                 'Since matchory/elasticsearch 3.0.0: The %s method is deprecated. ' .
                 'Use the connection manager to create connections instead. It provides a simpler ' .
                 'way to manage connections. This method will be removed in the next major version.',
-                __METHOD__
+                __METHOD__,
             ),
-            E_USER_DEPRECATED
+            E_USER_DEPRECATED,
         );
 
-        return (bool)static::$resolver->connection($name);
+        return (bool) static::$resolver->connection($name);
     }
 }

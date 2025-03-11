@@ -80,7 +80,7 @@ class UpdateIndexCommand extends Command
             if (isset($config['aliases'])) {
                 foreach ($config['aliases'] as $alias) {
                     $this->info(
-                        "Creating alias: {$alias} for index: {$index}"
+                        "Creating alias: {$alias} for index: {$index}",
                     );
 
                     $client->indices()->updateAliases([
@@ -103,7 +103,7 @@ class UpdateIndexCommand extends Command
             if (isset($config['mappings'])) {
                 foreach ($config['mappings'] as $mapping) {
                     $this->info(
-                        "Creating mapping for index: {$index}"
+                        "Creating mapping for index: {$index}",
                     );
 
                     $client->indices()->putMapping([

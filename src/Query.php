@@ -7,17 +7,16 @@ namespace Matchory\Elasticsearch;
 use ArrayIterator;
 use BadMethodCallException;
 use Elasticsearch\Client;
-use Illuminate\Contracts\Support\Arrayable;
-use Illuminate\Contracts\Support\Jsonable;
+use Illuminate\Contracts\Support\{Arrayable, Jsonable};
 use Illuminate\Support\Traits\ForwardsCalls;
 use IteratorAggregate;
 use JsonException;
 use JsonSerializable;
-use Matchory\Elasticsearch\Concerns\AppliesScopes;
-use Matchory\Elasticsearch\Concerns\BuildsFluentQueries;
-use Matchory\Elasticsearch\Concerns\ExecutesQueries;
-use Matchory\Elasticsearch\Concerns\ExplainsQueries;
-use Matchory\Elasticsearch\Concerns\ManagesIndices;
+use Matchory\Elasticsearch\Concerns\{AppliesScopes,
+    BuildsFluentQueries,
+    ExecutesQueries,
+    ExplainsQueries,
+    ManagesIndices};
 use Matchory\Elasticsearch\Interfaces\ConnectionInterface;
 
 use function count;
@@ -177,7 +176,7 @@ class Query implements Arrayable, JsonSerializable, Jsonable, IteratorAggregate
      */
     public function __construct(
         ConnectionInterface $connection,
-        Model|null $model = null
+        Model|null $model = null,
     ) {
         $this->connection = $connection;
 
@@ -231,14 +230,14 @@ class Query implements Arrayable, JsonSerializable, Jsonable, IteratorAggregate
 
         if (!method_exists($this->getModel(), $method)) {
             throw new BadMethodCallException(
-                "Method {$method} does not exist."
+                "Method {$method} does not exist.",
             );
         }
 
         return $this->forwardCallTo(
             $this->getModel(),
             $method,
-            $parameters
+            $parameters,
         );
     }
 
@@ -312,7 +311,7 @@ class Query implements Arrayable, JsonSerializable, Jsonable, IteratorAggregate
     {
         return json_encode(
             $this->jsonSerialize(),
-            JSON_THROW_ON_ERROR | $options
+            JSON_THROW_ON_ERROR | $options,
         );
     }
 

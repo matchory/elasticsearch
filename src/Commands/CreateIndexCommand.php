@@ -90,7 +90,7 @@ class CreateIndexCommand extends Command
             if (isset($config['mappings'])) {
                 foreach ($config['mappings'] as $mapping) {
                     $this->info(
-                        "Creating mapping for index: {$index}"
+                        "Creating mapping for index: {$index}",
                     );
 
                     // Create mapping for type from config file

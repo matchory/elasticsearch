@@ -1,4 +1,5 @@
 <?php
+
 /** @noinspection PhpUnhandledExceptionInspection */
 
 declare(strict_types=1);
@@ -40,7 +41,7 @@ class ConnectionResolverTest extends TestCase
         self::assertTrue($resolver->hasConnection('foo'));
         self::assertSame(
             $connection,
-            $resolver->connection('foo')
+            $resolver->connection('foo'),
         );
     }
 

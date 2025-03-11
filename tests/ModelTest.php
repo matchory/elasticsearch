@@ -1,4 +1,5 @@
 <?php
+
 /** @noinspection PhpUndefinedFieldInspection */
 
 /** @noinspection PhpUnhandledExceptionInspection */
@@ -23,13 +24,9 @@ class ModelTest extends TestCase
 {
     use ResolvesConnections;
 
-    public function testAll(): void
-    {
-    }
+    public function testAll(): void {}
 
-    public function testAppend(): void
-    {
-    }
+    public function testAppend(): void {}
 
     public function testAttributesToArray(): void
     {
@@ -39,25 +36,17 @@ class ModelTest extends TestCase
 
         self::assertSame(
             $model->toArray(),
-            $model->attributesToArray()
+            $model->attributesToArray(),
         );
     }
 
-    public function testCacheMutatedAttributes(): void
-    {
-    }
+    public function testCacheMutatedAttributes(): void {}
 
-    public function testDelete(): void
-    {
-    }
+    public function testDelete(): void {}
 
-    public function testEncryptUsing(): void
-    {
-    }
+    public function testEncryptUsing(): void {}
 
-    public function testExists(): void
-    {
-    }
+    public function testExists(): void {}
 
     public function testExistsCanBePassedOnConstruction(): void
     {
@@ -71,21 +60,13 @@ class ModelTest extends TestCase
         self::assertFalse($model->exists());
     }
 
-    public function testFillJsonAttribute(): void
-    {
-    }
+    public function testFillJsonAttribute(): void {}
 
-    public function testFind(): void
-    {
-    }
+    public function testFind(): void {}
 
-    public function testFromDateTime(): void
-    {
-    }
+    public function testFromDateTime(): void {}
 
-    public function testFromEncryptedString(): void
-    {
-    }
+    public function testFromEncryptedString(): void {}
 
     public function testGetAttribute(): void
     {
@@ -95,12 +76,12 @@ class ModelTest extends TestCase
 
         self::assertSame(
             $model->getAttribute('foo'),
-            $model->foo
+            $model->foo,
         );
 
         self::assertSame(
             $model->getAttribute('foo'),
-            'bar'
+            'bar',
         );
     }
 
@@ -111,37 +92,21 @@ class ModelTest extends TestCase
         self::assertNull($model->getAttribute('foo'));
     }
 
-    public function testGetAttributeValue(): void
-    {
-    }
+    public function testGetAttributeValue(): void {}
 
-    public function testGetAttributes(): void
-    {
-    }
+    public function testGetAttributes(): void {}
 
-    public function testGetCasts(): void
-    {
-    }
+    public function testGetCasts(): void {}
 
-    public function testGetChanges(): void
-    {
-    }
+    public function testGetChanges(): void {}
 
-    public function testGetDateFormat(): void
-    {
-    }
+    public function testGetDateFormat(): void {}
 
-    public function testGetDates(): void
-    {
-    }
+    public function testGetDates(): void {}
 
-    public function testGetDirty(): void
-    {
-    }
+    public function testGetDirty(): void {}
 
-    public function testGetHighlights(): void
-    {
-    }
+    public function testGetHighlights(): void {}
 
     public function testGetId(): void
     {
@@ -157,20 +122,16 @@ class ModelTest extends TestCase
         self::assertNull($model->getId());
     }
 
-    public function testGetKey(): void
-    {
-    }
+    public function testGetKey(): void {}
 
-    public function testGetMutatedAttributes(): void
-    {
-    }
+    public function testGetMutatedAttributes(): void {}
 
     public function testGetOriginal(): void
     {
         $model = (new Model())->newInstance(
             ['foo' => 'bar'],
             ['_id' => '42'],
-            true
+            true,
         );
 
         self::assertSame('bar', $model->foo);
@@ -187,7 +148,7 @@ class ModelTest extends TestCase
 
         self::assertSame(
             $model->getConnectionName(),
-            $model->getQueueableConnection()
+            $model->getQueueableConnection(),
         );
     }
 
@@ -205,13 +166,9 @@ class ModelTest extends TestCase
         self::assertEmpty((new Model())->getQueueableRelations());
     }
 
-    public function testGetRawOriginal(): void
-    {
-    }
+    public function testGetRawOriginal(): void {}
 
-    public function testGetRelationValue(): void
-    {
-    }
+    public function testGetRelationValue(): void {}
 
     public function testGetRouteKeyName(): void
     {
@@ -229,7 +186,7 @@ class ModelTest extends TestCase
 
     public function testGetRouteKeyReturnsValueFromConfiguredField(): void
     {
-        $model = new class() extends Model {
+        $model = new class extends Model {
             public function getRouteKeyName(): string
             {
                 return 'foo';
@@ -238,19 +195,15 @@ class ModelTest extends TestCase
 
         $instance = $model->newInstance(
             ['foo' => '42'],
-            ['_id' => '24']
+            ['_id' => '24'],
         );
 
         self::assertSame('42', $instance->getRouteKey());
     }
 
-    public function testGetSelectable(): void
-    {
-    }
+    public function testGetSelectable(): void {}
 
-    public function testGetUnSelectable(): void
-    {
-    }
+    public function testGetUnSelectable(): void {}
 
     public function testHasCast(): void
     {
@@ -264,13 +217,9 @@ class ModelTest extends TestCase
         self::assertFalse($model->hasCast('bar'));
     }
 
-    public function testHasGetMutator(): void
-    {
-    }
+    public function testHasGetMutator(): void {}
 
-    public function testHasSetMutator(): void
-    {
-    }
+    public function testHasSetMutator(): void {}
 
     public function testImplementsAllRequiredInterfaces(): void
     {
@@ -329,9 +278,7 @@ class ModelTest extends TestCase
         self::assertTrue($model->isDirty('foo'));
     }
 
-    public function testJsonSerialize(): void
-    {
-    }
+    public function testJsonSerialize(): void {}
 
     public function testMergeCasts(): void
     {
@@ -390,13 +337,9 @@ class ModelTest extends TestCase
         self::assertFalse(isset($model->bar));
     }
 
-    public function testOffsetGet(): void
-    {
-    }
+    public function testOffsetGet(): void {}
 
-    public function testOffsetSet(): void
-    {
-    }
+    public function testOffsetSet(): void {}
 
     public function testOffsetUnset(): void
     {
@@ -411,9 +354,7 @@ class ModelTest extends TestCase
         self::assertNull($instance->foo);
     }
 
-    public function testOnly(): void
-    {
-    }
+    public function testOnly(): void {}
 
     public function testOriginalIsEquivalent(): void
     {
@@ -432,9 +373,7 @@ class ModelTest extends TestCase
         self::assertFalse($model->originalIsEquivalent('foo'));
     }
 
-    public function testRelationsToArray(): void
-    {
-    }
+    public function testRelationsToArray(): void {}
 
     public function testResolveChildRouteBinding(): void
     {
@@ -474,7 +413,7 @@ class ModelTest extends TestCase
 
         self::assertEquals(
             $model->resolveRouteBinding(42),
-            $model->resolveChildRouteBinding('', 42)
+            $model->resolveChildRouteBinding('', 42),
         );
     }
 
@@ -556,7 +495,7 @@ class ModelTest extends TestCase
             ->mockClient()
             ->expects(self::any())
             ->method('index')
-            ->willReturn((object)[
+            ->willReturn((object) [
                 '_id' => '42',
             ]);
 
@@ -572,7 +511,7 @@ class ModelTest extends TestCase
             ->mockClient()
             ->expects(self::any())
             ->method('update')
-            ->willReturn((object)[
+            ->willReturn((object) [
                 '_id' => '42',
                 'foo' => 'bar',
             ]);
@@ -580,36 +519,24 @@ class ModelTest extends TestCase
         $model = (new Model())->newInstance(
             ['foo' => 'bar'],
             ['_id' => '42'],
-            true
+            true,
         );
         $model->save();
 
         self::assertSame('42', $model->getId());
     }
 
-    public function testSetAppends(): void
-    {
-    }
+    public function testSetAppends(): void {}
 
-    public function testSetAttribute(): void
-    {
-    }
+    public function testSetAttribute(): void {}
 
-    public function testSetConnection(): void
-    {
-    }
+    public function testSetConnection(): void {}
 
-    public function testSetDateFormat(): void
-    {
-    }
+    public function testSetDateFormat(): void {}
 
-    public function testSetRawAttributes(): void
-    {
-    }
+    public function testSetRawAttributes(): void {}
 
-    public function testSetType(): void
-    {
-    }
+    public function testSetType(): void {}
 
     public function testSyncChanges(): void
     {
@@ -627,49 +554,27 @@ class ModelTest extends TestCase
         self::assertNotEmpty($model->getChanges());
     }
 
-    public function testSyncOriginal(): void
-    {
-    }
+    public function testSyncOriginal(): void {}
 
-    public function testSyncOriginalAttribute(): void
-    {
-    }
+    public function testSyncOriginalAttribute(): void {}
 
-    public function testSyncOriginalAttributes(): void
-    {
-    }
+    public function testSyncOriginalAttributes(): void {}
 
-    public function testToArray(): void
-    {
-    }
+    public function testToArray(): void {}
 
-    public function testToJson(): void
-    {
-    }
+    public function testToJson(): void {}
 
-    public function testWasChanged(): void
-    {
-    }
+    public function testWasChanged(): void {}
 
-    public function test__call(): void
-    {
-    }
+    public function test__call(): void {}
 
-    public function test__get(): void
-    {
-    }
+    public function test__get(): void {}
 
-    public function test__isset(): void
-    {
-    }
+    public function test__isset(): void {}
 
-    public function test__set(): void
-    {
-    }
+    public function test__set(): void {}
 
-    public function test__unset(): void
-    {
-    }
+    public function test__unset(): void {}
 
     protected function getEnvironmentSetUp($app): void
     {

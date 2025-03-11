@@ -41,7 +41,7 @@ class WhereInTest extends TestCase
     {
         self::assertEquals(
             $this->getExpected('status', ['pending', 'draft']),
-            $this->getActual('status', ['pending', 'draft'])
+            $this->getActual('status', ['pending', 'draft']),
         );
     }
 

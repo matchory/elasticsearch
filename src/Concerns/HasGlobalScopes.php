@@ -42,7 +42,7 @@ trait HasGlobalScopes
      */
     public static function addGlobalScope(
         ScopeInterface|string|Closure $scope,
-        Closure|null $implementation = null
+        Closure|null $implementation = null,
     ): ScopeInterface|Closure {
         if (is_string($scope) && !is_null($implementation)) {
             return static::$globalScopes[static::class][$scope] = $implementation;
@@ -57,7 +57,7 @@ trait HasGlobalScopes
         }
 
         throw new InvalidArgumentException(
-            'Global scopes must be callable or implement ScopeInterface'
+            'Global scopes must be callable or implement ScopeInterface',
         );
     }
 
@@ -70,7 +70,7 @@ trait HasGlobalScopes
      */
     public static function hasGlobalScope($scope): bool
     {
-        return (bool)static::getGlobalScope($scope);
+        return (bool) static::getGlobalScope($scope);
     }
 
     /**

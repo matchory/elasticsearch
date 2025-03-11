@@ -4,9 +4,10 @@ declare(strict_types=1);
 
 namespace Matchory\Elasticsearch;
 
-use Elasticsearch\Client as Elastic;
-use Illuminate\Database\Eloquent\Collection;
-use Illuminate\Database\Eloquent\Model;
+use Elasticsearch\Client;
+use Illuminate\Database\Eloquent\{Collection, Model};
+use Illuminate\Support\LazyCollection;
+use InvalidArgumentException;
 use Laravel\Scout\Builder;
 use Laravel\Scout\Engines\Engine;
 
@@ -19,29 +20,7 @@ use function is_array;
 
 class ScoutEngine extends Engine
 {
-    /**
-     * @var Elastic
-     */
-    protected Elastic $elastic;
-
-    /**
-     * Index where the models will be saved.
-     *
-     * @var string
-     */
-    protected string $index;
-
-    /**
-     * ScoutEngine constructor.
-     *
-     * @param Elastic $elastic
-     * @param string $index
-     */
-    public function __construct(Elastic $elastic, string $index)
-    {
-        $this->elastic = $elastic;
-        $this->index = $index;
-    }
+    public function __construct(protected Client $client, protected string $index) {}
 
     /**
      * Remove the given model from the index.
@@ -61,12 +40,11 @@ class ScoutEngine extends Engine
                 'delete' => [
                     '_id' => $model->getKey(),
                     '_index' => $this->index,
-                    '_type' => $model->searchableAs(),
                 ],
             ];
         });
 
-        $this->elastic->bulk($params);
+        $this->client->bulk($params);
     }
 
     /**
@@ -78,9 +56,7 @@ class ScoutEngine extends Engine
      */
     public function flush($model): void
     {
-        /** @noinspection PhpUndefinedMethodInspection */
-        $this->elastic->deleteByQuery([
-            'type' => $model->searchableAs(),
+        $this->client->deleteByQuery([
             'index' => $this->index,
             'body' => [
                 'query' => [
@@ -116,8 +92,8 @@ class ScoutEngine extends Engine
      * Perform the given search on the engine.
      *
      * @param Builder $builder
-     * @param int $perPage
-     * @param int $page
+     * @param int     $perPage
+     * @param int     $page
      *
      * @return array|callable
      */
@@ -140,18 +116,16 @@ class ScoutEngine extends Engine
      * Perform the given search on the engine.
      *
      * @param Builder $builder
-     * @param array $options
+     * @param array   $options
      *
      * @return array|callable
      */
     protected function performSearch(
         Builder $builder,
-        array $options = []
+        array $options = [],
     ): callable|array {
-        /** @noinspection PhpUndefinedMethodInspection */
         $params = [
             'index' => $this->index,
-            'type' => $builder->model->searchableAs(),
             'body' => [
                 'query' => [
                     'bool' => [
@@ -181,11 +155,11 @@ class ScoutEngine extends Engine
         ) {
             $params['body']['query']['bool']['must'] = array_merge(
                 $params['body']['query']['bool']['must'],
-                $options['numericFilters']
+                $options['numericFilters'],
             );
         }
 
-        return $this->elastic->search($params);
+        return $this->client->search($params);
     }
 
     /**
@@ -214,15 +188,15 @@ class ScoutEngine extends Engine
     {
         return collect($builder->wheres)
             ->map(
-            /**
-             * @param mixed $value
-             * @param int|string $key
-             *
-             * @return array
-             */
+                /**
+                 * @param mixed      $value
+                 * @param int|string $key
+                 *
+                 * @return array
+                 */
                 static fn(mixed $value, int|string $key): array => [
                     'match_phrase' => [$key => $value],
-                ]
+                ],
             )
             ->values()
             ->all();
@@ -232,14 +206,14 @@ class ScoutEngine extends Engine
      * Map the given results to instances of the given model.
      *
      * @param Builder $builder
-     * @param mixed $results
-     * @param Model $model
+     * @param mixed   $results
+     * @param Model   $model
      *
      * @return Collection
      */
     public function map(Builder $builder, $results, $model): Collection
     {
-        if ((int)$results['hits']['total'] === 0) {
+        if ((int) $results['hits']['total'] === 0) {
             return Collection::make();
         }
 
@@ -256,7 +230,7 @@ class ScoutEngine extends Engine
         $collection = new Collection($results['hits']['hits']);
 
         return $collection->map(static fn(
-            array $hit
+            array $hit,
         ) => $models[$hit['_id']]);
     }
 
@@ -278,7 +252,6 @@ class ScoutEngine extends Engine
                 'update' => [
                     '_id' => $model->getKey(),
                     '_index' => $this->index,
-                    '_type' => $model->searchableAs(),
                 ],
             ];
 
@@ -288,6 +261,46 @@ class ScoutEngine extends Engine
             ];
         });
 
-        $this->elastic->bulk($params);
+        $this->client->bulk($params);
+    }
+
+    /**
+     * @throws InvalidArgumentException
+     */
+    public function lazyMap(Builder $builder, $results, $model): LazyCollection
+    {
+        if ((int) $results['hits']['total'] === 0) {
+            return LazyCollection::make();
+        }
+
+        $keys = collect($results['hits']['hits'])
+            ->pluck('_id')
+            ->values()
+            ->all();
+
+        $models = $model
+            ->newQuery()
+            ->whereIn($model->getKeyName(), $keys)
+            ->get()
+            ->keyBy($model->getKeyName());
+
+        $collection = new LazyCollection($results['hits']['hits']);
+
+        return $collection->map(static fn(array $hit) => $models[$hit['_id']]);
+    }
+
+    public function createIndex($name, array $options = []): void
+    {
+        $this->client->indices()->create([
+            'index' => $name,
+            'body' => $options,
+        ]);
+    }
+
+    public function deleteIndex($name): void
+    {
+        $this->client->indices()->delete([
+            'index' => $name,
+        ]);
     }
 }
