@@ -57,7 +57,7 @@
     },
     "require-dev": {
         "illuminate/contracts": "^10|^11|^12",
-        "illuminate/database": "^10|^11|^12",
+        "illuminate/database": "^10|^11|~12.7",
         "jetbrains/phpstorm-attributes": "^1.2.0",
         "laravel/lumen-framework": "^10|^11|^12",
         "laravel/pint": "^1.21",
