@@ -14,8 +14,7 @@ if ($paginator->hasPages()): ?>
         <?php
         if ($paginator->onFirstPage()): ?>
             <li class="disabled"><span>&laquo;</span></li>
-        <?php
-        else: ?>
+        <?php else: ?>
             <li>
                 <a href="<?= $paginator->previousPageUrl() ?>" rel="prev">&laquo;</a>
             </li>
@@ -40,8 +39,7 @@ if ($paginator->hasPages()): ?>
                         <li class="active">
                             <span><?= $page ?></span>
                         </li>
-                    <?php
-                    else: ?>
+                    <?php else: ?>
                         <li>
                             <a href="<?= $url ?>"><?= $page ?></a>
                         </li>
@@ -59,8 +57,7 @@ if ($paginator->hasPages()): ?>
             <li>
                 <a href="<?= $paginator->nextPageUrl() ?>" rel="next">&raquo;</a>
             </li>
-        <?php
-        else: ?>
+        <?php else: ?>
             <li class="disabled"><span>&raquo;</span></li>
         <?php
         endif ?>

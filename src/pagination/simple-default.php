@@ -15,8 +15,7 @@ if ($paginator->hasPages()): ?>
             <li class="disabled">
                 <span>&laquo;</span>
             </li>
-        <?php
-        else: ?>
+        <?php else: ?>
             <li>
                 <a href="<?= $paginator->previousPageUrl() ?>"
                    rel="prev">&laquo;</a>
@@ -30,8 +29,7 @@ if ($paginator->hasPages()): ?>
                 <a href="<?= $paginator->nextPageUrl() ?>"
                    rel="next">&raquo;</a>
             </li>
-        <?php
-        else: ?>
+        <?php else: ?>
             <li class="disabled">
                 <span>&raquo;</span>
             </li>

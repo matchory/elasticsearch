@@ -9,7 +9,8 @@ use Illuminate\Contracts\{Container\BindingResolutionException,
     Events\Dispatcher,
     Foundation\Application,
     Foundation\CachesConfiguration};
-use Illuminate\Support\{Facades\Config, ServiceProvider, Str};
+use Illuminate\Support\{Facades\Config, ServiceProvider};
+use Illuminate\Log\LogManager;
 use Laravel\Scout\EngineManager;
 use LogicException;
 use Matchory\Elasticsearch\Commands\{CreateIndexCommand,
@@ -19,16 +20,13 @@ use Matchory\Elasticsearch\Commands\{CreateIndexCommand,
     UpdateIndexCommand};
 use Matchory\Elasticsearch\Factories\ClientFactory;
 use Matchory\Elasticsearch\Interfaces\{ClientFactoryInterface, ConnectionInterface, ConnectionResolverInterface};
-use Psr\Log\LoggerInterface;
 use Psr\SimpleCache\CacheInterface;
 
 use function class_exists;
 use function config_path;
 use function dirname;
 use function file_exists;
-use function method_exists;
 use function trigger_error;
-use function version_compare;
 
 use const E_USER_DEPRECATED;
 
@@ -99,14 +97,6 @@ class ElasticsearchServiceProvider extends ServiceProvider
         $this->publishes([
             $this->packageConfigPath() => config_path(),
         ], "{$configKey}.config");
-
-        // Autoconfiguration with lumen framework.
-        if (
-            method_exists($this->app, 'configure') &&
-            Str::contains($this->app->version(), 'Lumen')
-        ) {
-            $this->app->configure(ConnectionResolverInterface::class);
-        }
     }
 
     protected function registerScoutEngine(): void
@@ -153,22 +143,18 @@ class ElasticsearchServiceProvider extends ServiceProvider
 
     protected function registerCommands(): void
     {
-        $version = $this->app->version();
-
-        if (
-            version_compare($version, '5.1', '>=') ||
-            Str::startsWith($version, 'Lumen') ||
-            $this->app->runningInConsole()
-        ) {
-            // Registering commands
-            $this->commands([
-                ListIndicesCommand::class,
-                CreateIndexCommand::class,
-                UpdateIndexCommand::class,
-                DropIndexCommand::class,
-                ReindexCommand::class,
-            ]);
+        if (!$this->app->runningInConsole()) {
+            return;
         }
+
+        // Registering commands
+        $this->commands([
+            ListIndicesCommand::class,
+            CreateIndexCommand::class,
+            UpdateIndexCommand::class,
+            DropIndexCommand::class,
+            ReindexCommand::class,
+        ]);
     }
 
     /**
@@ -180,8 +166,9 @@ class ElasticsearchServiceProvider extends ServiceProvider
     {
         $this->app->bind(
             'elasticsearch.logger',
-            fn(Application $app) => $app
-                ->make(LoggerInterface::class)
+            fn(Application $app)
+                => $app
+                ->make(LogManager::class)
                 ->channel('elasticsearch'),
         );
     }
@@ -264,7 +251,8 @@ class ElasticsearchServiceProvider extends ServiceProvider
         // Bind the default connection separately
         $this->app->singleton(
             ConnectionInterface::class,
-            fn(Application $app): ConnectionInterface => $app
+            fn(Application $app): ConnectionInterface
+                => $app
                 ->make(ConnectionResolverInterface::class)
                 ->connection(),
         );

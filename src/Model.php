@@ -6,6 +6,7 @@ namespace Matchory\Elasticsearch;
 
 use ArrayAccess;
 use BadMethodCallException;
+use Closure;
 use Illuminate\Contracts\{Events\Dispatcher,
     Queue\QueueableEntity,
     Routing\UrlRoutable,
@@ -79,12 +80,6 @@ class Model implements
 
     protected const FIELD_ID = '_id';
 
-    /**
-     * The array of booted models.
-     *
-     * @var array<string, bool>
-     */
-    protected static array $booted = [];
 
     /**
      * The event dispatcher instance.
@@ -94,18 +89,39 @@ class Model implements
     protected static Dispatcher $dispatcher;
 
     /**
+     * The array of booted models.
+     *
+     * @var array
+     */
+    protected static array $booted = [];
+
+    /**
+     * The callbacks that should be executed after the model has booted.
+     *
+     * @var array
+     */
+    protected static array $bootedCallbacks = [];
+
+    /**
+     * The array of trait initializers that will be called on each new instance.
+     *
+     * @var array
+     */
+    protected static array $traitInitializers = [];
+
+    /**
+     * The array of global scopes on the model.
+     *
+     * @var array
+     */
+    protected static $globalScopes = [];
+
+    /**
      * The connection resolver instance.
      *
      * @var ConnectionResolverInterface|null
      */
     protected static ConnectionResolverInterface|null $resolver;
-
-    /**
-     * The array of trait initializers that will be called on each new instance.
-     *
-     * @var array<string, string[]>
-     */
-    protected static array $traitInitializers = [];
 
     /**
      * Indicates if the model was inserted during the current request lifecycle.
@@ -239,13 +255,14 @@ class Model implements
     }
 
     /**
-     * Boot all bootable traits on the model.
+     * Boot all the bootable traits on the model.
      *
      * @return void
      */
     protected static function bootTraits(): void
     {
         $class = static::class;
+
         $booted = [];
 
         static::$traitInitializers[$class] = [];
@@ -253,20 +270,13 @@ class Model implements
         foreach (class_uses_recursive($class) as $trait) {
             $method = 'boot' . class_basename($trait);
 
-            if (
-                method_exists($class, $method) &&
-                !in_array($method, $booted, true)
-            ) {
+            if (method_exists($class, $method) && ! in_array($method, $booted)) {
                 forward_static_call([$class, $method]);
 
                 $booted[] = $method;
             }
 
-            if (method_exists(
-                $class,
-                $method = 'initialize' . class_basename($trait),
-            )) {
-                /** @noinspection UnsupportedStringOffsetOperationsInspection */
+            if (method_exists($class, $method = 'initialize' . class_basename($trait))) {
                 static::$traitInitializers[$class][] = $method;
 
                 static::$traitInitializers[$class] = array_unique(
@@ -274,16 +284,6 @@ class Model implements
                 );
             }
         }
-    }
-
-    /**
-     * Perform any actions required after the model boots.
-     *
-     * @return void
-     */
-    protected static function booted(): void
-    {
-        //
     }
 
     /**
@@ -296,6 +296,37 @@ class Model implements
         foreach (static::$traitInitializers[static::class] as $method) {
             $this->{$method}();
         }
+    }
+
+    /**
+     * Perform any actions required after the model boots.
+     *
+     * @return void
+     */
+    protected static function booted()
+    {
+        //
+    }
+
+    /**
+    * Register a closure to be executed after the model has booted.
+    *
+    * @param Closure $callback
+    */
+    protected static function whenBooted(Closure $callback): void
+    {
+        static::$bootedCallbacks[static::class] ??= [];
+        static::$bootedCallbacks[static::class][] = $callback;
+    }
+
+    /**
+     * Clear the list of booted models so they will be re-booted.
+     */
+    public static function clearBootedModels(): void
+    {
+        static::$booted = [];
+        static::$bootedCallbacks = [];
+        static::$globalScopes = [];
     }
 
     /**
@@ -444,17 +475,6 @@ class Model implements
     public static function __callStatic(string $method, array $parameters)
     {
         return (new static())->$method(...$parameters);
-    }
-
-    /**
-     * Clear the list of booted models so they will be re-booted.
-     *
-     * @return void
-     */
-    public static function clearBootedModels(): void
-    {
-        static::$booted = [];
-        static::$globalScopes = [];
     }
 
     /**

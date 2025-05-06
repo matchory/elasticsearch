@@ -91,10 +91,10 @@ class Connection implements ConnectionInterface
     /**
      * Creates a new connection
      *
-     * @param Client $client
+     * @param Client              $client
      * @param CacheInterface|null $cache
-     * @param string|null $index
-     * @param bool $reportQueries
+     * @param string|null         $index
+     * @param bool                $reportQueries
      */
     final public function __construct(
         Client $client,
@@ -137,7 +137,7 @@ class Connection implements ConnectionInterface
 
     /**
      * @param ClientBuilder $clientBuilder
-     * @param array $config
+     * @param array         $config
      *
      * @return ClientBuilder
      * @throws InvalidArgumentException
@@ -177,8 +177,8 @@ class Connection implements ConnectionInterface
     }
 
     /**
-     * Create a native connection suitable for any non-laravel or non-lumen apps
-     * any composer based frameworks
+     * Create a native connection suitable for any non-Laravel apps
+     * any composer-based frameworks
      *
      * @param mixed $config
      *
@@ -203,10 +203,7 @@ class Connection implements ConnectionInterface
         );
 
         $app = App::getFacadeApplication();
-        $client = $app->make(ClientFactoryInterface::class)->createClient(
-            $config['servers'],
-            $config['handler'] ?? null,
-        );
+        $client = $app->make(ClientFactoryInterface::class)->createClient($config['servers']);
 
         return (new static($client, $config['index'] ?? null))->newQuery();
     }
@@ -304,7 +301,7 @@ class Connection implements ConnectionInterface
     }
 
     /**
-     * Create a connection for laravel or lumen frameworks
+     * Create a connection for Laravel
      *
      * @param string $name
      *
@@ -354,7 +351,7 @@ class Connection implements ConnectionInterface
      * Proxy  calls to the default connection
      *
      * @param string $name
-     * @param array $arguments
+     * @param array  $arguments
      *
      * @return mixed
      * @throws BadMethodCallException

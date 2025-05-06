@@ -17,6 +17,7 @@ use function assert;
 use function collect;
 use function count;
 use function is_array;
+use function is_callable;
 
 class ScoutEngine extends Engine
 {
@@ -194,9 +195,10 @@ class ScoutEngine extends Engine
                  *
                  * @return array
                  */
-                static fn(mixed $value, int|string $key): array => [
-                    'match_phrase' => [$key => $value],
-                ],
+                static fn(mixed $value, int|string $key): array
+                    => [
+                        'match_phrase' => [$key => $value],
+                    ],
             )
             ->values()
             ->all();
@@ -210,6 +212,7 @@ class ScoutEngine extends Engine
      * @param Model   $model
      *
      * @return Collection
+     * @throws InvalidArgumentException
      */
     public function map(Builder $builder, $results, $model): Collection
     {
@@ -223,6 +226,7 @@ class ScoutEngine extends Engine
             ->all();
 
         $models = $model
+            ->query()
             ->whereIn($model->getKeyName(), $keys)
             ->get()
             ->keyBy($model->getKeyName());
@@ -231,7 +235,8 @@ class ScoutEngine extends Engine
 
         return $collection->map(static fn(
             array $hit,
-        ) => $models[$hit['_id']]);
+        )
+            => $models[$hit['_id']]);
     }
 
     /**
@@ -254,6 +259,8 @@ class ScoutEngine extends Engine
                     '_index' => $this->index,
                 ],
             ];
+
+            assert(is_callable([$model, 'toSearchableArray']));
 
             $params['body'][] = [
                 'doc' => $model->toSearchableArray(),
