@@ -16,10 +16,8 @@ use Illuminate\Database\Eloquent\{Concerns\GuardsAttributes,
     Concerns\HasAttributes,
     Concerns\HasEvents,
     Concerns\HidesAttributes,
-    InvalidCastException,
-    JsonEncodingException,
     MassAssignmentException};
-use Illuminate\Support\{Arr, Collection as BaseCollection, Str, Traits\ForwardsCalls};
+use Illuminate\Support\{Arr, Collection as BaseCollection, Traits\ForwardsCalls};
 use InvalidArgumentException;
 use JetBrains\PhpStorm\Deprecated;
 use JsonException;
@@ -36,7 +34,6 @@ use function assert;
 use function class_basename;
 use function class_uses_recursive;
 use function count;
-use function forward_static_call;
 use function func_get_args;
 use function get_class;
 use function in_array;
@@ -58,8 +55,8 @@ use const E_USER_DEPRECATED;
  * @property-read string|null $_id
  * @property-read string|null $_index
  * @property-read string|null $_type
- * @property-read float|null $_score
- * @property-read array|null $highlight
+ * @property-read float|null  $_score
+ * @property-read array|null  $highlight
  *
  * @package Matchory\Elasticsearch
  */
@@ -72,14 +69,15 @@ class Model implements
     UrlRoutable
 {
     use ForwardsCalls;
-    use HasAttributes;
+    use HasAttributes {
+        HasAttributes::getAttribute as getModelAttribute;
+    }
     use HidesAttributes;
     use HasEvents;
     use HasGlobalScopes;
     use GuardsAttributes;
 
     protected const FIELD_ID = '_id';
-
 
     /**
      * The event dispatcher instance.
@@ -108,13 +106,6 @@ class Model implements
      * @var array
      */
     protected static array $traitInitializers = [];
-
-    /**
-     * The array of global scopes on the model.
-     *
-     * @var array
-     */
-    protected static $globalScopes = [];
 
     /**
      * The connection resolver instance.
@@ -189,7 +180,7 @@ class Model implements
      * not add the `throws` annotation to their constructor.
      *
      * @param array<string, mixed> $attributes
-     * @param bool $exists
+     * @param bool                 $exists
      *
      * @noinspection PhpUnhandledExceptionInspection
      * @noinspection PhpDocMissingThrowsInspection
@@ -270,8 +261,8 @@ class Model implements
         foreach (class_uses_recursive($class) as $trait) {
             $method = 'boot' . class_basename($trait);
 
-            if (method_exists($class, $method) && ! in_array($method, $booted)) {
-                forward_static_call([$class, $method]);
+            if (method_exists($class, $method) && !in_array($method, $booted, true)) {
+                $class::$method();
 
                 $booted[] = $method;
             }
@@ -309,10 +300,10 @@ class Model implements
     }
 
     /**
-    * Register a closure to be executed after the model has booted.
-    *
-    * @param Closure $callback
-    */
+     * Register a closure to be executed after the model has booted.
+     *
+     * @param Closure $callback
+     */
     protected static function whenBooted(Closure $callback): void
     {
         static::$bootedCallbacks[static::class] ??= [];
@@ -332,18 +323,15 @@ class Model implements
     /**
      * Fill the model with an array of attributes. Force mass assignment.
      *
-     * @param array $attributes
+     * @param array<string, mixed> $attributes
      *
-     * @return static
-     * @throws InvalidCastException
-     * @throws JsonEncodingException
+     * @return $this
      * @throws MassAssignmentException
+     * @noinspection PhpIncompatibleReturnTypeInspection
      */
-    public function forceFill(array $attributes): self
+    public function forceFill(array $attributes): static
     {
-        return static::unguarded(function () use ($attributes) {
-            return $this->fill($attributes);
-        });
+        return static::unguarded(fn() => $this->fill($attributes));
     }
 
     /**
@@ -351,13 +339,11 @@ class Model implements
      *
      * @param array<string, mixed> $attributes
      *
-     * @return static
+     * @return $this
      *
-     * @throws InvalidCastException
-     * @throws JsonEncodingException
      * @throws MassAssignmentException
      */
-    public function fill(array $attributes): self
+    public function fill(array $attributes): static
     {
         $totallyGuarded = $this->totallyGuarded();
 
@@ -377,59 +363,6 @@ class Model implements
                 );
             }
         }
-
-        return $this;
-    }
-
-    /**
-     * Set a given attribute on the model.
-     *
-     * @param string $key
-     * @param mixed $value
-     *
-     * @return mixed
-     * @throws InvalidCastException
-     * @throws JsonEncodingException
-     */
-    public function setAttribute(string $key, mixed $value): mixed
-    {
-        // First we will check for the presence of a mutator for the set
-        // operation which simply lets the developers tweak the attribute as it
-        // is set on the model, such as "json_encoding" an listing of data
-        // for storage.
-        if ($this->hasSetMutator($key)) {
-            return $this->setMutatedAttributeValue($key, $value);
-        }
-
-        if ($value && $this->isDateAttribute($key)) {
-            $value = $this->fromDateTime($value);
-        }
-
-        // If an attribute is listed as a "date", we'll convert it from a
-        // DateTime instance into a form proper for storage on the index.
-        // We will auto set the values.
-        if ($this->isClassCastable($key)) {
-            $this->setClassCastableAttribute($key, $value);
-
-            return $this;
-        }
-
-        if (!is_null($value) && $this->isJsonCastable($key)) {
-            $value = $this->castAttributeAsJson($key, $value);
-        }
-
-        // If this attribute contains a JSON ->, we'll set the proper value in
-        // the attribute's underlying array. This takes care of properly nesting
-        // an attribute in the array's value in the case of deeply nested items.
-        if (Str::contains($key, '->')) {
-            return $this->fillJsonAttribute($key, $value);
-        }
-
-        if (!is_null($value) && $this->isEncryptedCastable($key)) {
-            $value = $this->castAttributeAsEncryptedString($key, $value);
-        }
-
-        $this->attributes[$key] = $value;
 
         return $this;
     }
@@ -468,7 +401,7 @@ class Model implements
      * Handle dynamic static method calls into the method.
      *
      * @param string $method
-     * @param array $parameters
+     * @param array  $parameters
      *
      * @return mixed
      */
@@ -480,16 +413,14 @@ class Model implements
     /**
      * Save a new model and return the instance.
      *
-     * @param array $attributes
+     * @param array       $attributes
      * @param string|null $id
      *
-     * @return static
-     * @throws InvalidCastException
-     * @throws JsonEncodingException
+     * @return $this
      * @psalm-suppress LessSpecificReturnStatement
      * @noinspection   PhpUnhandledExceptionInspection
      */
-    public static function create(array $attributes, string|null $id = null): self
+    public static function create(array $attributes, string|null $id = null): static
     {
         $metadata = [];
         if (!is_null($id)) {
@@ -508,19 +439,19 @@ class Model implements
      * model instances of this current model. It is particularly useful during
      * the hydration of new objects via the Query instance.
      *
-     * @param array $attributes Model attributes
-     * @param array $metadata Query result metadata
-     * @param bool $exists Whether the document exists
-     * @param string|null $index Name of the index the document lives in
+     * @param array       $attributes Model attributes
+     * @param array       $metadata   Query result metadata
+     * @param bool        $exists     Whether the document exists
+     * @param string|null $index      Name of the index the document lives in
      *
-     * @return static
+     * @return $this
      */
     public function newInstance(
         array $attributes = [],
         array $metadata = [],
         bool $exists = false,
         string|null $index = null,
-    ): self {
+    ): static {
         $model = new static([], $exists);
 
         $model->setRawAttributes($attributes, true);
@@ -537,11 +468,9 @@ class Model implements
     /**
      * Save the model to the index.
      *
-     * @return static
-     * @throws InvalidCastException
-     * @throws JsonEncodingException
+     * @return $this
      */
-    public function save(): self
+    public function save(): static
     {
         $this->mergeAttributesFromClassCasts();
 
@@ -585,7 +514,6 @@ class Model implements
      * @param Query<static> $query
      *
      * @return bool
-     * @throws InvalidCastException
      */
     protected function performUpdate(Query $query): bool
     {
@@ -607,7 +535,8 @@ class Model implements
             return true;
         }
 
-        $this->setKeysForSaveQuery($query)
+        $this
+            ->setKeysForSaveQuery($query)
             ->update($dirty);
 
         $this->syncChanges();
@@ -625,7 +554,6 @@ class Model implements
      * @param Query<TModel> $query
      *
      * @return Query<TModel>
-     * @throws InvalidCastException
      */
     protected function setKeysForSaveQuery(Query $query): Query
     {
@@ -638,7 +566,6 @@ class Model implements
      * Get the primary key value for a save query.
      *
      * @return string|null
-     * @throws InvalidCastException
      */
     protected function getKeyForSaveQuery(): string|null
     {
@@ -651,8 +578,6 @@ class Model implements
      * @param Query<static> $query
      *
      * @return bool
-     * @throws InvalidCastException
-     * @throws JsonEncodingException
      */
     protected function performInsert(Query $query): bool
     {
@@ -687,24 +612,12 @@ class Model implements
     }
 
     /**
-     * Get all of the current attributes on the model.
-     *
-     * @return array
-     */
-    public function getAttributes(): array
-    {
-        return $this->attributes;
-    }
-
-    /**
      * Insert the given attributes and set the ID on the model.
      *
      * @param Query<static> $query
-     * @param array $attributes
+     * @param array         $attributes
      *
      * @return void
-     * @throws InvalidCastException
-     * @throws JsonEncodingException
      */
     protected function insertAndSetId(Query $query, array $attributes): void
     {
@@ -739,7 +652,6 @@ class Model implements
      * @param array|int|string|BaseCollection $ids
      *
      * @return int
-     * @throws InvalidCastException
      */
     public static function destroy(array|BaseCollection|int|string $ids): int
     {
@@ -798,7 +710,6 @@ class Model implements
      * Delete model record
      *
      * @return bool
-     * @throws InvalidCastException
      */
     public function delete(): bool
     {
@@ -829,7 +740,6 @@ class Model implements
      * Perform the actual delete query on this model instance.
      *
      * @return void
-     * @throws InvalidCastException
      */
     protected function performDeleteOnModel(): void
     {
@@ -843,11 +753,11 @@ class Model implements
      *
      * @param string $key
      *
-     * @return static
+     * @return $this
      * @throws DocumentNotFoundException
      * @psalm-suppress MismatchingDocblockReturnType
      */
-    public static function findOrFail(string $key): self
+    public static function findOrFail(string $key): static
     {
         $result = static::find($key);
 
@@ -866,7 +776,7 @@ class Model implements
      *
      * @param string $key
      *
-     * @return static|null
+     * @return $this|null
      */
     public static function find(string $key): static|null
     {
@@ -904,20 +814,6 @@ class Model implements
     public function getDateFormat(): string
     {
         return $this->dateFormat ?: DATE_ATOM;
-    }
-
-    /**
-     * Set the date format used by the model.
-     *
-     * @param string $format
-     *
-     * @return static
-     */
-    public function setDateFormat(string $format): self
-    {
-        $this->dateFormat = $format;
-
-        return $this;
     }
 
     /**
@@ -993,39 +889,11 @@ class Model implements
     }
 
     /**
-     * Transform a raw model value using mutators, casts, etc.
-     *
-     * @param string $key
-     * @param mixed $value
-     *
-     * @return mixed
-     */
-    protected function transformModelValue(string $key, mixed $value): mixed
-    {
-        // If the attribute has a get mutator, we will call that, then return
-        // what it returns as the value, which is useful for transforming values
-        // on  retrieval from the model to a form that is more useful for usage.
-        if ($this->hasGetMutator($key)) {
-            return $this->mutateAttribute($key, $value);
-        }
-
-        // If the attribute exists within the cast array, we will convert it to
-        // an appropriate native PHP type dependent upon the associated value
-        // given with the key in the pair. Dayle made this comment line up.
-        if ($this->hasCast($key)) {
-            return $this->castAttribute($key, $value);
-        }
-
-        return $value;
-    }
-
-    /**
      * Get field highlights
      *
      * @param string|null $field
      *
      * @return mixed
-     * @throws InvalidCastException
      */
     public function getHighlights(string|null $field = null): mixed
     {
@@ -1044,7 +912,6 @@ class Model implements
      * @param string $key
      *
      * @return mixed
-     * @throws InvalidCastException
      */
     public function getAttribute(string $key): mixed
     {
@@ -1066,18 +933,17 @@ class Model implements
             return $this->getScore();
         }
 
-        // If the attribute exists in the attribute array or has a "get" mutator
-        // we will get the attribute's value.
-        if (
-            array_key_exists($key, $this->attributes) ||
-            array_key_exists($key, $this->casts) ||
-            $this->hasGetMutator($key) ||
-            $this->isClassCastable($key)
-        ) {
-            return $this->getAttributeValue($key);
-        }
+        return $this->getModelAttribute($key);
+    }
 
-        return null;
+    public function isRelation($key): false
+    {
+        return false;
+    }
+
+    public function relationLoaded($key): false
+    {
+        return false;
     }
 
     /**
@@ -1124,7 +990,6 @@ class Model implements
     /**
      * @inheritDoc
      * @return string|null
-     * @throws InvalidCastException
      */
     public function getQueueableId(): string|null
     {
@@ -1135,7 +1000,6 @@ class Model implements
      * Get the value of the model's primary key.
      *
      * @return string|null
-     * @throws InvalidCastException
      */
     public function getKey(): string|null
     {
@@ -1177,7 +1041,6 @@ class Model implements
     /**
      * @inheritDoc
      * @return float|mixed|string|null
-     * @throws InvalidCastException
      */
     public function getRouteKey(): mixed
     {
@@ -1197,11 +1060,11 @@ class Model implements
      * Elasticsearch does not support relations, so any resolution request will
      * be proxied to the usual route binding resolution method.
      *
-     * @param string $childType
-     * @param mixed $value
+     * @param string      $childType
+     * @param mixed       $value
      * @param string|null $field
      *
-     * @return Model|null
+     * @return $this|null
      * @throws InvalidArgumentException
      * @psalm-suppress ImplementedReturnTypeMismatch
      */
@@ -1209,7 +1072,7 @@ class Model implements
         $childType,
         $value,
         $field = null,
-    ): self|null {
+    ): static|null {
         return $this->resolveRouteBinding($value, $field);
     }
 
@@ -1219,14 +1082,14 @@ class Model implements
      * a rather short-sighted decision.
      * Route bindings using Elasticsearch models should work fine regardless.
      *
-     * @param mixed $value
+     * @param mixed       $value
      * @param string|null $field
      *
-     * @return Model|null
+     * @return $this|null
      * @throws InvalidArgumentException
      * @psalm-suppress ImplementedReturnTypeMismatch
      */
-    public function resolveRouteBinding($value, $field = null): self|null
+    public function resolveRouteBinding($value, $field = null): static|null
     {
         return $this
             ->newQuery()
@@ -1348,7 +1211,7 @@ class Model implements
      * Handle dynamic method calls into the model.
      *
      * @param string $method
-     * @param array $parameters
+     * @param array  $parameters
      *
      * @return mixed
      * @throws BadMethodCallException
@@ -1368,7 +1231,6 @@ class Model implements
      * @param string $name
      *
      * @return mixed|null
-     * @throws InvalidCastException
      */
     public function __get(string $name)
     {
@@ -1379,11 +1241,9 @@ class Model implements
      * Handle model properties setter
      *
      * @param string $name
-     * @param mixed $value
+     * @param mixed  $value
      *
      * @return void
-     * @throws InvalidCastException
-     * @throws JsonEncodingException
      */
     public function __set(string $name, mixed $value): void
     {
@@ -1396,7 +1256,6 @@ class Model implements
      * @param string $key
      *
      * @return bool
-     * @throws InvalidCastException
      */
     public function __isset(string $key): bool
     {
@@ -1413,7 +1272,6 @@ class Model implements
      * @param mixed $offset
      *
      * @return bool
-     * @throws InvalidCastException
      */
     public function offsetExists(mixed $offset): bool
     {
@@ -1448,7 +1306,7 @@ class Model implements
      * Apply the given named scope if possible.
      *
      * @param string $scope
-     * @param array $parameters
+     * @param array  $parameters
      *
      * @return mixed
      */
@@ -1458,7 +1316,7 @@ class Model implements
     }
 
     /**
-     * Check model is exists
+     * Check if the model exists.
      *
      * @return bool
      */
@@ -1488,7 +1346,6 @@ class Model implements
      * @param static|null $model
      *
      * @return bool
-     * @throws InvalidCastException
      */
     public function isNot(self|null $model): bool
     {
@@ -1501,7 +1358,6 @@ class Model implements
      * @param static|null $model
      *
      * @return bool
-     * @throws InvalidCastException
      */
     public function is(self|null $model): bool
     {
@@ -1515,13 +1371,12 @@ class Model implements
      * Retrieves the model key
      *
      * @return string|null
-     * @throws InvalidCastException
      */
     public function getId(): string|null
     {
         $id = $this->getAttribute(self::FIELD_ID);
 
-        return $id ? (string) $id : null;
+        return $id ? (string)$id : null;
     }
 
     /**
@@ -1542,7 +1397,6 @@ class Model implements
      * @param mixed $offset
      *
      * @return mixed
-     * @throws InvalidCastException
      */
     #[ReturnTypeWillChange]
     public function offsetGet(mixed $offset): mixed
@@ -1557,8 +1411,6 @@ class Model implements
      * @param mixed $value
      *
      * @return void
-     * @throws InvalidCastException
-     * @throws JsonEncodingException
      */
     public function offsetSet(mixed $offset, mixed $value): void
     {
@@ -1570,9 +1422,9 @@ class Model implements
      *
      * @param array|null $except
      *
-     * @return static
+     * @return $this
      */
-    public function replicate(array|null $except = null): self
+    public function replicate(array|null $except = null): static
     {
         $defaults = [
             self::FIELD_ID,
@@ -1596,11 +1448,9 @@ class Model implements
     /**
      * Save the model to the index without raising any events.
      *
-     * @return static
-     * @throws InvalidCastException
-     * @throws JsonEncodingException
+     * @return $this
      */
-    public function saveQuietly(): self
+    public function saveQuietly(): static
     {
         return static::withoutEvents(function () {
             return $this->save();
