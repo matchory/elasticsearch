@@ -108,6 +108,11 @@ class Model implements
     protected static array $traitInitializers = [];
 
     /**
+     * Indicates if an exception should be thrown when trying to access a missing attribute on a retrieved model.
+     */
+    protected static bool $modelsShouldPreventAccessingMissingAttributes = false;
+
+    /**
      * The connection resolver instance.
      *
      * @var ConnectionResolverInterface|null
@@ -318,6 +323,16 @@ class Model implements
         static::$booted = [];
         static::$bootedCallbacks = [];
         static::$globalScopes = [];
+    }
+
+    /**
+     * Determine if accessing missing attributes is disabled.
+     *
+     * @return bool
+     */
+    public static function preventsAccessingMissingAttributes(): bool
+    {
+        return static::$modelsShouldPreventAccessingMissingAttributes;
     }
 
     /**
