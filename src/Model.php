@@ -19,18 +19,17 @@ use Illuminate\Database\Eloquent\{Concerns\GuardsAttributes,
     MassAssignmentException};
 use Illuminate\Support\{Arr, Collection as BaseCollection, Traits\ForwardsCalls};
 use InvalidArgumentException;
-use JetBrains\PhpStorm\Deprecated;
 use JsonException;
 use JsonSerializable;
 use Matchory\Elasticsearch\Concerns\HasGlobalScopes;
 use Matchory\Elasticsearch\Exceptions\DocumentNotFoundException;
 use Matchory\Elasticsearch\Interfaces\{ConnectionInterface as Connection, ConnectionResolverInterface};
 use ReturnTypeWillChange;
+use RuntimeException;
 
 use function array_key_exists;
 use function array_merge;
 use function array_unique;
-use function assert;
 use function class_basename;
 use function class_uses_recursive;
 use function count;
@@ -43,18 +42,15 @@ use function json_encode;
 use function method_exists;
 use function sprintf;
 use function tap;
-use function trigger_error;
 use function ucfirst;
 
 use const DATE_ATOM;
-use const E_USER_DEPRECATED;
 
 /**
  * Elasticsearch data model
  *
  * @property-read string|null $_id
  * @property-read string|null $_index
- * @property-read string|null $_type
  * @property-read float|null  $_score
  * @property-read array|null  $highlight
  *
@@ -117,7 +113,7 @@ class Model implements
      *
      * @var ConnectionResolverInterface|null
      */
-    protected static ConnectionResolverInterface|null $resolver;
+    protected static ?ConnectionResolverInterface $resolver;
 
     /**
      * Indicates if the model was inserted during the current request lifecycle.
@@ -127,11 +123,11 @@ class Model implements
     public bool $wasRecentlyCreated = false;
 
     /**
-     * Model connection name. If `null` it will use the default connection.
+     * Model connection name. If `null `, it will use the default connection.
      *
      * @var string|null
      */
-    protected string|null $connectionName = null;
+    protected ?string $connectionName = null;
 
     /**
      * Indicates whether the model exists in the Elasticsearch index.
@@ -145,7 +141,7 @@ class Model implements
      *
      * @var string|null
      */
-    protected string|null $index = null;
+    protected ?string $index = null;
 
     /**
      * Metadata received from Elasticsearch as part of the response
@@ -166,7 +162,7 @@ class Model implements
      *
      * @var string|null
      */
-    protected string|null $type = null;
+    protected ?string $type = null;
 
     /**
      * Model unselectable fields
@@ -211,7 +207,7 @@ class Model implements
     }
 
     /**
-     * Check if the model needs to be booted and if so, do it.
+     * Check if the model needs to be booted, and if so, do it.
      *
      * @return void
      */
@@ -299,7 +295,7 @@ class Model implements
      *
      * @return void
      */
-    protected static function booted()
+    protected static function booted(): void
     {
         //
     }
@@ -346,7 +342,7 @@ class Model implements
      */
     public function forceFill(array $attributes): static
     {
-        return static::unguarded(fn() => $this->fill($attributes));
+        return static::unguarded(fn () => $this->fill($attributes));
     }
 
     /**
@@ -363,9 +359,9 @@ class Model implements
         $totallyGuarded = $this->totallyGuarded();
 
         foreach ($this->fillableFromArray($attributes) as $key => $value) {
-            // The developers may choose to place some attributes in the "fillable" array
-            // which means only those attributes may be set through mass assignment to
-            // the model, and all others will just get ignored for security reasons.
+            // The developers may choose to place some attributes in the "fillable" array, which
+            // means only those attributes may be set through mass assignment to the model, and all
+            // others will just get ignored for security reasons.
             if ($this->isFillable($key)) {
                 $this->setAttribute($key, $value);
             } elseif ($totallyGuarded) {
@@ -386,13 +382,16 @@ class Model implements
      * Get the connection resolver instance.
      *
      * @return ConnectionResolverInterface
-     * @internal This method is used by the package during initialization to get
-     *           the models to resolve the Elasticsearch connection. You won't
-     *           need it during normal operation. It may change at any time.
+     * @throws RuntimeException
+     * @internal This method is used by the package during initialization to get the models to
+     *           resolve the Elasticsearch connection. You won't need it during a normal operation.
+     *           It may change at any time.
      */
     public static function getConnectionResolver(): ConnectionResolverInterface
     {
-        assert(static::$resolver !== null);
+        if (static::$resolver === null) {
+            throw new RuntimeException('No connection resolver has been set.');
+        }
 
         return static::$resolver;
     }
@@ -403,9 +402,9 @@ class Model implements
      * @param ConnectionResolverInterface $resolver
      *
      * @return void
-     * @internal This method is used by the package during initialization to get
-     *           the models to resolve the Elasticsearch connection. You won't
-     *           need it during normal operation. It may change at any time.
+     * @internal This method is used by the package during initialization to get the models to
+     *           resolve the Elasticsearch connection. You won't need it during a normal operation.
+     *           It may change at any time.
      */
     public static function setConnectionResolver(ConnectionResolverInterface $resolver): void
     {
@@ -429,22 +428,24 @@ class Model implements
      * Save a new model and return the instance.
      *
      * @param array       $attributes
-     * @param string|null $id
+     * @param string|null $key
      *
      * @return $this
      * @psalm-suppress LessSpecificReturnStatement
-     * @noinspection   PhpUnhandledExceptionInspection
+     * @throws RuntimeException
      */
-    public static function create(array $attributes, string|null $id = null): static
+    public static function create(array $attributes, ?string $key = null): static
     {
+        $instance = new static();
         $metadata = [];
-        if (!is_null($id)) {
-            $metadata['_id'] = $id;
+
+        if (!is_null($key)) {
+            $metadata[$instance->getKeyName()] = $key;
         }
 
         return tap(
-            (new static())->newInstance($attributes, $metadata),
-            static fn(self $instance) => $instance->save(),
+            $instance->newInstance($attributes, $metadata),
+            static fn (self $instance) => $instance->save(),
         );
     }
 
@@ -465,7 +466,7 @@ class Model implements
         array $attributes = [],
         array $metadata = [],
         bool $exists = false,
-        string|null $index = null,
+        ?string $index = null,
     ): static {
         $model = new static([], $exists);
 
@@ -484,6 +485,8 @@ class Model implements
      * Save the model to the index.
      *
      * @return $this
+     * @throws RuntimeException
+     * @throws RuntimeException
      */
     public function save(): static
     {
@@ -491,17 +494,15 @@ class Model implements
 
         $query = $this->newQuery();
 
-        // If the "saving" event returns false we'll bail out of the save and
-        // return false, indicating that the save failed. This provides a chance
-        // for any listeners to cancel save operations if validations fail
-        // or whatever.
+        // If the "saving" event returns false, we'll bail out of the save and return false,
+        // indicating that the save failed. This provides a chance for any listeners to cancel save
+        // operations if validations fail or whatever.
         if ($this->fireModelEvent('saving') === false) {
             return $this;
         }
 
-        // If the model already exists in the index we can just update our
-        // record that is already in this index using the current ID to only
-        // update this model. Otherwise, we'll just insert it.
+        // If the model already exists in the index, we can just update our record already in this
+        // index using the current ID to only update this model. Otherwise, we'll just insert it.
         if ($this->exists) {
             $saved = !$this->isDirty() || $this->performUpdate($query);
         }
@@ -526,24 +527,22 @@ class Model implements
     /**
      * Perform a model update operation.
      *
-     * @param Query<static> $query
+     * @param Builder<static> $query
      *
      * @return bool
      */
-    protected function performUpdate(Query $query): bool
+    protected function performUpdate(Builder $query): bool
     {
-        // If the updating event returns false, we will cancel the update
-        // operation so developers can hook Validation systems into their models
-        // and cancel this  operation if the model does not pass validation.
-        // Otherwise, we update.
+        // If the updating event returns false, we will cancel the update operation so developers
+        // can hook Validation systems into their models and cancel this operation if the model
+        // does not pass validation. Otherwise, we update.
         if ($this->fireModelEvent('updating') === false) {
             return false;
         }
 
-        // Once we have run the update operation, we will fire the "updated"
-        // event for this model instance. This will allow developers to hook
-        // into these after models are updated, giving them a chance to do any
-        // special processing.
+        // Once we have run the update operation, we will fire the "updated" event for this model
+        // instance. This will allow developers to hook into these after models are updated, giving
+        // them a chance to do any special processing.
         $dirty = $this->getDirty();
 
         if (count($dirty) === 0) {
@@ -566,13 +565,13 @@ class Model implements
      *
      * @template TModel of Model
      *
-     * @param Query<TModel> $query
+     * @param Builder<TModel> $query
      *
-     * @return Query<TModel>
+     * @return Builder<TModel>
      */
-    protected function setKeysForSaveQuery(Query $query): Query
+    protected function setKeysForSaveQuery(Builder $query): Builder
     {
-        $query->id($this->getKeyForSaveQuery());
+        $query->key($this->getKeyForSaveQuery());
 
         return $query;
     }
@@ -582,19 +581,19 @@ class Model implements
      *
      * @return string|null
      */
-    protected function getKeyForSaveQuery(): string|null
+    protected function getKeyForSaveQuery(): ?string
     {
-        return $this->original[self::FIELD_ID] ?? $this->getKey();
+        return $this->original[$this->getKeyName()] ?? $this->getKey();
     }
 
     /**
      * Perform a model insert operation.
      *
-     * @param Query<static> $query
+     * @param Builder<static> $query
      *
      * @return bool
      */
-    protected function performInsert(Query $query): bool
+    protected function performInsert(Builder $query): bool
     {
         if ($this->fireModelEvent('creating') === false) {
             return false;
@@ -607,16 +606,14 @@ class Model implements
                 return true;
             }
 
-            $result = $query->insert($attributes, $id);
-            $this->setAttribute('_type', $result->_type ?? null);
+            $query->insert($attributes, $id);
         } else {
             $this->insertAndSetId($query, $attributes);
         }
 
-        // We will go ahead and set the exists property to true, so that it is
-        // set when the created event is fired, just in case the developer tries
-        // to update it  during the event. This will allow them to do so and run
-        // an update here.
+        // We will go ahead and set the `exists` property to true, so that it is set when the
+        // created event is fired, just in case the developer tries to update it during the event.
+        // This will allow them to do so and run an update here.
         $this->exists = true;
 
         $this->wasRecentlyCreated = true;
@@ -629,12 +626,12 @@ class Model implements
     /**
      * Insert the given attributes and set the ID on the model.
      *
-     * @param Query<static> $query
-     * @param array         $attributes
+     * @param Builder<static> $query
+     * @param array           $attributes
      *
      * @return void
      */
-    protected function insertAndSetId(Query $query, array $attributes): void
+    protected function insertAndSetId(Builder $query, array $attributes): void
     {
         $result = $query->insert($attributes);
 
@@ -642,11 +639,7 @@ class Model implements
             $this->setIndex($result->_index);
         }
 
-        if (isset($result->_type)) {
-            $this->setAttribute('_type', $result->_type);
-        }
-
-        $this->setAttribute(self::FIELD_ID, $result->_id);
+        $this->setAttribute($this->getKeyName(), $result->_id);
     }
 
     /**
@@ -657,7 +650,6 @@ class Model implements
     protected function finishSave(): void
     {
         $this->fireModelEvent('saved', false);
-
         $this->syncOriginal();
     }
 
@@ -667,6 +659,8 @@ class Model implements
      * @param array|int|string|BaseCollection $ids
      *
      * @return int
+     * @throws RuntimeException
+     * @throws RuntimeException
      */
     public static function destroy(array|BaseCollection|int|string $ids): int
     {
@@ -680,14 +674,14 @@ class Model implements
             return 0;
         }
 
-        // We will actually pull the models from the index and call delete on
-        // each of them individually so that their events get fired properly
-        // with a correct set of attributes in case the developers wants to
-        // check these.
+        // We will actually pull the models from the index and call delete on each of them
+        // individually so that their events get fired properly with a correct set of attributes in
+        // case the developers want to check these.
         $count = 0;
-        $query = (new static())
+        $instance = new static();
+        $query = $instance
             ->newQuery()
-            ->whereIn(self::FIELD_ID, $ids)
+            ->whereIn($instance->getKeyName(), $ids)
             ->get();
 
         foreach ($query as $model) {
@@ -705,8 +699,9 @@ class Model implements
      * @param string|null $scrollId
      *
      * @return Collection
+     * @throws RuntimeException
      */
-    public static function all(string|null $scrollId = null): Collection
+    public static function all(?string $scrollId = null): Collection
     {
         return static::query()->get($scrollId);
     }
@@ -714,9 +709,10 @@ class Model implements
     /**
      * Begin querying the model.
      *
-     * @return Query<static>
+     * @return Builder<static>
+     * @throws RuntimeException
      */
-    public static function query(): Query
+    public static function query(): Builder
     {
         return (new static())->newQuery();
     }
@@ -725,15 +721,15 @@ class Model implements
      * Delete model record
      *
      * @return bool
+     * @throws RuntimeException
      */
     public function delete(): bool
     {
         $this->mergeAttributesFromClassCasts();
 
-        // If the model doesn't exist, there is nothing to delete so we'll just
-        // return immediately and not do anything else. Otherwise, we will
-        // continue with a deletion process on the model, firing the proper
-        // events, and so forth.
+        // If the model doesn't exist, there is nothing to delete, so we'll just return immediately
+        // and not do anything else. Otherwise, we will continue with a deletion process on the
+        // model, firing the proper events, and so forth.
         if (!$this->exists) {
             return false;
         }
@@ -755,6 +751,7 @@ class Model implements
      * Perform the actual delete query on this model instance.
      *
      * @return void
+     * @throws RuntimeException
      */
     protected function performDeleteOnModel(): void
     {
@@ -770,7 +767,7 @@ class Model implements
      *
      * @return $this
      * @throws DocumentNotFoundException
-     * @psalm-suppress MismatchingDocblockReturnType
+     * @throws RuntimeException
      */
     public static function findOrFail(string $key): static
     {
@@ -792,10 +789,11 @@ class Model implements
      * @param string $key
      *
      * @return $this|null
+     * @throws RuntimeException
      */
-    public static function find(string $key): static|null
+    public static function find(string $key): ?static
     {
-        return static::query()->id($key)->first();
+        return static::query()->key($key)->first();
     }
 
     /**
@@ -804,7 +802,7 @@ class Model implements
      * @return void
      * @internal This method is used by the package during initialization to get
      *           the models to resolve the Elasticsearch connection. You won't
-     *           need it during normal operation. It may change at any time.
+     *           need it during a normal operation. It may change at any time.
      */
     public static function unsetConnectionResolver(): void
     {
@@ -832,48 +830,23 @@ class Model implements
     }
 
     /**
-     * Get current connection name
-     *
-     * @return string|null
-     * @deprecated Use getConnectionName instead. This method will be changed in
-     *             the next major version to return the connection instance
-     *             instead.
-     * @see        Model::getConnectionName()
-     */
-    #[Deprecated(replacement: '%class%->getConnectionName()')]
-    public function getConnection(): string|null
-    {
-        @trigger_error(
-            sprintf(
-                'Since matchory/elasticsearch 3.0.0: The %s method is deprecated. ' .
-                'Use the connection manager to create connections instead. It provides a simpler ' .
-                'way to manage connections. This method will be removed in the next major version.',
-                __METHOD__,
-            ),
-            E_USER_DEPRECATED,
-        );
-
-        return $this->getConnectionName();
-    }
-
-    /**
-     * Get current connection name
+     * Get the current connection name
      *
      * @return string|null
      */
-    public function getConnectionName(): string|null
+    public function getConnectionName(): ?string
     {
         return $this->connectionName ?: null;
     }
 
     /**
-     * Set current connection name
+     * Set the current connection name
      *
      * @param string|null $connectionName
      *
      * @return void
      */
-    public function setConnectionName(string|null $connectionName): void
+    public function setConnectionName(?string $connectionName): void
     {
         $this->connectionName = $connectionName;
     }
@@ -884,7 +857,7 @@ class Model implements
      * @return array<string, mixed>|null
      * @internal
      */
-    public function getHighlight(): array|null
+    public function getHighlight(): ?array
     {
         return $this->getResultMetadataValue('highlight');
     }
@@ -910,11 +883,11 @@ class Model implements
      *
      * @return mixed
      */
-    public function getHighlights(string|null $field = null): mixed
+    public function getHighlights(?string $field = null): mixed
     {
         $highlights = $this->getAttribute('highlight');
 
-        if ($field && array_key_exists($field, $highlights)) {
+        if ($field && is_array($highlights) && array_key_exists($field, $highlights)) {
             return $highlights[$field];
         }
 
@@ -951,34 +924,54 @@ class Model implements
         return $this->getModelAttribute($key);
     }
 
+    /**
+     * Eloquent compatibility stub.
+     *
+     * Elasticsearch models do not support relations. This method always returns
+     * false to maintain compatibility with Laravel's attribute handling.
+     *
+     * @param string $key
+     *
+     * @return false
+     */
     public function isRelation($key): false
     {
         return false;
     }
 
+    /**
+     * Eloquent compatibility stub.
+     *
+     * Elasticsearch models do not support relations. This method always returns
+     * false to maintain compatibility with Laravel's attribute handling.
+     *
+     * @param string $key
+     *
+     * @return false
+     */
     public function relationLoaded($key): false
     {
         return false;
     }
 
     /**
-     * Get index name
+     * Get an index name
      *
      * @return string|null
      */
-    public function getIndex(): string|null
+    public function getIndex(): ?string
     {
         return $this->index;
     }
 
     /**
-     * Set index name
+     * Set the index name
      *
      * @param string|null $index
      *
      * @return void
      */
-    public function setIndex(string|null $index): void
+    public function setIndex(?string $index): void
     {
         $this->index = $index;
     }
@@ -989,7 +982,7 @@ class Model implements
      * @return float|null
      * @internal
      */
-    public function getScore(): float|null
+    public function getScore(): ?float
     {
         return $this->getResultMetadataValue('_score');
     }
@@ -997,7 +990,7 @@ class Model implements
     /**
      * @inheritDoc
      */
-    public function getQueueableConnection(): string|null
+    public function getQueueableConnection(): ?string
     {
         return $this->getConnectionName();
     }
@@ -1006,7 +999,7 @@ class Model implements
      * @inheritDoc
      * @return string|null
      */
-    public function getQueueableId(): string|null
+    public function getQueueableId(): ?string
     {
         return $this->getKey();
     }
@@ -1016,9 +1009,14 @@ class Model implements
      *
      * @return string|null
      */
-    public function getKey(): string|null
+    public function getKey(): ?string
     {
-        return $this->getAttribute(self::FIELD_ID);
+        return $this->getAttribute($this->getKeyName());
+    }
+
+    public function getKeyName(): string
+    {
+        return self::FIELD_ID;
     }
 
     /**
@@ -1067,13 +1065,14 @@ class Model implements
      */
     public function getRouteKeyName(): string
     {
-        return self::FIELD_ID;
+        return $this->getKeyName();
     }
 
     /**
      * Retrieve the child model for a bound value.
-     * Elasticsearch does not support relations, so any resolution request will
-     * be proxied to the usual route binding resolution method.
+     *
+     * Elasticsearch does not support relations, so any resolution request will be proxied to the
+     * usual route-binding resolution method.
      *
      * @param string      $childType
      * @param mixed       $value
@@ -1081,13 +1080,13 @@ class Model implements
      *
      * @return $this|null
      * @throws InvalidArgumentException
-     * @psalm-suppress ImplementedReturnTypeMismatch
+     * @throws RuntimeException
      */
     final public function resolveChildRouteBinding(
         $childType,
         $value,
         $field = null,
-    ): static|null {
+    ): ?static {
         return $this->resolveRouteBinding($value, $field);
     }
 
@@ -1102,9 +1101,10 @@ class Model implements
      *
      * @return $this|null
      * @throws InvalidArgumentException
+     * @throws RuntimeException
      * @psalm-suppress ImplementedReturnTypeMismatch
      */
-    public function resolveRouteBinding($value, $field = null): static|null
+    public function resolveRouteBinding($value, $field = null): ?static
     {
         return $this
             ->newQuery()
@@ -1117,9 +1117,10 @@ class Model implements
     /**
      * Get a new query builder scoped to the current model.
      *
-     * @return Query<static>
+     * @return Builder<static>
+     * @throws RuntimeException
      */
-    public function newQuery(): Query
+    public function newQuery(): Builder
     {
         $query = $this->registerGlobalScopes($this->newQueryBuilder());
         $query = $query->setModel($this);
@@ -1144,11 +1145,11 @@ class Model implements
      *
      * @template TModel of Model
      *
-     * @param Query<TModel> $query
+     * @param Builder<TModel> $query
      *
-     * @return Query<TModel>
+     * @return Builder<TModel>
      */
-    public function registerGlobalScopes(Query $query): Query
+    public function registerGlobalScopes(Builder $query): Builder
     {
         foreach ($this->getGlobalScopes() as $identifier => $scope) {
             $query->withGlobalScope($identifier, $scope);
@@ -1160,12 +1161,12 @@ class Model implements
     /**
      * Get a new query builder instance for the connection.
      *
-     * @return Query<self>
+     * @return Builder<self>
+     * @throws RuntimeException
      */
-    protected function newQueryBuilder(): Query
+    protected function newQueryBuilder(): Builder
     {
-        return static::resolveConnection($this->getConnectionName())
-            ->newQuery();
+        return static::resolveConnection($this->getConnectionName())->newQuery();
     }
 
     /**
@@ -1174,14 +1175,18 @@ class Model implements
      * @param string|null $connection
      *
      * @return Connection
-     * @internal This method is used by the package during initialization to get
-     *           the models to resolve the Elasticsearch connection. You won't
-     *           need it during normal operation. It may change at any time.
+     * @throws RuntimeException
+     * @throws RuntimeException
+     * @internal This method is used by the package during initialization to get the models to
+     *           resolve the Elasticsearch connection. You won't need it during a normal operation.
+     *           It may change at any time.
      */
     public static function resolveConnection(
-        string|null $connection = null,
+        ?string $connection = null,
     ): Connection {
-        assert(static::$resolver !== null);
+        if (static::$resolver === null) {
+            throw new RuntimeException('No connection resolver has been set.');
+        }
 
         return static::$resolver->connection($connection);
     }
@@ -1207,22 +1212,6 @@ class Model implements
     }
 
     /**
-     * Set current connection name
-     *
-     * @param string $connectionName
-     *
-     * @return void
-     * @deprecated Use setConnectionName instead. This method will be removed in
-     *             the next major version.
-     * @see        Model::setConnectionName()
-     */
-    #[Deprecated(replacement: '%class%->setConnectionName(%parameter0%)')]
-    public function setConnection(string $connectionName): void
-    {
-        $this->setConnectionName($connectionName);
-    }
-
-    /**
      * Handle dynamic method calls into the model.
      *
      * @param string $method
@@ -1230,6 +1219,7 @@ class Model implements
      *
      * @return mixed
      * @throws BadMethodCallException
+     * @throws RuntimeException
      */
     public function __call(string $method, array $parameters)
     {
@@ -1274,8 +1264,8 @@ class Model implements
      */
     public function __isset(string $key): bool
     {
-        if ($key === self::FIELD_ID) {
-            return isset($this->_id);
+        if ($key === $this->getKeyName()) {
+            return (bool)$this->getKey();
         }
 
         return $this->offsetExists($key);
@@ -1300,7 +1290,7 @@ class Model implements
      *
      * @return void
      */
-    public function __unset(string $key)
+    public function __unset(string $key): void
     {
         $this->offsetUnset($key);
     }
@@ -1356,13 +1346,13 @@ class Model implements
     }
 
     /**
-     * Determine if two models are not the same.
+     * Determine if two models are different.
      *
      * @param static|null $model
      *
      * @return bool
      */
-    public function isNot(self|null $model): bool
+    public function isNot(?self $model): bool
     {
         return !$this->is($model);
     }
@@ -1374,24 +1364,12 @@ class Model implements
      *
      * @return bool
      */
-    public function is(self|null $model): bool
+    public function is(?self $model): bool
     {
-        return !is_null($model) &&
-            $this->getId() === $model->getId() &&
-            $this->getIndex() === $model->getIndex() &&
-            $this->getConnectionName() === $model->getConnectionName();
-    }
-
-    /**
-     * Retrieves the model key
-     *
-     * @return string|null
-     */
-    public function getId(): string|null
-    {
-        $id = $this->getAttribute(self::FIELD_ID);
-
-        return $id ? (string)$id : null;
+        return !is_null($model)
+            && $this->getKey() === $model->getKey()
+            && $this->getIndex() === $model->getIndex()
+            && $this->getConnectionName() === $model->getConnectionName();
     }
 
     /**
@@ -1439,11 +1417,9 @@ class Model implements
      *
      * @return $this
      */
-    public function replicate(array|null $except = null): static
+    public function replicate(?array $except = null): static
     {
-        $defaults = [
-            self::FIELD_ID,
-        ];
+        $defaults = [$this->getKeyName()];
 
         $attributes = Arr::except(
             $this->getAttributes(),
@@ -1464,6 +1440,7 @@ class Model implements
      * Save the model to the index without raising any events.
      *
      * @return $this
+     * @throws RuntimeException
      */
     public function saveQuietly(): static
     {
@@ -1498,7 +1475,7 @@ class Model implements
     }
 
     /**
-     * Get model as array
+     * Get the model as an array
      *
      * @return array
      */

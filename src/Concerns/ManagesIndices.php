@@ -10,32 +10,51 @@ use RuntimeException;
 trait ManagesIndices
 {
     /**
-     * Create a new index
+     * Create a new Index builder for fluent configuration.
      *
-     * @param string $name
-     * @param callable|null $callback
+     * Example usage:
+     * ```php
+     * $query->index('posts')
+     *       ->shards(3)
+     *       ->replicas(1)
+     *       ->mapping(['properties' => [...]])
+     *       ->create();
+     * ```
      *
-     * @return array
+     * @param string $name Name of the index to manage
+     *
+     * @return Index Fluent index builder
      */
-    public function createIndex(string $name, callable|null $callback = null): array
+    public function newIndex(string $name): Index
     {
-        $index = new Index($name, $callback);
-
+        $index = new Index($name);
         $index->setConnection($this->getConnection());
 
-        return $index->create();
+        return $index;
     }
 
     /**
-     * Create the configured index
+     * Create a new index with default settings.
      *
-     * @param callable|null $callback
+     * For advanced configuration (shards, replicas, mappings), use newIndex()
+     * which returns a fluent builder.
+     *
+     * @param string $name Name of the index to create
      *
      * @return array
-     * @throws RuntimeException
-     * @see Query::createIndex()
      */
-    public function create(callable|null $callback = null): array
+    public function createIndex(string $name): array
+    {
+        return $this->newIndex($name)->create();
+    }
+
+    /**
+     * Create the configured index with default settings.
+     *
+     * @return array
+     * @throws RuntimeException If no index is configured
+     */
+    public function create(): array
     {
         $index = $this->getIndex();
 
@@ -43,43 +62,36 @@ trait ManagesIndices
             throw new RuntimeException('No index configured');
         }
 
-        return $this->createIndex($index, $callback);
+        return $this->createIndex($index);
     }
 
     /**
      * Check existence of index
      *
      * @return bool
-     * @throws RuntimeException
+     * @throws RuntimeException If no index is configured
      */
     public function exists(): bool
     {
-        $index = $this->getIndex();
+        $indexName = $this->getIndex();
 
-        if (!$index) {
+        if (!$indexName) {
             throw new RuntimeException('No index configured');
         }
 
-        $index = new Index($index);
-
-        $index->setConnection($this->getConnection());
-
-        return $index->exists();
+        return $this->newIndex($indexName)->exists();
     }
 
     /**
      * Drop index
      *
-     * @param string $name
+     * @param string $name Name of the index to drop
      *
      * @return array
      */
     public function dropIndex(string $name): array
     {
-        $index = new Index($name);
-        $index->connection = $this->getConnection();
-
-        return $index->drop();
+        return $this->newIndex($name)->drop();
     }
 
     /**

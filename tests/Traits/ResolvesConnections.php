@@ -4,68 +4,47 @@ declare(strict_types=1);
 
 namespace Matchory\Elasticsearch\Tests\Traits;
 
-use Elasticsearch\Client;
 use Illuminate\Foundation\Application;
 use Matchory\Elasticsearch\Connection;
 use Matchory\Elasticsearch\ConnectionResolver;
 use Matchory\Elasticsearch\Interfaces\ConnectionResolverInterface;
-use PHPUnit\Framework\InvalidArgumentException;
-use PHPUnit\Framework\MockObject\ClassAlreadyExistsException;
-use PHPUnit\Framework\MockObject\ClassIsFinalException;
-use PHPUnit\Framework\MockObject\DuplicateMethodException;
-use PHPUnit\Framework\MockObject\InvalidMethodNameException;
-use PHPUnit\Framework\MockObject\MockObject;
-use PHPUnit\Framework\MockObject\OriginalConstructorInvocationRequiredException;
-use PHPUnit\Framework\MockObject\ReflectionException;
-use PHPUnit\Framework\MockObject\RuntimeException;
-use PHPUnit\Framework\MockObject\UnknownTypeException;
+use Matchory\Elasticsearch\Tests\Support\Mocks\MockElasticsearchClient;
 
+/**
+ * Trait ResolvesConnections
+ *
+ * Provides helper methods for tests that need to create connections with
+ * mock Elasticsearch clients. Uses MockElasticsearchClient since the real
+ * Client class is final in v9.
+ */
 trait ResolvesConnections
 {
     /**
-     * @var MockObject<Client>
+     * Mock Elasticsearch client
      */
-    protected $elasticsearchClient;
+    protected ?MockElasticsearchClient $elasticsearchClient = null;
 
     /**
-     * @return MockObject<Client>
-     * @throws ClassAlreadyExistsException
-     * @throws ClassIsFinalException
-     * @throws DuplicateMethodException
-     * @throws InvalidArgumentException
-     * @throws InvalidMethodNameException
-     * @throws OriginalConstructorInvocationRequiredException
-     * @throws ReflectionException
-     * @throws RuntimeException
-     * @throws UnknownTypeException
+     * Get or create the mock Elasticsearch client
+     *
+     * @return MockElasticsearchClient
      */
-    public function mockClient(): MockObject
+    public function mockClient(): MockElasticsearchClient
     {
-        if (! $this->elasticsearchClient) {
-            $this->elasticsearchClient = $this
-                ->getMockBuilder(Client::class)
-                ->disableOriginalConstructor()
-                ->getMock();
+        if ($this->elasticsearchClient === null) {
+            $this->elasticsearchClient = new MockElasticsearchClient();
         }
 
         return $this->elasticsearchClient;
     }
 
     /**
+     * Create a connection resolver with the mock client
+     *
      * @return ConnectionResolver
-     * @throws InvalidArgumentException
-     * @throws ClassAlreadyExistsException
-     * @throws ClassIsFinalException
-     * @throws DuplicateMethodException
-     * @throws InvalidMethodNameException
-     * @throws OriginalConstructorInvocationRequiredException
-     * @throws ReflectionException
-     * @throws RuntimeException
-     * @throws UnknownTypeException
      */
     public function createConnectionResolver(): ConnectionResolver
     {
-        /** @var Client $mock */
         $mock = $this->mockClient();
 
         $connection = new Connection($mock);
@@ -86,17 +65,9 @@ trait ResolvesConnections
     }
 
     /**
-     * @param Application $application
+     * Register the mock connection resolver in the application
      *
-     * @throws ClassAlreadyExistsException
-     * @throws ClassIsFinalException
-     * @throws DuplicateMethodException
-     * @throws InvalidArgumentException
-     * @throws InvalidMethodNameException
-     * @throws OriginalConstructorInvocationRequiredException
-     * @throws ReflectionException
-     * @throws RuntimeException
-     * @throws UnknownTypeException
+     * @param Application $application
      */
     protected function registerResolver(Application $application): void
     {

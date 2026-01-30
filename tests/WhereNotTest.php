@@ -172,7 +172,7 @@ class WhereNotTest extends TestCase
      * @throws RuntimeException
      * @throws UnknownTypeException
      */
-    protected function getActual(string $name, string|null $operator = '=', mixed $value = null): array
+    protected function getActual(string $name, ?string $operator = '=', mixed $value = null): array
     {
         return $this->getQueryObject()->whereNot($name, $operator, $value)->toArray();
     }

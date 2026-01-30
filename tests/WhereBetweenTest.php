@@ -64,7 +64,7 @@ class WhereBetweenTest extends TestCase
      * @throws UnknownTypeException
      * @throws ClassIsReadonlyException
      */
-    protected function getActual(string $name, int|array $first, int|null $last = null): array
+    protected function getActual(string $name, int|array $first, ?int $last = null): array
     {
         return $this
             ->getQueryObject()
@@ -72,7 +72,7 @@ class WhereBetweenTest extends TestCase
             ->toArray();
     }
 
-    protected function getExpected(string $name, int|array $first, int|null $last = null): array
+    protected function getExpected(string $name, int|array $first, ?int $last = null): array
     {
         $query = $this->getQueryArray();
 

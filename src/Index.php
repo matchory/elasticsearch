@@ -5,13 +5,14 @@ declare(strict_types=1);
 namespace Matchory\Elasticsearch;
 
 use ArrayObject;
-use Elasticsearch\Client;
-use JetBrains\PhpStorm\Deprecated;
+use Elastic\Elasticsearch\Client;
+use Elastic\Elasticsearch\Exception\ClientResponseException;
+use Elastic\Elasticsearch\Response\Elasticsearch as ElasticsearchResponse;
 use Matchory\Elasticsearch\Interfaces\ConnectionInterface;
+use RuntimeException;
 use TypeError;
 
 use function array_unique;
-use function assert;
 use function count;
 use function is_array;
 use function is_string;
@@ -27,10 +28,6 @@ class Index
 
     private const PARAM_BODY = 'body';
 
-    private const PARAM_CLIENT = 'client';
-
-    private const PARAM_CLIENT_IGNORE = 'ignore';
-
     private const PARAM_INDEX = 'index';
 
     private const PARAM_MAPPINGS = 'mappings';
@@ -42,87 +39,62 @@ class Index
     private const PARAM_SETTINGS_NUMBER_OF_SHARDS = 'number_of_shards';
 
     /**
-     * Index create callback
-     *
-     * @var callable|null
-     * @deprecated Will be made private in the next major release.
-     */
-    #[Deprecated]
-    public $callback;
-
-    /**
      * Native elasticsearch client instance
      *
      * @var ConnectionInterface|null
-     * @deprecated Will be made private in the next major release. Use the
-     *             method accessor instead.
-     * @see        Index::getConnection()
      */
-    #[Deprecated(replacement: '%class%::getConnection()')]
-    public ConnectionInterface|null $connection = null;
+    private ?ConnectionInterface $connection = null;
 
     /**
      * Ignored HTTP errors
      *
-     * @var array
-     * @deprecated Will be made private in the next major release. Use the
-     *             method accessor instead.
-     * @see        Index::ignore()
+     * @var array<int>
      */
-    #[Deprecated(replacement: '%class%::ignore()')]
-    public array $ignores = [];
+    private array $ignores = [];
 
     /**
      * Mappings the index shall be configured with.
      *
      * @var array
-     * @deprecated Will be made private in the next major release. Use the
-     *             method accessor instead.
-     * @see        Index::mapping()
      */
-    #[Deprecated(replacement: '%class%::mapping()')]
-    public array $mappings = [];
+    private array $mappings = [];
+
+    /**
+     * Name of the index.
+     *
+     * @var string
+     */
+    private string $name;
 
     /**
      * The number of replicas the index shall be configured with.
      *
      * @var int
-     * @deprecated Will be made private in the next major release. Use the
-     *             method accessor instead.
-     * @see        Index::replicas()
      */
-    #[Deprecated(replacement: '%class%::replicas()')]
-    public int $replicas = 0;
+    private int $replicas = 0;
 
     /**
      * The number of shards the index shall be configured with.
      *
      * @var int
-     * @deprecated Will be made private in the next major release. Use the
-     *             method accessor instead.
-     * @see        Index::shards()
      */
-    #[Deprecated(replacement: '%class%::shards()')]
-    public int $shards = 5;
+    private int $shards = 5;
 
     /**
      * Aliases the index shall be configured with.
      *
      * @var array<string, array<string, mixed>|string|ArrayObject>
      */
-    protected array $aliases = [];
+    private array $aliases = [];
 
     /**
      * Creates a new index instance.
      *
-     * @param string $name Name of the index to create.
-     * @param callable|null $callback Callback to configure the index before it
-     *                                is created. This allows to add additional
-     *                                options like shards, replicas or mappings.
+     * @param string $name Name of the index to manage.
      */
-    public function __construct(public string $name, ?callable $callback = null)
+    public function __construct(string $name)
     {
-        $this->callback = $callback;
+        $this->name = $name;
     }
 
     /**
@@ -150,7 +122,7 @@ class Index
      * searching, and routing values. An alias cannot have the same name as
      * an index.
      *
-     * @param string $alias Name of the alias to add.
+     * @param string                        $alias   Name of the alias to add.
      * @param array|ArrayObject|string|null $options Options to pass to
      *                                               the alias.
      *
@@ -161,13 +133,13 @@ class Index
     public function alias(string $alias, mixed $options = null): self
     {
         if (
-            $options !== null &&
-            !is_string($options) &&
-            !is_array($options)
+            $options !== null
+            && !is_string($options)
+            && !is_array($options)
         ) {
             throw new TypeError(
-                'Alias options may be passed as an array, a string ' .
-                'routing key, or literal null.',
+                'Alias options may be passed as an array, a string '
+                . 'routing key, or literal null.',
             );
         }
 
@@ -177,23 +149,13 @@ class Index
     }
 
     /**
-     * Creates a new index
+     * Creates a new index with the configured settings, mappings, and aliases.
      *
-     * @return array
+     * @return array|ElasticsearchResponse
      * @see https://www.elastic.co/guide/en/elasticsearch/reference/current/indices-create-index.html
      */
-    public function create(): array
+    public function create(): array|ElasticsearchResponse
     {
-        $configuratorCallback = $this->callback;
-
-        // By passing a callback, users have the possibility to optionally set
-        // index configuration in a single, fluent command.
-        // This API is a little unfortunate, so we should refactor that in the
-        // next major release.
-        if ($configuratorCallback) {
-            $configuratorCallback($this);
-        }
-
         $params = [
             self::PARAM_INDEX => $this->name,
             self::PARAM_BODY => [
@@ -204,12 +166,6 @@ class Index
             ],
         ];
 
-        if (count($this->ignores) > 0) {
-            $params[self::PARAM_CLIENT] = [
-                self::PARAM_CLIENT_IGNORE => $this->ignores,
-            ];
-        }
-
         if (count($this->aliases) > 0) {
             $params[self::PARAM_BODY][self::PARAM_ALIASES] = $this->aliases;
         }
@@ -218,11 +174,24 @@ class Index
             $params[self::PARAM_BODY][self::PARAM_MAPPINGS] = $this->mappings;
         }
 
-        return $this
-            ->getConnection()
-            ->getClient()
-            ->indices()
-            ->create($params);
+        return $this->executeWithIgnoredErrors(
+            fn(object $client) => $client->indices()->create($params),
+            $this->ignores,
+        );
+    }
+
+    /**
+     * Execute a client operation with specific HTTP status codes ignored.
+     *
+     * @param callable(object): mixed $operation The operation to execute
+     * @param array<int>              $ignores   HTTP status codes to ignore
+     *
+     * @return mixed The operation result
+     * @throws ClientResponseException If the response has an error status not in $ignores
+     */
+    protected function executeWithIgnoredErrors(callable $operation, array $ignores = []): mixed
+    {
+        return $this->getConnection()->executeWithIgnoredErrors($operation, $ignores);
     }
 
     /**
@@ -244,7 +213,9 @@ class Index
      */
     public function getConnection(): ConnectionInterface
     {
-        assert($this->connection !== null);
+        if ($this->connection === null) {
+            throw new RuntimeException('No connection has been set on this index.');
+        }
 
         return $this->connection;
     }
@@ -264,27 +235,24 @@ class Index
     /**
      * Deletes an existing index.
      *
-     * @return array
+     * @return array|ElasticsearchResponse
      * @see https://www.elastic.co/guide/en/elasticsearch/reference/current/indices-delete-index.html
      */
-    public function drop(): array
+    public function drop(): array|ElasticsearchResponse
     {
-        return $this
-            ->getConnection()
-            ->getClient()
-            ->indices()
-            ->delete([
+        return $this->executeWithIgnoredErrors(
+            fn(object $client) => $client->indices()->delete([
                 self::PARAM_INDEX => $this->name,
-                self::PARAM_CLIENT => [
-                    self::PARAM_CLIENT_IGNORE => $this->ignores,
-                ],
-            ]);
+            ]),
+            $this->ignores,
+        );
     }
 
     /**
      * Checks whether an index exists.
      *
      * @return bool
+     * @throws RuntimeException
      */
     public function exists(): bool
     {
@@ -292,22 +260,8 @@ class Index
             ->getConnection()
             ->getClient()
             ->indices()
-            ->exists([
-                'index' => $this->name,
-            ]);
-    }
-
-    /**
-     * Alias to the {@see Index::ignores()} method.
-     *
-     * @param int ...$statusCodes
-     *
-     * @return $this
-     */
-    #[Deprecated(replacement: '%class%->ignores(%parametersList%)')]
-    public function ignore(int ...$statusCodes): self
-    {
-        return $this->ignores(...$statusCodes);
+            ->exists(['index' => $this->name])
+            ->asBool();
     }
 
     /**

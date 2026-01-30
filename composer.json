@@ -48,24 +48,24 @@
     "require": {
         "php": "^8.3",
         "ext-json": "*",
-        "elasticsearch/elasticsearch": "^7.17.3",
-        "illuminate/pagination": "^12.25.0",
-        "illuminate/support": "^12.25.0",
+        "elasticsearch/elasticsearch": "^9.0",
+        "illuminate/pagination": "^v12.49.0",
+        "illuminate/support": "^v12.49.0",
         "monolog/monolog": "*",
         "symfony/var-dumper": "*"
     },
     "require-dev": {
-        "illuminate/contracts": "^12.25.0",
-        "illuminate/database": "^12.25.0",
+        "illuminate/contracts": "^12.49.0",
+        "illuminate/database": "^12.49.0",
         "jetbrains/phpstorm-attributes": "^1.2.0",
-        "laravel/framework": "^12.25.0",
-        "laravel/pint": "^1.24.0",
-        "laravel/scout": "^10.18.0",
-        "matchory/laravel-server-timing": "^1.3.0",
+        "laravel/framework": "^12.49.0",
+        "laravel/pint": "^v1.27.0",
+        "laravel/scout": "^10.23.1",
+        "matchory/laravel-server-timing": "^1.3.2",
         "orchestra/testbench": "*",
-        "phpstan/phpstan": "^2.1.22",
-        "phpunit/phpunit": "^11.5.34",
-        "sentry/sentry-laravel": "^3.8.2|^4.15.1"
+        "phpstan/phpstan": "^2.1.37",
+        "phpunit/phpunit": "^11.5.50",
+        "sentry/sentry-laravel": "^3.8.2|^4.20.1"
     },
     "prefer-stable": true,
     "extra": {

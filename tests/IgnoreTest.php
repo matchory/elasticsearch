@@ -18,6 +18,13 @@ use PHPUnit\Framework\MockObject\UnknownTypeException;
 use PHPUnit\Framework\TestCase;
 use SebastianBergmann\RecursionContext\InvalidArgumentException;
 
+/**
+ * Tests for the ignore() method on queries.
+ *
+ * Note: In Elasticsearch PHP client v9, the `$params['client']['ignore']` pattern
+ * was removed. Ignores are now stored internally and applied via setResponseException()
+ * at execution time. The toArray() output no longer includes the 'client' key.
+ */
 class IgnoreTest extends TestCase
 {
     use ESQueryTrait;
@@ -39,17 +46,25 @@ class IgnoreTest extends TestCase
      */
     public function ignore(): void
     {
+        // Test that ignores are stored correctly via getIgnores()
         self::assertEquals(
-            $this->getExpected(404),
-            $this->getActual(404),
+            [404],
+            $this->getActualIgnores(404),
         );
         self::assertEquals(
-            $this->getExpected(500, 404),
-            $this->getActual(500, 404),
+            [500, 404],
+            $this->getActualIgnores(500, 404),
         );
+
+        // Verify that toArray() doesn't include 'client' key (v9 change)
+        $query = $this->getQueryObject()->ignore([404]);
+        $result = $query->toArray();
+        self::assertArrayNotHasKey('client', $result);
     }
 
     /**
+     * Get the actual ignores from a query object.
+     *
      * @throws ClassAlreadyExistsException
      * @throws ClassIsFinalException
      * @throws DuplicateMethodException
@@ -61,18 +76,10 @@ class IgnoreTest extends TestCase
      * @throws \PHPUnit\Framework\InvalidArgumentException
      * @throws ClassIsReadonlyException
      */
-    protected function getActual(int ...$args): array
+    protected function getActualIgnores(int ...$args): array
     {
         return $this->getQueryObject()
                     ->ignore($args)
-                    ->toArray();
-    }
-
-    protected function getExpected(int ...$args): array
-    {
-        $query = $this->getQueryArray();
-        $query['client']['ignore'] = $args;
-
-        return $query;
+                    ->getIgnores();
     }
 }

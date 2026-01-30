@@ -42,7 +42,7 @@ trait HasGlobalScopes
      */
     public static function addGlobalScope(
         ScopeInterface|string|Closure $scope,
-        Closure|null $implementation = null,
+        ?Closure $implementation = null,
     ): ScopeInterface|Closure {
         if (is_string($scope) && !is_null($implementation)) {
             return static::$globalScopes[static::class][$scope] = $implementation;

@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Matchory\Elasticsearch;
 
 use Matchory\Elasticsearch\Interfaces\{ConnectionInterface, ConnectionResolverInterface};
+use RuntimeException;
 
 use function is_null;
 
@@ -29,7 +30,7 @@ class ConnectionResolver implements ConnectionResolverInterface
      *
      * @var string|null
      */
-    protected string|null $default = null;
+    protected ?string $default = null;
 
     /**
      * Create a new connection resolver instance.
@@ -64,11 +65,20 @@ class ConnectionResolver implements ConnectionResolverInterface
      * @param string|null $name
      *
      * @return ConnectionInterface
+     * @throws RuntimeException If the connection does not exist
      */
-    public function connection(string|null $name = null): ConnectionInterface
+    public function connection(?string $name = null): ConnectionInterface
     {
         if (is_null($name)) {
             $name = $this->getDefaultConnection();
+        }
+
+        if (!isset($this->connections[$name])) {
+            throw new RuntimeException(
+                $name === ''
+                    ? 'No default connection has been configured.'
+                    : "Elasticsearch connection [{$name}] not configured.",
+            );
         }
 
         return $this->connections[$name];

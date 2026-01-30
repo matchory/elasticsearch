@@ -6,7 +6,7 @@ namespace Matchory\Elasticsearch\Concerns;
 
 use Closure;
 use Illuminate\Support\Arr;
-use Matchory\Elasticsearch\{Interfaces\ScopeInterface, Query};
+use Matchory\Elasticsearch\{Builder, Interfaces\ScopeInterface};
 
 use function array_keys;
 use function array_unshift;
@@ -51,7 +51,7 @@ trait AppliesScopes
                 continue;
             }
 
-            $query->callScope(function (Query $query) use ($scope) {
+            $query->callScope(function (Builder $query) use ($scope) {
                 // If the scope is a Closure we will just go ahead and call the
                 // scope with the builder instance.
                 if ($scope instanceof Closure) {
@@ -190,7 +190,7 @@ trait AppliesScopes
      *
      * @return $this
      */
-    public function withoutGlobalScopes(array|null $scopes = null): static
+    public function withoutGlobalScopes(?array $scopes = null): static
     {
         if (!is_array($scopes)) {
             $scopes = array_keys($this->scopes);

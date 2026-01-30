@@ -5,11 +5,16 @@ declare(strict_types=1);
 namespace Matchory\Elasticsearch\Concerns;
 
 use DateTime;
-use Illuminate\Support\Facades\Request;
+use Elastic\Elasticsearch\Exception\ClientResponseException;
+use Elastic\Transport\Exception\NoNodeAvailableException;
+use Illuminate\Support\Facades\{Config, Log, Request};
 use JsonException;
-use Matchory\Elasticsearch\{Classes\Bulk, Collection, Exceptions\DocumentNotFoundException, Model, Pagination, Query};
+use Illuminate\Pagination\LengthAwarePaginator;
+use Matchory\Elasticsearch\{Builder, Bulk, Collection, Exceptions\DocumentNotFoundException, Model};
 use Psr\SimpleCache\{CacheInterface, InvalidArgumentException};
+use stdClass;
 
+use function array_chunk;
 use function array_diff_key;
 use function array_flip;
 use function array_map;
@@ -31,30 +36,76 @@ trait ExecutesQueries
      *
      * @var string|null
      */
-    protected string|null $cacheKey = null;
+    protected ?string $cacheKey = null;
 
     /**
      * A cache prefix.
      *
      * @var string
      */
-    protected string $cachePrefix = Query::DEFAULT_CACHE_PREFIX;
+    protected string $cachePrefix = Builder::DEFAULT_CACHE_PREFIX;
 
     /**
      * The number of seconds to cache the query.
      *
      * @var DateTime|int|null
      */
-    protected int|null|DateTime $cacheTtl = null;
+    protected int|DateTime|null $cacheTtl = null;
+
+    /**
+     * Maximum number of retry attempts for transient failures.
+     *
+     * @var int
+     */
+    protected int $retryAttempts = 0;
+
+    /**
+     * Base delay in milliseconds for exponential backoff.
+     *
+     * @var int
+     */
+    protected int $retryDelay = 100;
+
+    /**
+     * Execute a client operation with specific HTTP status codes ignored.
+     *
+     * This method delegates to the Connection's executeWithIgnoredErrors method
+     * and adds support for automatic retry with exponential backoff for transient
+     * failures when configured via the retry() method.
+     *
+     * @param callable(object): mixed $operation The operation to execute
+     * @param array<int> $ignores HTTP status codes to ignore
+     *
+     * @return mixed The operation result
+     * @throws ClientResponseException If the response has an error status not in $ignores
+     */
+    protected function executeWithIgnoredErrors(callable $operation, array $ignores = []): mixed
+    {
+        $executeOperation = fn(): mixed => $this
+            ->getConnection()
+            ->executeWithIgnoredErrors($operation, $ignores);
+
+        // Use retry logic if configured
+        if ($this->retryAttempts > 0) {
+            return $this->executeWithRetry($executeOperation);
+        }
+
+        return $executeOperation();
+    }
 
     /**
      * Insert multiple documents at once.
      *
-     * @param callable|array $data Dictionary of [id => data] pairs
+     * When $batchSize is provided, large operations are automatically chunked
+     * into smaller batches to avoid memory issues and timeouts.
      *
-     * @return object
+     * @param callable|array $data Dictionary of [id => data] pairs
+     * @param int|null $batchSize Optional batch size for chunking large operations
+     *
+     * @return object|array Returns a single response object, or an array of
+     *                      responses when batching is used
      */
-    public function bulk(callable|array $data): object
+    public function bulk(callable|array $data, ?int $batchSize = null): object|array
     {
         if (is_callable($data)) {
             $bulk = new Bulk($this);
@@ -77,9 +128,22 @@ trait ExecutesQueries
             }
         }
 
-        return (object) $this->getConnection()->getClient()->bulk(
-            $params,
-        );
+        // If no batch size specified or body is small enough, execute as single request
+        if ($batchSize === null || !isset($params['body']) || count($params['body']) <= $batchSize * 2) {
+            return (object) $this->getConnection()->getClient()->bulk($params);
+        }
+
+        // Chunk the body into batches (each document has 2 entries: action + data)
+        $results = [];
+        $chunks = array_chunk($params['body'], $batchSize * 2);
+
+        foreach ($chunks as $chunk) {
+            $results[] = (object) $this->getConnection()->getClient()->bulk([
+                'body' => $chunk,
+            ]);
+        }
+
+        return $results;
     }
 
     /**
@@ -103,16 +167,18 @@ trait ExecutesQueries
      *
      * @return Collection
      */
-    public function clear(string|null $scrollId = null): Collection
+    public function clear(?string $scrollId = null): Collection
     {
         $scrollId = $scrollId ?? $this->getScrollId();
 
-        return new Collection(
-            $this->getConnection()->getClient()->clearScroll([
+        $result = $this->executeWithIgnoredErrors(
+            fn(object $client) => $client->clearScroll([
                 'scroll_id' => $scrollId,
-                'client' => ['ignore' => $this->getIgnores()],
             ]),
+            $this->getIgnores(),
         );
+
+        return new Collection($result);
     }
 
     /**
@@ -126,8 +192,8 @@ trait ExecutesQueries
 
         // Remove unsupported count query keys
         unset(
-            $query[Query::PARAM_SIZE],
-            $query[Query::PARAM_FROM],
+            $query[Builder::PARAM_SIZE],
+            $query[Builder::PARAM_FROM],
             $query['body']['_source'],
             $query['body']['sort'],
         );
@@ -164,21 +230,23 @@ trait ExecutesQueries
     public function script(mixed $script, array $params = []): object
     {
         $parameters = [
-            'id' => $this->getId(),
+            'id' => $this->getKey(),
             'body' => [
                 'script' => [
-                    'inline' => $script,
+                    'source' => $script,
                     'params' => $params,
                 ],
             ],
-            'client' => ['ignore' => $this->getIgnores()],
         ];
 
         $parameters = $this->addBaseParams($parameters);
 
-        return (object) $this->getConnection()->getClient()->update(
-            $parameters,
+        $result = $this->executeWithIgnoredErrors(
+            fn(object $client) => $client->update($parameters),
+            $this->getIgnores(),
         );
+
+        return (object) $result;
     }
 
     /**
@@ -191,7 +259,7 @@ trait ExecutesQueries
     private function addBaseParams(array $params): array
     {
         if ($index = $this->getIndex()) {
-            $params[Query::PARAM_INDEX] = $index;
+            $params[Builder::PARAM_INDEX] = $index;
         }
 
         return $params;
@@ -210,32 +278,31 @@ trait ExecutesQueries
         int|string|null $id = null,
     ): object {
         if ($id) {
-            $this->id((string) $id);
+            $this->key((string) $id);
         }
 
         unset(
             $attributes[self::FIELD_HIGHLIGHT],
             $attributes[self::FIELD_INDEX],
             $attributes[self::FIELD_SCORE],
-            $attributes[self::FIELD_TYPE],
             $attributes[self::FIELD_ID],
         );
 
         $parameters = [
-            'id' => $this->getId(),
+            'id' => $this->getKey(),
             'body' => [
                 'doc' => $attributes,
-            ],
-            'client' => [
-                'ignore' => $this->getIgnores(),
             ],
         ];
 
         $parameters = $this->addBaseParams($parameters);
 
-        return (object) $this->getConnection()->getClient()->update(
-            $parameters,
+        $result = $this->executeWithIgnoredErrors(
+            fn(object $client) => $client->update($parameters),
+            $this->getIgnores(),
         );
+
+        return (object) $result;
     }
 
     /**
@@ -245,22 +312,101 @@ trait ExecutesQueries
      *
      * @return object
      */
-    public function delete(string|null $id = null): object
+    public function delete(?string $id = null): object
     {
         if ($id) {
-            $this->id($id);
+            $this->key($id);
         }
 
         $parameters = [
-            'id' => $this->getId(),
-            'client' => ['ignore' => $this->getIgnores()],
+            'id' => $this->getKey(),
         ];
 
         $parameters = $this->addBaseParams($parameters);
 
-        return (object) $this->getConnection()->getClient()->delete(
-            $parameters,
+        $result = $this->executeWithIgnoredErrors(
+            fn(object $client) => $client->delete($parameters),
+            $this->getIgnores(),
         );
+
+        return (object) $result;
+    }
+
+    /**
+     * Bulk update documents matching the current query.
+     *
+     * Updates documents that match the specified query using a script.
+     * This is useful for bulk operations like incrementing counters,
+     * changing status fields, or modifying documents in batch.
+     *
+     * @param array|string $script Script to execute on each document. If string,
+     *                             treated as the script source. If array, used
+     *                             as the full script definition.
+     * @param array $params Script parameters (only used when $script is string)
+     * @param bool $waitForCompletion Whether to wait for the operation to complete
+     *
+     * @return object Response containing updated, deleted, and version_conflicts counts
+     * @see https://www.elastic.co/guide/en/elasticsearch/reference/current/docs-update-by-query.html
+     */
+    public function updateByQuery(
+        array|string $script,
+        array $params = [],
+        bool $waitForCompletion = true,
+    ): object {
+        $query = $this->applyScopes();
+        $queryBody = $query->getBody();
+
+        $parameters = [
+            'body' => [
+                'query' => $queryBody['query'] ?? ['match_all' => new stdClass()],
+                'script' => is_string($script)
+                    ? ['source' => $script, 'params' => $params]
+                    : $script,
+            ],
+            'wait_for_completion' => $waitForCompletion,
+        ];
+
+        $parameters = $this->addBaseParams($parameters);
+
+        $result = $this->executeWithIgnoredErrors(
+            fn(object $client) => $client->updateByQuery($parameters),
+            $this->getIgnores(),
+        );
+
+        return (object) $result;
+    }
+
+    /**
+     * Bulk delete documents matching the current query.
+     *
+     * Deletes all documents that match the specified query. Use with caution
+     * as this operation cannot be undone.
+     *
+     * @param bool $waitForCompletion Whether to wait for the operation to complete
+     *
+     * @return object Response containing deleted, version_conflicts counts
+     * @see https://www.elastic.co/guide/en/elasticsearch/reference/current/docs-delete-by-query.html
+     */
+    public function deleteByQuery(bool $waitForCompletion = true): object
+    {
+        $query = $this->applyScopes();
+        $queryBody = $query->getBody();
+
+        $parameters = [
+            'body' => [
+                'query' => $queryBody['query'] ?? ['match_all' => new stdClass()],
+            ],
+            'wait_for_completion' => $waitForCompletion,
+        ];
+
+        $parameters = $this->addBaseParams($parameters);
+
+        $result = $this->executeWithIgnoredErrors(
+            fn(object $client) => $client->deleteByQuery($parameters),
+            $this->getIgnores(),
+        );
+
+        return (object) $result;
     }
 
     /**
@@ -275,8 +421,8 @@ trait ExecutesQueries
      */
     public function firstOr(
         callable|string|null $scrollId = null,
-        callable|null $callback = null,
-    ): Model|null {
+        ?callable $callback = null,
+    ): ?Model {
         if (is_callable($scrollId)) {
             $callback = $scrollId;
             $scrollId = null;
@@ -297,7 +443,7 @@ trait ExecutesQueries
      * @return T|null
      * @noinspection PhpDocSignatureInspection
      */
-    public function first(string|null $scrollId = null): Model|null
+    public function first(?string $scrollId = null): ?Model
     {
         $this->take(1);
 
@@ -317,7 +463,7 @@ trait ExecutesQueries
      *
      * @return array|null
      */
-    protected function getResult(string|null $scrollId = null): array|null
+    protected function getResult(?string $scrollId = null): ?array
     {
         if (!$this->cacheTtl) {
             return $this->performSearch($scrollId);
@@ -326,10 +472,14 @@ trait ExecutesQueries
         if ($cache = $this->getCache()) {
             try {
                 return $cache->get($this->getCacheKey());
-            } catch (InvalidArgumentException) {
+            } catch (InvalidArgumentException $e) {
                 // If the cache didn't like our cache key (which should be
                 // impossible), we regard it as a cache failure and perform a
                 // normal search instead.
+                Log::warning('Elasticsearch cache read failed', [
+                    'key' => $this->getCacheKey(),
+                    'error' => $e->getMessage(),
+                ]);
             }
         }
 
@@ -343,27 +493,15 @@ trait ExecutesQueries
      *
      * @return array|null
      */
-    public function performSearch(string|null $scrollId = null): array|null
+    public function performSearch(?string $scrollId = null): ?array
     {
         $scrollId = $scrollId ?? $this->getScrollId();
 
-        if ($scrollId) {
-            $result = $this
-                ->getConnection()
-                ->getClient()
-                ->scroll([
-                    Query::PARAM_SCROLL => $this->getScroll(),
-                    Query::PARAM_BODY => [
-                        Query::PARAM_SCROLL_ID => $scrollId,
-                    ],
-                ]);
-        } else {
-            $query = $this->buildQuery();
-            $result = $this->getConnection()->search($query);
-        }
+        $result = $this->retryAttempts > 0
+            ? $this->executeWithRetry(fn() => $this->executeSearch($scrollId))
+            : $this->executeSearch($scrollId);
 
-        // We attempt to cache the results if we have a cache instance, and the
-        // TTl is truthy. This allows to use values such as `-1` to flush it.
+        // Cache results if configured
         if ($this->cacheTtl && ($cache = $this->getCache())) {
             try {
                 $cache->set(
@@ -373,7 +511,11 @@ trait ExecutesQueries
                         ? $this->cacheTtl->getTimestamp()
                         : $this->cacheTtl,
                 );
-            } catch (InvalidArgumentException) {
+            } catch (InvalidArgumentException $e) {
+                Log::warning('Elasticsearch cache write failed', [
+                    'key' => $this->getCacheKey(),
+                    'error' => $e->getMessage(),
+                ]);
             }
         }
 
@@ -381,9 +523,30 @@ trait ExecutesQueries
     }
 
     /**
+     * Execute the actual search operation.
+     *
+     * @param string|null $scrollId
+     *
+     * @return array
+     */
+    protected function executeSearch(?string $scrollId): array
+    {
+        if ($scrollId) {
+            return $this->getConnection()->getClient()->scroll([
+                Builder::PARAM_SCROLL => $this->getScroll(),
+                Builder::PARAM_BODY => [
+                    Builder::PARAM_SCROLL_ID => $scrollId,
+                ],
+            ]);
+        }
+
+        return $this->getConnection()->search($this->buildQuery());
+    }
+
+    /**
      * @return CacheInterface|null
      */
-    protected function getCache(): CacheInterface|null
+    protected function getCache(): ?CacheInterface
     {
         return $this->getConnection()->getCache();
     }
@@ -407,10 +570,14 @@ trait ExecutesQueries
      */
     public function generateCacheKey(): string
     {
+        // Include app key for cache key unpredictability (security hardening)
+        $appKey = Config::get('app.key', '');
+
         try {
-            return md5($this->toJson());
+            return md5($appKey . $this->toJson());
         } catch (JsonException) {
-            return md5(serialize($this));
+            // Fallback: serialize handles all types consistently
+            return md5($appKey . serialize($this->toArray()));
         }
     }
 
@@ -421,7 +588,7 @@ trait ExecutesQueries
      *
      * @return Collection<array-key, T>
      */
-    public function get(string|null $scrollId = null): Collection
+    public function get(?string $scrollId = null): Collection
     {
         $result = $this->getResult($scrollId);
 
@@ -443,7 +610,7 @@ trait ExecutesQueries
      */
     protected function transformIntoCollection(array $response = []): Collection
     {
-        $results = $response[Query::FIELD_HITS][Query::FIELD_NESTED_HITS] ?? [];
+        $results = $response[Builder::FIELD_HITS][Builder::FIELD_NESTED_HITS] ?? [];
         $documents = array_map(
             fn(array $document): Model => $this->createModelInstance($document),
             $results,
@@ -463,9 +630,9 @@ trait ExecutesQueries
      */
     protected function createModelInstance(array $document): Model
     {
-        $data = $document[Query::FIELD_SOURCE] ?? [];
+        $data = $document[Builder::FIELD_SOURCE] ?? [];
         $metadata = array_diff_key($document, array_flip([
-            Query::FIELD_SOURCE,
+            Builder::FIELD_SOURCE,
         ]));
 
         /** @var T */
@@ -473,7 +640,7 @@ trait ExecutesQueries
             $data,
             $metadata,
             true,
-            $document[Query::FIELD_INDEX] ?? null,
+            $document[Builder::FIELD_INDEX] ?? null,
         );
     }
 
@@ -487,15 +654,15 @@ trait ExecutesQueries
      *                response, `null` otherwise
      * @noinspection PhpDocSignatureInspection
      */
-    protected function transformIntoModel(array $response = []): Model|null
+    protected function transformIntoModel(array $response = []): ?Model
     {
-        if (!isset($response[Query::FIELD_HITS][Query::FIELD_NESTED_HITS][0])) {
+        if (!isset($response[Builder::FIELD_HITS][Builder::FIELD_NESTED_HITS][0])) {
             return null;
         }
 
         /** @var T $instance */
         $instance = $this->createModelInstance(
-            $response[Query::FIELD_HITS][Query::FIELD_NESTED_HITS][0],
+            $response[Builder::FIELD_HITS][Builder::FIELD_NESTED_HITS][0],
         );
 
         return $instance;
@@ -510,13 +677,13 @@ trait ExecutesQueries
      * @throws DocumentNotFoundException
      * @noinspection PhpDocSignatureInspection
      */
-    public function firstOrFail(string|null $scrollId = null): Model
+    public function firstOrFail(?string $scrollId = null): Model
     {
         if (!is_null($model = $this->first($scrollId))) {
             return $model;
         }
 
-        $id = $this->getId();
+        $id = $this->getKey();
 
         throw (new DocumentNotFoundException())->setModel(
             get_class($this->getModel()),
@@ -547,28 +714,31 @@ trait ExecutesQueries
      *
      * @return object
      */
-    public function insert(array $attributes, string|null $id = null): object
+    public function insert(array $attributes, ?string $id = null): object
     {
         if ($id) {
-            $this->id($id);
+            $this->key($id);
         }
 
         $parameters = [
             'body' => array_diff_key($attributes, array_flip([
                 self::FIELD_ID,
-                self::FIELD_TYPE,
                 self::FIELD_INDEX,
             ])),
-            'client' => ['ignore' => $this->getIgnores()],
         ];
 
         $parameters = $this->addBaseParams($parameters);
 
-        if ($id = $this->getId()) {
+        if ($id = $this->getKey()) {
             $parameters['id'] = $id;
         }
 
-        return $this->getConnection()->insert($parameters);
+        $result = $this->executeWithIgnoredErrors(
+            fn(object $client) => $client->index($parameters),
+            $this->getIgnores(),
+        );
+
+        return (object) $result;
     }
 
     /**
@@ -578,13 +748,13 @@ trait ExecutesQueries
      * @param string $pageName
      * @param int|null $page
      *
-     * @return Pagination
+     * @return LengthAwarePaginator
      */
     public function paginate(
         int $perPage = 10,
         string $pageName = 'page',
-        int|null $page = null,
-    ): Pagination {
+        ?int $page = null,
+    ): LengthAwarePaginator {
         $this->take($perPage);
 
         // Check if the request from PHP CLI
@@ -595,7 +765,7 @@ trait ExecutesQueries
 
             $collection = $this->get();
 
-            return new Pagination(
+            return new LengthAwarePaginator(
                 $collection,
                 $collection->getTotal() ?? 0,
                 $perPage,
@@ -609,7 +779,7 @@ trait ExecutesQueries
 
         $collection = $this->get();
 
-        return new Pagination(
+        return new LengthAwarePaginator(
             $collection,
             $collection->getTotal() ?? 0,
             $perPage,
@@ -628,7 +798,7 @@ trait ExecutesQueries
      *
      * @return $this
      */
-    public function rememberForever(string|null $key = null): static
+    public function rememberForever(?string $key = null): static
     {
         return $this->remember(-1, $key);
     }
@@ -642,11 +812,79 @@ trait ExecutesQueries
      *
      * @return $this
      */
-    public function remember(DateTime|int $ttl, string|null $key = null): static
+    public function remember(DateTime|int $ttl, ?string $key = null): static
     {
         $this->cacheTtl = $ttl;
         $this->cacheKey = $key;
 
         return $this;
+    }
+
+    /**
+     * Configure retry behavior for transient failures.
+     *
+     * @param int $attempts Maximum number of retry attempts (0 to disable)
+     * @param int $delay Base delay in milliseconds for exponential backoff
+     *
+     * @return $this
+     */
+    public function retry(int $attempts = 3, int $delay = 100): static
+    {
+        $this->retryAttempts = $attempts;
+        $this->retryDelay = $delay;
+
+        return $this;
+    }
+
+    /**
+     * Execute a callable with retry logic for transient failures.
+     *
+     * Uses exponential backoff with jitter to avoid thundering herd.
+     *
+     * @template TReturn
+     * @param callable(): TReturn $operation
+     *
+     * @return TReturn
+     * @throws NoNodeAvailableException
+     * @throws ClientResponseException
+     */
+    protected function executeWithRetry(callable $operation): mixed
+    {
+        $attempts = 0;
+        $lastException = null;
+
+        do {
+            try {
+                return $operation();
+            } catch (NoNodeAvailableException|ClientResponseException $e) {
+                $lastException = $e;
+
+                // Only retry on transient errors (5xx or connection issues)
+                if ($e instanceof ClientResponseException) {
+                    $statusCode = $e->getCode();
+                    // Don't retry client errors (4xx) except 429 (rate limiting)
+                    if ($statusCode >= 400 && $statusCode < 500 && $statusCode !== 429) {
+                        throw $e;
+                    }
+                }
+
+                $attempts++;
+
+                if ($attempts <= $this->retryAttempts) {
+                    // Exponential backoff with jitter, capped at 30 seconds
+                    $delay = min($this->retryDelay * (2 ** ($attempts - 1)), 30000);
+                    $jitter = random_int(0, (int) ($delay * 0.1));
+                    usleep(($delay + $jitter) * 1000);
+
+                    Log::warning('Elasticsearch operation failed, retrying', [
+                        'attempt' => $attempts,
+                        'max_attempts' => $this->retryAttempts,
+                        'error' => $e->getMessage(),
+                    ]);
+                }
+            }
+        } while ($attempts <= $this->retryAttempts);
+
+        throw $lastException;
     }
 }

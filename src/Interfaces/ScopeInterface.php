@@ -4,17 +4,17 @@ declare(strict_types=1);
 
 namespace Matchory\Elasticsearch\Interfaces;
 
-use Matchory\Elasticsearch\{Model, Query};
+use Matchory\Elasticsearch\{Builder, Model};
 
 interface ScopeInterface
 {
     /**
      * Apply the scope to a given Elasticsearch query builder.
      *
-     * @param Query $query
+     * @param Builder $query
      * @param Model $model
      *
      * @return void
      */
-    public function apply(Query $query, Model $model): void;
+    public function apply(Builder $query, Model $model): void;
 }

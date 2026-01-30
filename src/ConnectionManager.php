@@ -49,7 +49,7 @@ class ConnectionManager implements ConnectionResolverInterface
     public function __construct(
         protected array $configuration,
         protected readonly ClientFactoryInterface $clientFactory,
-        protected readonly CacheInterface|null $cache = null,
+        protected readonly ?CacheInterface $cache = null,
     ) {}
 
     /**
@@ -74,7 +74,7 @@ class ConnectionManager implements ConnectionResolverInterface
      * @return ConnectionInterface
      * @throws InvalidArgumentException
      */
-    public function connection(string|null $name = null): ConnectionInterface
+    public function connection(?string $name = null): ConnectionInterface
     {
         if (is_null($name)) {
             $name = $this->getDefaultConnection();

@@ -6,13 +6,10 @@ namespace Matchory\Elasticsearch\Concerns;
 
 use Closure;
 use InvalidArgumentException;
-use Matchory\Elasticsearch\Classes\Search;
+use Matchory\Elasticsearch\Builder;
 use Matchory\Elasticsearch\Model;
-use Matchory\Elasticsearch\Query;
-use stdClass;
 
 use function array_filter;
-use function array_key_exists;
 use function array_merge;
 use function array_unique;
 use function array_values;
@@ -20,11 +17,10 @@ use function count;
 use function implode;
 use function in_array;
 use function is_array;
+use function is_callable;
 use function is_string;
 use function tap;
 use function value;
-
-use const SORT_REGULAR;
 
 trait BuildsFluentQueries
 {
@@ -57,6 +53,20 @@ trait BuildsFluentQueries
     public array $must_not = [];
 
     /**
+     * Query bool should (OR conditions)
+     *
+     * @var array
+     */
+    public array $should = [];
+
+    /**
+     * Minimum number of should clauses that must match
+     *
+     * @var int|string|null
+     */
+    protected int|string|null $minimumShouldMatch = null;
+
+    /**
      * Result aggregations
      *
      * @var array
@@ -82,7 +92,7 @@ trait BuildsFluentQueries
      * @var int
      * @see https://www.elastic.co/guide/en/elasticsearch/reference/7.10/search-search.html#search-type
      */
-    protected int $from = Query::DEFAULT_OFFSET;
+    protected int $from = Builder::DEFAULT_OFFSET;
 
     /**
      * Unique document ID
@@ -105,7 +115,7 @@ trait BuildsFluentQueries
      * @var string|null
      * @see https://www.elastic.co/guide/en/elasticsearch/reference/7.10/mapping-id-field.html
      */
-    protected string|null $id = null;
+    protected ?string $key = null;
 
     /**
      * Index name
@@ -125,7 +135,7 @@ trait BuildsFluentQueries
      * @see https://www.elastic.co/guide/en/elasticsearch/reference/7.10/search-search.html
      * @see https://www.elastic.co/guide/en/elasticsearch/reference/7.10/documents-indices.html
      */
-    protected string|null $index = null;
+    protected ?string $index = null;
 
     /**
      * Filter operators
@@ -133,14 +143,14 @@ trait BuildsFluentQueries
      * @var array
      */
     protected array $operators = [
-        Query::OPERATOR_EQUAL,
-        Query::OPERATOR_NOT_EQUAL,
-        Query::OPERATOR_GREATER_THAN,
-        Query::OPERATOR_GREATER_THAN_OR_EQUAL,
-        Query::OPERATOR_LOWER_THAN,
-        Query::OPERATOR_LOWER_THAN_OR_EQUAL,
-        Query::OPERATOR_LIKE,
-        Query::OPERATOR_EXISTS,
+        Builder::OPERATOR_EQUAL,
+        Builder::OPERATOR_NOT_EQUAL,
+        Builder::OPERATOR_GREATER_THAN,
+        Builder::OPERATOR_GREATER_THAN_OR_EQUAL,
+        Builder::OPERATOR_LOWER_THAN,
+        Builder::OPERATOR_LOWER_THAN_OR_EQUAL,
+        Builder::OPERATOR_LIKE,
+        Builder::OPERATOR_EXISTS,
     ];
 
     /**
@@ -168,7 +178,7 @@ trait BuildsFluentQueries
      * @var string|null
      * @see https://www.elastic.co/guide/en/elasticsearch/reference/7.10/paginate-search-results.html#scroll-search-results
      */
-    protected string|null $scroll = null;
+    protected ?string $scroll = null;
 
     /**
      * Scroll ID
@@ -182,7 +192,7 @@ trait BuildsFluentQueries
      * @var string|null
      * @see https://www.elastic.co/guide/en/elasticsearch/reference/7.10/paginate-search-results.html#scroll-search-results
      */
-    protected string|null $scrollId = null;
+    protected ?string $scrollId = null;
 
     /**
      * Search Type
@@ -242,7 +252,7 @@ trait BuildsFluentQueries
      * @psalm-var 'query_then_fetch'|'dfs_query_then_fetch'
      * @see       https://www.elastic.co/guide/en/elasticsearch/reference/7.10/search-search.html#search-type
      */
-    protected string|null $searchType = null;
+    protected ?string $searchType = null;
 
     /**
      * Number of hits to return
@@ -256,7 +266,7 @@ trait BuildsFluentQueries
      * @var int
      * @see https://www.elastic.co/guide/en/elasticsearch/reference/7.10/search-search.html#search-type
      */
-    protected int $size = Query::DEFAULT_LIMIT;
+    protected int $size = Builder::DEFAULT_LIMIT;
 
     /**
      * Query sort fields
@@ -266,6 +276,27 @@ trait BuildsFluentQueries
     protected array $sort = [];
 
     /**
+     * Search after values for cursor-based pagination
+     *
+     * @var array|null
+     */
+    protected ?array $searchAfterValues = null;
+
+    /**
+     * Suggest queries for autocomplete/suggestions
+     *
+     * @var array
+     */
+    protected array $suggest = [];
+
+    /**
+     * Pending sub-aggregations to be attached to parent aggregations
+     *
+     * @var array
+     */
+    protected array $pendingSubAggs = [];
+
+    /**
      * Query returned fields list
      *
      * @var array{
@@ -273,16 +304,16 @@ trait BuildsFluentQueries
      *     excludes: list<string>|null,
      * }|null
      */
-    protected array|null $source = null;
+    protected ?array $source = null;
 
     /**
-     * Retrieves the ID the query is restricted to.
+     * Retrieves the key (document ID) the query is restricted to.
      *
      * @return string|null
      */
-    public function getId(): string|null
+    public function getKey(): ?string
     {
-        return $this->id;
+        return $this->key;
     }
 
     /**
@@ -300,7 +331,7 @@ trait BuildsFluentQueries
      *
      * @return string|null
      */
-    public function getIndex(): string|null
+    public function getIndex(): ?string
     {
         return $this->index;
     }
@@ -310,12 +341,12 @@ trait BuildsFluentQueries
      *
      * @return string|null
      */
-    public function getScroll(): string|null
+    public function getScroll(): ?string
     {
         return $this->scroll;
     }
 
-    public function getScrollId(): string|null
+    public function getScrollId(): ?string
     {
         return $this->scrollId;
     }
@@ -327,24 +358,86 @@ trait BuildsFluentQueries
      * @psalm-return 'query_then_fetch'|'dfs_query_then_fetch'
      * @see          https://www.elastic.co/guide/en/elasticsearch/reference/6.8/search-request-search-type.html
      */
-    public function getSearchType(): string|null
+    public function getSearchType(): ?string
     {
         return $this->searchType;
     }
 
     /**
+     * Retrieves the query size (limit).
+     *
+     * @return int
+     */
+    public function getSize(): int
+    {
+        return $this->size;
+    }
+
+    /**
+     * Retrieves the query skip (offset).
+     *
+     * @return int
+     */
+    public function getSkip(): int
+    {
+        return $this->from;
+    }
+
+    /**
+     * Retrieves the query body.
+     *
+     * @return array
+     */
+    public function getBody(): array
+    {
+        $body = $this->body;
+
+        if ($this->filter || $this->must || $this->must_not || $this->should) {
+            $body['query']['bool'] = array_filter([
+                'filter' => $this->filter ?: null,
+                'must' => $this->must ?: null,
+                'must_not' => $this->must_not ?: null,
+                'should' => $this->should ?: null,
+                'minimum_should_match' => $this->minimumShouldMatch,
+            ]);
+        }
+
+        if ($this->sort) {
+            $body['sort'] = $this->sort;
+        }
+
+        if ($this->source !== null) {
+            $body['_source'] = array_filter($this->source);
+        }
+
+        if ($this->aggregations) {
+            $body['aggs'] = $this->aggregations;
+        }
+
+        if ($this->suggest) {
+            $body['suggest'] = $this->suggest;
+        }
+
+        if ($this->searchAfterValues !== null) {
+            $body['search_after'] = $this->searchAfterValues;
+        }
+
+        return $body;
+    }
+
+    /**
      * Adds a term filter for the `_id` field.
      *
-     * @param string|null $id
+     * @param string|null $key
      *
      * @return $this
      */
-    public function id(string|null $id = null): static
+    public function key(?string $key = null): static
     {
-        $this->id = $id;
+        $this->key = $key;
         $this->filter[] = [
             'term' => [
-                Query::FIELD_ID => $id,
+                Builder::FIELD_ID => $key,
             ],
         ];
 
@@ -466,9 +559,9 @@ trait BuildsFluentQueries
      */
     public function firstWhere(
         Closure|string $name,
-        int|string|null $operator = Query::OPERATOR_EQUAL,
+        int|string|null $operator = Builder::OPERATOR_EQUAL,
         mixed $value = null,
-    ): Model|null {
+    ): ?Model {
         return $this
             ->where($name, $operator, $value)
             ->first();
@@ -486,7 +579,7 @@ trait BuildsFluentQueries
      */
     public function where(
         Closure|string $name,
-        int|string|null $operator = Query::OPERATOR_EQUAL,
+        int|string|null $operator = Builder::OPERATOR_EQUAL,
         mixed $value = null,
     ): static {
         if ($name instanceof Closure) {
@@ -497,20 +590,20 @@ trait BuildsFluentQueries
 
         if (!$this->isOperator((string) $operator)) {
             $value = $operator;
-            $operator = Query::OPERATOR_EQUAL;
+            $operator = Builder::OPERATOR_EQUAL;
         }
 
         switch ((string) $operator) {
             case 'eq':
-            case Query::OPERATOR_EQUAL:
-                if ($name === Query::FIELD_ID) {
-                    return $this->id((string) $value);
+            case Builder::OPERATOR_EQUAL:
+                if ($name === Builder::FIELD_ID) {
+                    return $this->key((string) $value);
                 }
 
                 return $this->termFilter($name, (string) $value);
 
             case 'gt':
-            case Query::OPERATOR_GREATER_THAN:
+            case Builder::OPERATOR_GREATER_THAN:
                 return $this->rangeFilter(
                     $name,
                     'gt',
@@ -518,7 +611,7 @@ trait BuildsFluentQueries
                 );
 
             case 'gte':
-            case Query::OPERATOR_GREATER_THAN_OR_EQUAL:
+            case Builder::OPERATOR_GREATER_THAN_OR_EQUAL:
                 return $this->rangeFilter(
                     $name,
                     'gte',
@@ -526,7 +619,7 @@ trait BuildsFluentQueries
                 );
 
             case 'lt':
-            case Query::OPERATOR_LOWER_THAN:
+            case Builder::OPERATOR_LOWER_THAN:
                 return $this->rangeFilter(
                     $name,
                     'lt',
@@ -534,19 +627,19 @@ trait BuildsFluentQueries
                 );
 
             case 'lte':
-            case Query::OPERATOR_LOWER_THAN_OR_EQUAL:
+            case Builder::OPERATOR_LOWER_THAN_OR_EQUAL:
                 return $this->rangeFilter(
                     $name,
                     'lte',
                     $value,
                 );
 
-            case Query::OPERATOR_LIKE:
+            case Builder::OPERATOR_LIKE:
                 return $this->must('match', [
                     $name => $value,
                 ]);
 
-            case Query::OPERATOR_EXISTS:
+            case Builder::OPERATOR_EXISTS:
                 return $this->whereExists($name, (bool) $value);
 
             default:
@@ -554,6 +647,135 @@ trait BuildsFluentQueries
                     "Unknown operator '{$operator}'",
                 );
         }
+    }
+
+    /**
+     * Add an OR condition to the query (using Elasticsearch's should clause).
+     *
+     * Note: When using orWhere(), at least one should clause must match.
+     * You can control this with minimumShouldMatch().
+     *
+     * @param Closure|string $name
+     * @param int|string|null $operator
+     * @param mixed|null $value
+     *
+     * @return $this
+     * @throws InvalidArgumentException
+     */
+    public function orWhere(
+        Closure|string $name,
+        int|string|null $operator = Builder::OPERATOR_EQUAL,
+        mixed $value = null,
+    ): static {
+        if ($name instanceof Closure) {
+            $name($this);
+
+            return $this;
+        }
+
+        if (!$this->isOperator((string) $operator)) {
+            $value = $operator;
+            $operator = Builder::OPERATOR_EQUAL;
+        }
+
+        // Set minimum_should_match to 1 if not already set and we have should clauses
+        if ($this->minimumShouldMatch === null) {
+            $this->minimumShouldMatch = 1;
+        }
+
+        switch ((string) $operator) {
+            case 'eq':
+            case Builder::OPERATOR_EQUAL:
+                if ($name === Builder::FIELD_ID) {
+                    return $this->should('term', [
+                        Builder::FIELD_ID => $value,
+                    ]);
+                }
+
+                return $this->should('term', [
+                    $name => $value,
+                ]);
+
+            case 'gt':
+            case Builder::OPERATOR_GREATER_THAN:
+                return $this->should('range', [
+                    $name => ['gt' => $value],
+                ]);
+
+            case 'gte':
+            case Builder::OPERATOR_GREATER_THAN_OR_EQUAL:
+                return $this->should('range', [
+                    $name => ['gte' => $value],
+                ]);
+
+            case 'lt':
+            case Builder::OPERATOR_LOWER_THAN:
+                return $this->should('range', [
+                    $name => ['lt' => $value],
+                ]);
+
+            case 'lte':
+            case Builder::OPERATOR_LOWER_THAN_OR_EQUAL:
+                return $this->should('range', [
+                    $name => ['lte' => $value],
+                ]);
+
+            case Builder::OPERATOR_LIKE:
+                return $this->should('match', [
+                    $name => $value,
+                ]);
+
+            case Builder::OPERATOR_EXISTS:
+                if ((bool) $value) {
+                    return $this->should('exists', [
+                        'field' => $name,
+                    ]);
+                }
+
+                // For NOT EXISTS in OR context, we need a bool query with must_not
+                return $this->should('bool', [
+                    'must_not' => [
+                        ['exists' => ['field' => $name]],
+                    ],
+                ]);
+
+            default:
+                throw new InvalidArgumentException(
+                    "Unknown operator '{$operator}'",
+                );
+        }
+    }
+
+    /**
+     * Adds a should condition to the query (OR logic).
+     *
+     * @param string $type Query type
+     * @param array $parameters Parameters to the query
+     *
+     * @return $this
+     */
+    public function should(string $type, array $parameters): static
+    {
+        $this->should[] = [
+            $type => $parameters,
+        ];
+
+        return $this;
+    }
+
+    /**
+     * Set the minimum number of should clauses that must match.
+     *
+     * @param int|string $minimum Number or percentage (e.g., "75%")
+     *
+     * @return $this
+     * @see https://www.elastic.co/guide/en/elasticsearch/reference/current/query-dsl-bool-query.html#bool-min-should-match
+     */
+    public function minimumShouldMatch(int|string $minimum): static
+    {
+        $this->minimumShouldMatch = $minimum;
+
+        return $this;
     }
 
     /**
@@ -721,7 +943,7 @@ trait BuildsFluentQueries
         $new_fields = [];
 
         foreach ($fields as $field) {
-            $new_fields[$field] = new stdClass();
+            $new_fields[$field] = (object) [];
         }
 
         $this->body['highlight'] = [
@@ -782,7 +1004,7 @@ trait BuildsFluentQueries
      *
      * @return $this
      */
-    public function index(string|null $index = null): static
+    public function index(?string $index = null): static
     {
         $this->index = $index;
 
@@ -897,16 +1119,16 @@ trait BuildsFluentQueries
     public function regexpFilter(
         string $field,
         mixed $value,
-        int|null $flags = null,
-        bool|null $caseSensitivity = null,
-        int|null $maxDeterminizedStates = null,
+        ?int $flags = null,
+        ?bool $caseSensitivity = null,
+        ?int $maxDeterminizedStates = null,
     ): static {
         $value = value($value, $this, $field);
 
         if (is_array($value) || (
-            $flags === null &&
-                $caseSensitivity === null &&
-                $maxDeterminizedStates === null
+            $flags === null
+                && $caseSensitivity === null
+                && $maxDeterminizedStates === null
         )) {
             return $this->filter('regexp', [
                 $field => $value,
@@ -936,27 +1158,27 @@ trait BuildsFluentQueries
         ]);
     }
 
-    private function resolveRegexpFlags(int $flags): string|null
+    private function resolveRegexpFlags(int $flags): ?string
     {
         $stringFlags = [];
 
-        if ($flags & Query::REGEXP_FLAG_ALL) {
+        if ($flags & Builder::REGEXP_FLAG_ALL) {
             $stringFlags[] = 'ALL';
         }
 
-        if ($flags & Query::REGEXP_FLAG_COMPLEMENT) {
+        if ($flags & Builder::REGEXP_FLAG_COMPLEMENT) {
             $stringFlags[] = 'COMPLEMENT';
         }
 
-        if ($flags & Query::REGEXP_FLAG_INTERVAL) {
+        if ($flags & Builder::REGEXP_FLAG_INTERVAL) {
             $stringFlags[] = 'INTERVAL';
         }
 
-        if ($flags & Query::REGEXP_FLAG_INTERSECTION) {
+        if ($flags & Builder::REGEXP_FLAG_INTERSECTION) {
             $stringFlags[] = 'INTERSECTION';
         }
 
-        if ($flags & Query::REGEXP_FLAG_ANYSTRING) {
+        if ($flags & Builder::REGEXP_FLAG_ANYSTRING) {
             $stringFlags[] = 'ANYSTRING';
         }
 
@@ -989,7 +1211,7 @@ trait BuildsFluentQueries
      *
      * @return $this
      */
-    public function scrollId(string|null $scroll): static
+    public function scrollId(?string $scroll): static
     {
         $this->scrollId = $scroll;
 
@@ -1006,20 +1228,54 @@ trait BuildsFluentQueries
      * @return $this
      */
     public function search(
-        string|null $queryString = null,
+        ?string $queryString = null,
         callable|array|null $settings = null,
-        int|null $boost = null,
+        ?int $boost = null,
     ): static {
-        if ($queryString) {
-            $search = new Search(
-                $this,
-                $queryString,
-                $settings,
-            );
-
-            $search->boost($boost ?? 1);
-            $search->build();
+        if (!$queryString) {
+            return $this;
         }
+
+        $params = ['query' => $queryString];
+        $fields = [];
+
+        if (is_callable($settings)) {
+            $config = new class {
+                public ?int $boost = null;
+
+                public array $fields = [];
+
+                public function boost(int $boost): self
+                {
+                    $this->boost = $boost;
+
+                    return $this;
+                }
+
+                public function fields(array $fields): self
+                {
+                    foreach ($fields as $field => $weight) {
+                        $this->fields[] = $weight > 1 ? "{$field}^{$weight}" : $field;
+                    }
+
+                    return $this;
+                }
+            };
+
+            $settings($config);
+            $boost = $config->boost ?? $boost;
+            $fields = $config->fields;
+        }
+
+        if ($boost !== null && $boost > 1) {
+            $params['boost'] = $boost;
+        }
+
+        if ($fields) {
+            $params['fields'] = $fields;
+        }
+
+        $this->must[] = ['query_string' => $params];
 
         return $this;
     }
@@ -1032,10 +1288,19 @@ trait BuildsFluentQueries
      * @psalm-param 'query_then_fetch'|'dfs_query_then_fetch' $type
      *
      * @return $this
+     * @throws InvalidArgumentException
      * @see         https://www.elastic.co/guide/en/elasticsearch/reference/6.8/search-request-search-type.html
      */
     public function searchType(string $type): static
     {
+        $validTypes = ['query_then_fetch', 'dfs_query_then_fetch'];
+
+        if (!in_array($type, $validTypes, true)) {
+            throw new InvalidArgumentException(
+                "Invalid search type '{$type}'. Valid types are: " . implode(', ', $validTypes),
+            );
+        }
+
         $this->searchType = $type;
 
         return $this;
@@ -1053,21 +1318,21 @@ trait BuildsFluentQueries
         /** @var list<string> $fields */
         $fields = $this->flattenArgs($args);
 
-        $this->source[Query::SOURCE_INCLUDES] = array_values(
+        $this->source[Builder::SOURCE_INCLUDES] = array_values(
             array_unique(
                 array_merge(
-                    $this->source[Query::SOURCE_INCLUDES] ?? [],
+                    $this->source[Builder::SOURCE_INCLUDES] ?? [],
                     $fields,
                 ),
             ),
         );
 
-        $this->source[Query::SOURCE_EXCLUDES] = array_values(
+        $this->source[Builder::SOURCE_EXCLUDES] = array_values(
             array_filter(
-                $this->source[Query::SOURCE_EXCLUDES] ?? [],
+                $this->source[Builder::SOURCE_EXCLUDES] ?? [],
                 fn($field) => !in_array(
                     $field,
-                    $this->source[Query::SOURCE_INCLUDES] ?? [],
+                    $this->source[Builder::SOURCE_INCLUDES] ?? [],
                 ),
             ),
         );
@@ -1096,9 +1361,98 @@ trait BuildsFluentQueries
      *
      * @return $this
      */
-    public function take(int $size = Query::DEFAULT_LIMIT): static
+    public function take(int $size = Builder::DEFAULT_LIMIT): static
     {
         $this->size = $size;
+
+        return $this;
+    }
+
+    /**
+     * Sets the number of hits to return from the result.
+     *
+     * Alias for take() to match Eloquent's naming convention.
+     *
+     * @param int $limit
+     *
+     * @return $this
+     */
+    public function limit(int $limit = Builder::DEFAULT_LIMIT): static
+    {
+        return $this->take($limit);
+    }
+
+    /**
+     * Set the starting document offset (alias for skip)
+     *
+     * @param int $from
+     *
+     * @return $this
+     *
+     * @deprecated Use skip() instead for Eloquent compatibility
+     */
+    public function from(int $from = 0): static
+    {
+        trigger_error(
+            'from() is deprecated, use skip() instead',
+            E_USER_DEPRECATED,
+        );
+
+        return $this->skip($from);
+    }
+
+    /**
+     * Set the number of hits to return (alias for take)
+     *
+     * @param int $size
+     *
+     * @return $this
+     *
+     * @deprecated Use take() or limit() instead for Eloquent compatibility
+     */
+    public function size(int $size = Builder::DEFAULT_LIMIT): static
+    {
+        trigger_error(
+            'size() is deprecated, use take() or limit() instead',
+            E_USER_DEPRECATED,
+        );
+
+        return $this->take($size);
+    }
+
+    /**
+     * Exclude specific fields from the results.
+     *
+     * This is the inverse of select() - it specifies which fields should NOT
+     * be returned in the document source.
+     *
+     * @param mixed ...$args Field names to exclude
+     *
+     * @return $this
+     */
+    public function except(...$args): static
+    {
+        /** @var list<string> $fields */
+        $fields = $this->flattenArgs($args);
+
+        $this->source[Builder::SOURCE_EXCLUDES] = array_values(
+            array_unique(
+                array_merge(
+                    $this->source[Builder::SOURCE_EXCLUDES] ?? [],
+                    $fields,
+                ),
+            ),
+        );
+
+        $this->source[Builder::SOURCE_INCLUDES] = array_values(
+            array_filter(
+                $this->source[Builder::SOURCE_INCLUDES] ?? [],
+                fn($field) => !in_array(
+                    $field,
+                    $this->source[Builder::SOURCE_EXCLUDES] ?? [],
+                ),
+            ),
+        );
 
         return $this;
     }
@@ -1109,32 +1463,17 @@ trait BuildsFluentQueries
      * @param mixed ...$args
      *
      * @return $this
+     *
+     * @deprecated Use except() instead for better clarity
      */
     public function unselect(...$args): static
     {
-        /** @var list<string> $fields */
-        $fields = $this->flattenArgs($args);
-
-        $this->source[Query::SOURCE_EXCLUDES] = array_values(
-            array_unique(
-                array_merge(
-                    $this->source[Query::SOURCE_EXCLUDES] ?? [],
-                    $fields,
-                ),
-            ),
+        trigger_error(
+            'unselect() is deprecated, use except() instead',
+            E_USER_DEPRECATED,
         );
 
-        $this->source[Query::SOURCE_INCLUDES] = array_values(
-            array_filter(
-                $this->source[Query::SOURCE_INCLUDES] ?? [],
-                fn($field) => !in_array(
-                    $field,
-                    $this->source[Query::SOURCE_EXCLUDES] ?? [],
-                ),
-            ),
-        );
-
-        return $this;
+        return $this->except(...$args);
     }
 
     /**
@@ -1230,7 +1569,7 @@ trait BuildsFluentQueries
      */
     public function whereNot(
         Closure|string $name,
-        string $operator = Query::OPERATOR_EQUAL,
+        string $operator = Builder::OPERATOR_EQUAL,
         $value = null,
     ): static {
         if ($name instanceof Closure) {
@@ -1239,46 +1578,46 @@ trait BuildsFluentQueries
 
         if (!$this->isOperator($operator)) {
             $value = $operator;
-            $operator = Query::OPERATOR_EQUAL;
+            $operator = Builder::OPERATOR_EQUAL;
         }
 
         switch ($operator) {
             case 'eq':
-            case Query::OPERATOR_EQUAL:
+            case Builder::OPERATOR_EQUAL:
                 return $this->mustNot('term', [
                     $name => $value,
                 ]);
 
             case 'gt':
-            case Query::OPERATOR_GREATER_THAN:
+            case Builder::OPERATOR_GREATER_THAN:
                 return $this->mustNot('range', [
                     $name => ['gt' => $value],
                 ]);
 
             case 'gte':
-            case Query::OPERATOR_GREATER_THAN_OR_EQUAL:
+            case Builder::OPERATOR_GREATER_THAN_OR_EQUAL:
                 return $this->mustNot('range', [
                     $name => ['gte' => $value],
                 ]);
 
             case 'lt':
-            case Query::OPERATOR_LOWER_THAN:
+            case Builder::OPERATOR_LOWER_THAN:
                 return $this->mustNot('range', [
                     $name => ['lt' => $value],
                 ]);
 
             case 'lte':
-            case Query::OPERATOR_LOWER_THAN_OR_EQUAL:
+            case Builder::OPERATOR_LOWER_THAN_OR_EQUAL:
                 return $this->mustNot('range', [
                     $name => ['lte' => $value],
                 ]);
 
-            case Query::OPERATOR_LIKE:
+            case Builder::OPERATOR_LIKE:
                 return $this->mustNot('match', [
                     $name => $value,
                 ]);
 
-            case Query::OPERATOR_EXISTS:
+            case Builder::OPERATOR_EXISTS:
                 $this->whereExists($name, !$value);
         }
 
@@ -1351,95 +1690,512 @@ trait BuildsFluentQueries
     }
 
     /**
-     * Generate the query body
+     * Enable query profiling.
      *
-     * @return array
+     * The Profile API provides detailed timing information about the execution
+     * of individual components in a search request. It gives the user insight
+     * into how search requests are executed at a low level so that the user
+     * can understand why certain requests are slow, and take steps to
+     * improve them.
+     *
+     * Note: The Profile API adds significant overhead to search execution and
+     * can significantly slow down search requests. It should only be used for
+     * debugging and optimization purposes, never in production.
+     *
+     * @param bool $enable Whether to enable profiling (default: true)
+     *
+     * @return $this
+     * @see https://www.elastic.co/guide/en/elasticsearch/reference/current/search-profile.html
      */
-    protected function getBody(): array
+    public function profile(bool $enable = true): static
     {
-        $body = $this->body;
+        $this->body['profile'] = $enable;
 
-        if ($this->source !== null) {
-            $source = $body[Query::FIELD_SOURCE] ?? [];
-
-            // TODO: Shouldn't the body-defined source take precedence here?
-            $body[Query::FIELD_SOURCE] = array_merge(
-                $source,
-                $this->source,
-            );
-        }
-
-        $body[self::FIELD_QUERY] = $body[self::FIELD_QUERY] ?? [];
-
-        if (count($this->must)) {
-            $body[self::FIELD_QUERY]['bool']['must'] = array_merge(
-                $body[self::FIELD_QUERY]['bool']['must'] ?? [],
-                $this->must,
-            );
-        }
-
-        if (count($this->must_not)) {
-            $body[self::FIELD_QUERY]['bool']['must_not'] = array_merge(
-                $body[self::FIELD_QUERY]['bool']['must_not'] ?? [],
-                $this->must_not,
-            );
-        }
-
-        if (count($this->filter)) {
-            $body[self::FIELD_QUERY]['bool']['filter'] = array_merge(
-                $body[self::FIELD_QUERY]['bool']['filter'] ?? [],
-                $this->filter,
-            );
-        }
-
-        if (count($body[self::FIELD_QUERY]) === 0) {
-            unset($body[self::FIELD_QUERY]);
-        }
-
-        if (count($this->sort)) {
-            $sortFields = array_key_exists(self::FIELD_SORT, $body)
-                ? $body[self::FIELD_SORT]
-                : [];
-
-            $body[self::FIELD_SORT] = array_unique(
-                array_merge($sortFields, $this->sort),
-                SORT_REGULAR,
-            );
-        }
-
-        if (count($this->aggregations)) {
-            $aggregations = array_key_exists(self::FIELD_AGGS, $body)
-                ? $body[self::FIELD_AGGS]
-                : [];
-
-            $body[self::FIELD_AGGS] = array_merge(
-                $aggregations,
-                $this->aggregations,
-            );
-        }
-
-        $this->body = $body;
-
-        return $body;
+        return $this;
     }
 
     /**
-     * Get the query offset
+     * Add a fuzzy query for typo-tolerant search.
      *
-     * @return int
+     * Returns documents that contain terms similar to the search term, as
+     * measured by a Levenshtein edit distance.
+     *
+     * @param string $field Field to search
+     * @param mixed $value Value to search for (can be a callable)
+     * @param string $fuzziness Maximum edit distance (AUTO, 0, 1, 2)
+     * @param int|null $prefixLength Number of beginning characters left unchanged
+     * @param int|null $maxExpansions Maximum number of terms to match
+     *
+     * @return $this
+     * @see https://www.elastic.co/guide/en/elasticsearch/reference/current/query-dsl-fuzzy-query.html
      */
-    protected function getSkip(): int
-    {
-        return $this->from;
+    public function fuzzy(
+        string $field,
+        mixed $value,
+        string $fuzziness = 'AUTO',
+        ?int $prefixLength = null,
+        ?int $maxExpansions = null,
+    ): static {
+        $params = [
+            'value' => value($value, $this, $field),
+            'fuzziness' => $fuzziness,
+        ];
+
+        if ($prefixLength !== null) {
+            $params['prefix_length'] = $prefixLength;
+        }
+
+        if ($maxExpansions !== null) {
+            $params['max_expansions'] = $maxExpansions;
+        }
+
+        return $this->filter('fuzzy', [$field => $params]);
     }
 
     /**
-     * Retrieves the number of hits to limit the query to.
+     * Add a match phrase query for exact phrase matching.
      *
-     * @return int
+     * Analyzes the text and creates a phrase query out of the analyzed text.
+     *
+     * @param string $field Field to search
+     * @param mixed $value Phrase to search for (can be a callable)
+     * @param int|null $slop Maximum number of positions allowed between matching tokens
+     *
+     * @return $this
+     * @see https://www.elastic.co/guide/en/elasticsearch/reference/current/query-dsl-match-query-phrase.html
      */
-    protected function getSize(): int
+    public function matchPhrase(
+        string $field,
+        mixed $value,
+        ?int $slop = null,
+    ): static {
+        $params = ['query' => value($value, $this, $field)];
+
+        if ($slop !== null) {
+            $params['slop'] = $slop;
+        }
+
+        return $this->must('match_phrase', [$field => $params]);
+    }
+
+    /**
+     * Add a match phrase prefix query for autocomplete-style searches.
+     *
+     * Returns documents that contain the words of a provided text, in the
+     * same order as provided. The last term of the provided text is treated
+     * as a prefix, matching any words that begin with that term.
+     *
+     * @param string $field Field to search
+     * @param mixed $value Phrase prefix to search for (can be a callable)
+     * @param int|null $maxExpansions Maximum number of terms to match for the prefix
+     *
+     * @return $this
+     * @see https://www.elastic.co/guide/en/elasticsearch/reference/current/query-dsl-match-query-phrase-prefix.html
+     */
+    public function matchPhrasePrefix(
+        string $field,
+        mixed $value,
+        ?int $maxExpansions = null,
+    ): static {
+        $params = ['query' => value($value, $this, $field)];
+
+        if ($maxExpansions !== null) {
+            $params['max_expansions'] = $maxExpansions;
+        }
+
+        return $this->must('match_phrase_prefix', [$field => $params]);
+    }
+
+    /**
+     * Set the minimum score for returned documents.
+     *
+     * Excludes documents which have a _score less than the minimum specified.
+     *
+     * @param float $score Minimum score threshold
+     *
+     * @return $this
+     * @see https://www.elastic.co/guide/en/elasticsearch/reference/current/search-search.html
+     */
+    public function minScore(float $score): static
     {
-        return $this->size;
+        $this->body['min_score'] = $score;
+
+        return $this;
+    }
+
+    /**
+     * Set the search_after values for cursor-based deep pagination.
+     *
+     * You can use the search_after parameter to retrieve the next page of
+     * hits using a set of sort values from the previous page. Using
+     * search_after requires multiple search requests with the same query
+     * and sort values.
+     *
+     * @param array $sortValues Sort values from the last document of the previous page
+     *
+     * @return $this
+     * @see https://www.elastic.co/guide/en/elasticsearch/reference/current/paginate-search-results.html#search-after
+     */
+    public function searchAfter(array $sortValues): static
+    {
+        $this->searchAfterValues = $sortValues;
+
+        return $this;
+    }
+
+    /**
+     * Control how the total number of hits should be tracked.
+     *
+     * When set to true (default), the search response will always track the
+     * number of hits that match the query accurately. When set to false,
+     * the search returns an approximate count. Setting to an integer
+     * enables counting accurately up to the specified limit.
+     *
+     * @param bool|int $track Track total hits flag or limit
+     *
+     * @return $this
+     * @see https://www.elastic.co/guide/en/elasticsearch/reference/current/search-your-data.html#track-total-hits
+     */
+    public function trackTotalHits(bool|int $track = true): static
+    {
+        $this->body['track_total_hits'] = $track;
+
+        return $this;
+    }
+
+    /**
+     * Add a completion suggester for autocomplete functionality.
+     *
+     * The completion suggester provides auto-complete/search-as-you-type
+     * functionality. This is a navigational feature to guide users to
+     * relevant results as they are typing, improving search precision.
+     *
+     * @param string $name Name for this suggester
+     * @param string $text Input text for suggestions
+     * @param string $field Field with completion mapping
+     * @param int $size Maximum number of suggestions
+     * @param array $contexts Context filters for category-aware suggestions
+     * @param bool $skipDuplicates Whether to skip duplicate suggestions
+     * @param string|null $fuzzy Fuzziness for typo tolerance (AUTO, 0, 1, 2)
+     *
+     * @return $this
+     * @see https://www.elastic.co/guide/en/elasticsearch/reference/current/search-suggesters.html#completion-suggester
+     */
+    public function suggest(
+        string $name,
+        string $text,
+        string $field,
+        int $size = 5,
+        array $contexts = [],
+        bool $skipDuplicates = false,
+        ?string $fuzzy = null,
+    ): static {
+        $completion = [
+            'field' => $field,
+            'size' => $size,
+            'skip_duplicates' => $skipDuplicates,
+        ];
+
+        if (!empty($contexts)) {
+            $completion['contexts'] = $contexts;
+        }
+
+        if ($fuzzy !== null) {
+            $completion['fuzzy'] = ['fuzziness' => $fuzzy];
+        }
+
+        $this->suggest[$name] = [
+            'prefix' => $text,
+            'completion' => $completion,
+        ];
+
+        return $this;
+    }
+
+    /**
+     * Add a term suggester for spelling corrections.
+     *
+     * The term suggester suggests terms based on edit distance. The provided
+     * suggest text is analyzed before terms are suggested.
+     *
+     * @param string $name Name for this suggester
+     * @param string $text Input text for suggestions
+     * @param string $field Field to get suggestions from
+     * @param int $size Maximum number of suggestions per token
+     *
+     * @return $this
+     * @see https://www.elastic.co/guide/en/elasticsearch/reference/current/search-suggesters.html#term-suggester
+     */
+    public function suggestTerm(
+        string $name,
+        string $text,
+        string $field,
+        int $size = 5,
+    ): static {
+        $this->suggest[$name] = [
+            'text' => $text,
+            'term' => [
+                'field' => $field,
+                'size' => $size,
+            ],
+        ];
+
+        return $this;
+    }
+
+    /**
+     * Add a terms aggregation.
+     *
+     * @param string $name Aggregation name
+     * @param string $field Field to aggregate on
+     * @param int $size Maximum number of buckets to return
+     * @param array $options Additional options (e.g., order, min_doc_count)
+     *
+     * @return $this
+     * @see https://www.elastic.co/guide/en/elasticsearch/reference/current/search-aggregations-bucket-terms-aggregation.html
+     */
+    public function termsAgg(
+        string $name,
+        string $field,
+        int $size = 10,
+        array $options = [],
+    ): static {
+        return $this->addBucketAgg($name, 'terms', array_merge(
+            ['field' => $field, 'size' => $size],
+            $options,
+        ));
+    }
+
+    /**
+     * Add an avg (average) metric aggregation.
+     *
+     * @param string $name Aggregation name
+     * @param string $field Field to compute average on
+     *
+     * @return $this
+     * @see https://www.elastic.co/guide/en/elasticsearch/reference/current/search-aggregations-metrics-avg-aggregation.html
+     */
+    public function avgAgg(string $name, string $field): static
+    {
+        return $this->addMetricAgg($name, 'avg', $field);
+    }
+
+    /**
+     * Add a sum metric aggregation.
+     *
+     * @param string $name Aggregation name
+     * @param string $field Field to compute sum on
+     *
+     * @return $this
+     * @see https://www.elastic.co/guide/en/elasticsearch/reference/current/search-aggregations-metrics-sum-aggregation.html
+     */
+    public function sumAgg(string $name, string $field): static
+    {
+        return $this->addMetricAgg($name, 'sum', $field);
+    }
+
+    /**
+     * Add a min metric aggregation.
+     *
+     * @param string $name Aggregation name
+     * @param string $field Field to find minimum on
+     *
+     * @return $this
+     * @see https://www.elastic.co/guide/en/elasticsearch/reference/current/search-aggregations-metrics-min-aggregation.html
+     */
+    public function minAgg(string $name, string $field): static
+    {
+        return $this->addMetricAgg($name, 'min', $field);
+    }
+
+    /**
+     * Add a max metric aggregation.
+     *
+     * @param string $name Aggregation name
+     * @param string $field Field to find maximum on
+     *
+     * @return $this
+     * @see https://www.elastic.co/guide/en/elasticsearch/reference/current/search-aggregations-metrics-max-aggregation.html
+     */
+    public function maxAgg(string $name, string $field): static
+    {
+        return $this->addMetricAgg($name, 'max', $field);
+    }
+
+    /**
+     * Add a cardinality metric aggregation (approximate distinct count).
+     *
+     * @param string $name Aggregation name
+     * @param string $field Field to count distinct values on
+     *
+     * @return $this
+     * @see https://www.elastic.co/guide/en/elasticsearch/reference/current/search-aggregations-metrics-cardinality-aggregation.html
+     */
+    public function cardinalityAgg(string $name, string $field): static
+    {
+        return $this->addMetricAgg($name, 'cardinality', $field);
+    }
+
+    /**
+     * Add a value_count metric aggregation.
+     *
+     * @param string $name Aggregation name
+     * @param string $field Field to count values on
+     *
+     * @return $this
+     * @see https://www.elastic.co/guide/en/elasticsearch/reference/current/search-aggregations-metrics-valuecount-aggregation.html
+     */
+    public function valueCountAgg(string $name, string $field): static
+    {
+        return $this->addMetricAgg($name, 'value_count', $field);
+    }
+
+    /**
+     * Add a stats metric aggregation (min, max, sum, count, avg).
+     *
+     * @param string $name Aggregation name
+     * @param string $field Field to compute stats on
+     *
+     * @return $this
+     * @see https://www.elastic.co/guide/en/elasticsearch/reference/current/search-aggregations-metrics-stats-aggregation.html
+     */
+    public function statsAgg(string $name, string $field): static
+    {
+        return $this->addMetricAgg($name, 'stats', $field);
+    }
+
+    /**
+     * Add a date histogram bucket aggregation.
+     *
+     * @param string $name Aggregation name
+     * @param string $field Date field to aggregate on
+     * @param string $interval Calendar interval (minute, hour, day, week, month, quarter, year)
+     * @param string|null $format Output date format
+     * @param array $options Additional options (e.g., time_zone, offset)
+     *
+     * @return $this
+     * @see https://www.elastic.co/guide/en/elasticsearch/reference/current/search-aggregations-bucket-datehistogram-aggregation.html
+     */
+    public function dateHistogramAgg(
+        string $name,
+        string $field,
+        string $interval,
+        ?string $format = null,
+        array $options = [],
+    ): static {
+        $config = array_merge([
+            'field' => $field,
+            'calendar_interval' => $interval,
+        ], $options);
+
+        if ($format !== null) {
+            $config['format'] = $format;
+        }
+
+        return $this->addBucketAgg($name, 'date_histogram', $config);
+    }
+
+    /**
+     * Add a histogram bucket aggregation.
+     *
+     * @param string $name Aggregation name
+     * @param string $field Numeric field to aggregate on
+     * @param int|float $interval Bucket interval width
+     * @param array $options Additional options (e.g., min_doc_count, extended_bounds)
+     *
+     * @return $this
+     * @see https://www.elastic.co/guide/en/elasticsearch/reference/current/search-aggregations-bucket-histogram-aggregation.html
+     */
+    public function histogramAgg(
+        string $name,
+        string $field,
+        int|float $interval,
+        array $options = [],
+    ): static {
+        return $this->addBucketAgg($name, 'histogram', array_merge([
+            'field' => $field,
+            'interval' => $interval,
+        ], $options));
+    }
+
+    /**
+     * Add a range bucket aggregation.
+     *
+     * @param string $name Aggregation name
+     * @param string $field Field to apply ranges on
+     * @param array $ranges Array of range definitions with 'from' and/or 'to' keys
+     *
+     * @return $this
+     * @see https://www.elastic.co/guide/en/elasticsearch/reference/current/search-aggregations-bucket-range-aggregation.html
+     */
+    public function rangeAgg(
+        string $name,
+        string $field,
+        array $ranges,
+    ): static {
+        return $this->addBucketAgg($name, 'range', [
+            'field' => $field,
+            'ranges' => $ranges,
+        ]);
+    }
+
+    /**
+     * Add a filter bucket aggregation.
+     *
+     * @param string $name Aggregation name
+     * @param array $filter Filter query definition
+     *
+     * @return $this
+     * @see https://www.elastic.co/guide/en/elasticsearch/reference/current/search-aggregations-bucket-filter-aggregation.html
+     */
+    public function filterAgg(string $name, array $filter): static
+    {
+        return $this->addBucketAgg($name, 'filter', $filter);
+    }
+
+    /**
+     * Add a sub-aggregation to a parent aggregation.
+     *
+     * Call this method before defining the parent aggregation.
+     *
+     * @param string $parentName Parent aggregation name
+     * @param string $childName Sub-aggregation name
+     * @param array $config Sub-aggregation configuration
+     *
+     * @return $this
+     */
+    public function subAgg(string $parentName, string $childName, array $config): static
+    {
+        if (!isset($this->pendingSubAggs[$parentName])) {
+            $this->pendingSubAggs[$parentName] = ['aggs' => []];
+        }
+
+        $this->pendingSubAggs[$parentName]['aggs'][$childName] = $config;
+
+        return $this;
+    }
+
+    /**
+     * Add a simple metric aggregation.
+     */
+    private function addMetricAgg(string $name, string $type, string $field): static
+    {
+        $this->aggregations[$name] = [$type => ['field' => $field]];
+
+        return $this;
+    }
+
+    /**
+     * Add a bucket aggregation with sub-aggregation support.
+     */
+    private function addBucketAgg(string $name, string $type, array $config): static
+    {
+        $this->aggregations[$name] = array_merge(
+            [$type => $config],
+            $this->pendingSubAggs[$name] ?? [],
+        );
+        unset($this->pendingSubAggs[$name]);
+
+        return $this;
     }
 }

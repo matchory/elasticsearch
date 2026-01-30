@@ -5,29 +5,23 @@ declare(strict_types=1);
 namespace Matchory\Elasticsearch;
 
 use BadMethodCallException;
-use Elasticsearch\{Client, ClientBuilder};
-use Illuminate\Cache\Repository;
-use Illuminate\Contracts\Container\BindingResolutionException;
+use Elastic\Elasticsearch\Client;
+use Elastic\Elasticsearch\Exception\ClientResponseException;
+use Elastic\Elasticsearch\Response\Elasticsearch as ElasticsearchResponse;
+use Elastic\Transport\Exception\NoNodeAvailableException;
 use Illuminate\Foundation\Application;
-use Illuminate\Support\{Arr, Facades\App, Facades\Cache, Traits\ForwardsCalls};
-use InvalidArgumentException;
-use JetBrains\PhpStorm\Deprecated;
+use Illuminate\Support\Traits\ForwardsCalls;
 use JsonException;
-use Matchory\Elasticsearch\Interfaces\{ClientFactoryInterface,
-    ConnectionInterface,
-    ConnectionResolverInterface as Resolver};
-use Monolog\{Handler\StreamHandler, Level, Logger};
+use Matchory\Elasticsearch\Interfaces\ConnectionInterface;
 use Psr\SimpleCache\CacheInterface;
 use Sentry\Breadcrumb;
 use Sentry\Laravel\ServiceProvider as SentryProvider;
 use Sentry\State\HubInterface;
 
-use function assert;
+use function in_array;
 use function json_encode;
 use function sprintf;
-use function trigger_error;
 
-use const E_USER_DEPRECATED;
 use const JSON_THROW_ON_ERROR;
 
 /**
@@ -39,49 +33,30 @@ class Connection implements ConnectionInterface
 {
     use ForwardsCalls;
 
-    private const DEFAULT_LOGGER_NAME = 'elasticsearch';
-
-    /**
-     * @var Resolver
-     * @deprecated
-     * @todo remove in next major version
-     */
-    #[Deprecated]
-    protected static Resolver $resolver;
-
     /**
      * Cache instance to be used for this connection. In Laravel applications,
      * this will be an instance of the Cache Repository, which is the same as
      * the instance returned from the Cache facade.
      *
      * @var CacheInterface|null
-     * @see Repository
-     * @see Cache
      */
-    protected CacheInterface|null $cache;
+    protected ?CacheInterface $cache;
 
     /**
      * Elasticsearch client instance used for this connection.
      *
-     * @var Client
+     * Note: Type is `object` to allow for duck-typed mock clients in tests.
+     * The Elasticsearch PHP Client v9 makes the Client class final.
+     *
+     * @var Client|object
      * @see Connection::getClient()
      */
-    protected Client $client;
-
-    /**
-     * Used to hold all connections.
-     *
-     * @var Client[]
-     * @deprecated
-     * @todo remove in next major version
-     */
-    #[Deprecated]
-    protected array $clients = [];
+    protected object $client;
 
     /**
      * @var string|null
      */
-    protected string|null $index;
+    protected ?string $index;
 
     /**
      * @var bool
@@ -91,15 +66,17 @@ class Connection implements ConnectionInterface
     /**
      * Creates a new connection
      *
-     * @param Client              $client
+     * @param Client|object       $client Elasticsearch client instance. Type is
+     *                                    `object` to allow for duck-typed mock
+     *                                    clients in tests (Client is final).
      * @param CacheInterface|null $cache
      * @param string|null         $index
      * @param bool                $reportQueries
      */
     final public function __construct(
-        Client $client,
-        CacheInterface|null $cache = null,
-        string|null $index = null,
+        object $client,
+        ?CacheInterface $cache = null,
+        ?string $index = null,
         bool $reportQueries = true,
     ) {
         $this->client = $client;
@@ -109,120 +86,19 @@ class Connection implements ConnectionInterface
     }
 
     /**
-     * Set the connection resolver instance.
-     *
-     * @param Resolver $resolver
-     *
-     * @return void
-     * @internal
-     * @deprecated
-     * @todo         remove in next major version
-     * @noinspection PhpDeprecationInspection
-     */
-    #[Deprecated]
-    public static function setConnectionResolver(Resolver $resolver): void
-    {
-        @trigger_error(
-            sprintf(
-                'Since matchory/elasticsearch 3.0.0: The %s method is deprecated. ' .
-                'Use the connection manager to create connections instead. It provides a simpler ' .
-                'way to manage connections. This method will be removed in the next major version.',
-                __METHOD__,
-            ),
-            E_USER_DEPRECATED,
-        );
-
-        static::$resolver = $resolver;
-    }
-
-    /**
-     * @param ClientBuilder $clientBuilder
-     * @param array         $config
-     *
-     * @return ClientBuilder
-     * @throws InvalidArgumentException
-     * @deprecated Use the connection manager to create connections instead. It
-     *             provides a simpler way to manage connections. This method
-     *             will be removed in the next major version.
-     * @see        ConnectionManager
-     */
-    #[Deprecated(reason: 'Use the connection manager to create connections instead.')]
-    public static function configureLogging(
-        ClientBuilder $clientBuilder,
-        array $config,
-    ): ClientBuilder {
-        @trigger_error(
-            sprintf(
-                'Since matchory/elasticsearch 3.0.0: The %s method is deprecated. ' .
-                'Use the connection manager to create connections instead. It provides a simpler ' .
-                'way to manage connections. This method will be removed in the next major version.',
-                __METHOD__,
-            ),
-            E_USER_DEPRECATED,
-        );
-
-        if (Arr::get($config, 'logging.enabled')) {
-            $logger = new Logger(self::DEFAULT_LOGGER_NAME);
-            $logger->pushHandler(
-                new StreamHandler(
-                    Arr::get($config, 'logging.location'),
-                    Arr::get($config, 'logging.level', Level::Info),
-                ),
-            );
-
-            $clientBuilder->setLogger($logger);
-        }
-
-        return $clientBuilder;
-    }
-
-    /**
-     * Create a native connection suitable for any non-Laravel apps
-     * any composer-based frameworks
-     *
-     * @param mixed $config
-     *
-     * @return Query
-     * @throws BindingResolutionException
-     * @deprecated Use the connection manager to create connections instead. It
-     *             provides a simpler way to manage connections. This method
-     *             will be removed in the next major version.
-     * @see        ConnectionManager
-     */
-    #[Deprecated(reason: 'Use the connection manager to create connections instead.')]
-    public static function create(mixed $config): Query
-    {
-        @trigger_error(
-            sprintf(
-                'Since matchory/elasticsearch 3.0.0: The %s method is deprecated. ' .
-                'Use the connection manager to create connections instead. It provides a simpler ' .
-                'way to manage connections. This method will be removed in the next major version.',
-                __METHOD__,
-            ),
-            E_USER_DEPRECATED,
-        );
-
-        $app = App::getFacadeApplication();
-        $client = $app->make(ClientFactoryInterface::class)->createClient($config['servers']);
-
-        return (new static($client, $config['index'] ?? null))->newQuery();
-    }
-
-    /**
      * @inheritDoc
      */
-    public function getCache(): CacheInterface|null
+    public function getCache(): ?CacheInterface
     {
         return $this->cache;
     }
 
     public function insert(
         array $parameters,
-        string|null $index = null,
-        string|null $type = null,
+        ?string $index = null,
     ): object {
-        if (!isset($parameters[Query::PARAM_INDEX]) && $index = $index ?? $this->index) {
-            $parameters[Query::PARAM_INDEX] = $index;
+        if (!isset($parameters[Builder::PARAM_INDEX]) && $index = $index ?? $this->index) {
+            $parameters[Builder::PARAM_INDEX] = $index;
         }
 
         if ($this->reportQueries) {
@@ -263,7 +139,7 @@ class Connection implements ConnectionInterface
     /**
      * @inheritDoc
      */
-    public function index(string $index): Query
+    public function index(string $index): Builder
     {
         return $this->newQuery()->index($index);
     }
@@ -271,60 +147,11 @@ class Connection implements ConnectionInterface
     /**
      * Route the request to the query class
      *
-     * @param string|null $connection Deprecated parameter: Use the proper
-     *                                connection instance directly instead of
-     *                                passing the name. This parameter will be
-     *                                removed in the next major version.
-     *
-     * @return Query
+     * @return Builder
      */
-    public function newQuery(string|null $connection = null): Query
+    public function newQuery(): Builder
     {
-        // TODO: This is deprecated behaviour and should be removed in the next
-        //       major version.
-        if ($connection) {
-            @trigger_error(
-                sprintf(
-                    'Passing the connection name to %s is deprecated. ' .
-                    'Use the proper connection instance directly instead. ' .
-                    'This parameter will be removed in the next major version.',
-                    __METHOD__,
-                ),
-                E_USER_DEPRECATED,
-            );
-
-            /** @noinspection PhpDeprecationInspection */
-            return static::$resolver->connection($connection)->newQuery();
-        }
-
-        return (new Query($this))->index($this->index);
-    }
-
-    /**
-     * Create a connection for Laravel
-     *
-     * @param string $name
-     *
-     * @return Query
-     * @deprecated Use the connection manager to create connections instead. It
-     *             provides a simpler way to manage connections. This method
-     *             will be removed in the next major version.
-     * @see        ConnectionManager
-     */
-    #[Deprecated(reason: 'Use the connection manager to create connections instead.')]
-    public function connection(string $name): Query
-    {
-        @trigger_error(
-            sprintf(
-                'Since matchory/elasticsearch 3.0.0: The %s method is deprecated. ' .
-                'Use the connection manager to create connections instead. It provides a simpler ' .
-                'way to manage connections. This method will be removed in the next major version.',
-                __METHOD__,
-            ),
-            E_USER_DEPRECATED,
-        );
-
-        return $this->newQuery($name);
+        return (new Builder($this))->index($this->index);
     }
 
     /**
@@ -342,9 +169,69 @@ class Connection implements ConnectionInterface
     /**
      * @inheritDoc
      */
-    public function getClient(): Client
+    public function getClient(): object
     {
         return $this->client;
+    }
+
+    /**
+     * Execute a client operation with specific HTTP status codes ignored.
+     *
+     * In Elasticsearch PHP client v9, the `$params['client']['ignore']` pattern
+     * was removed. Instead, we must disable response exceptions, execute the
+     * operation, and check the response status code manually.
+     *
+     * @param callable(object): mixed $operation The operation to execute
+     * @param array<int> $ignores HTTP status codes to ignore
+     *
+     * @return mixed The operation result
+     * @throws ClientResponseException If the response has an error status not in $ignores
+     */
+    public function executeWithIgnoredErrors(callable $operation, array $ignores = []): mixed
+    {
+        $client = $this->getClient();
+
+        if (empty($ignores)) {
+            return $operation($client);
+        }
+
+        $client->setResponseException(false);
+
+        try {
+            $result = $operation($client);
+
+            if ($result instanceof ElasticsearchResponse) {
+                $statusCode = $result->getStatusCode();
+
+                if ($statusCode >= 400 && !in_array($statusCode, $ignores, true)) {
+                    $error = new ClientResponseException(
+                        sprintf('%d %s', $statusCode, $result->getReasonPhrase()),
+                        $statusCode,
+                    );
+                    throw $error->setResponse($result);
+                }
+            }
+
+            return $result;
+        } finally {
+            $client->setResponseException(true);
+        }
+    }
+
+    /**
+     * Check if the Elasticsearch cluster is reachable.
+     *
+     * @return bool True if the cluster responds to a ping, false otherwise.
+     */
+    public function ping(): bool
+    {
+        try {
+            $this->client->info();
+
+            return true;
+        } catch (ClientResponseException|NoNodeAvailableException) {
+            return false;
+        }
     }
 
     /**
@@ -359,33 +246,5 @@ class Connection implements ConnectionInterface
     public function __call(string $name, array $arguments)
     {
         return $this->forwardCallTo($this->newQuery(), $name, $arguments);
-    }
-
-    /**
-     * Check if the connection is already loaded
-     *
-     * @param string $name
-     *
-     * @return bool
-     * @deprecated   Use the connection manager to create connections instead. It
-     *             provides a simpler way to manage connections. This method
-     *             will be removed in the next major version.
-     * @see          ConnectionManager
-     * @noinspection PhpDeprecationInspection
-     */
-    #[Deprecated(reason: 'Use the connection manager to create connections instead.')]
-    public function isLoaded(string $name): bool
-    {
-        @trigger_error(
-            sprintf(
-                'Since matchory/elasticsearch 3.0.0: The %s method is deprecated. ' .
-                'Use the connection manager to create connections instead. It provides a simpler ' .
-                'way to manage connections. This method will be removed in the next major version.',
-                __METHOD__,
-            ),
-            E_USER_DEPRECATED,
-        );
-
-        return (bool) static::$resolver->connection($name);
     }
 }

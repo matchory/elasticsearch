@@ -38,30 +38,30 @@ class Collection extends BaseCollection
      */
     public function __construct(
         iterable $items = [],
-        protected int|null $total = null,
-        protected float|null $maxScore = null,
-        protected float|null $duration = null,
-        protected bool|null $timedOut = null,
-        protected string|null $scrollId = null,
-        protected stdClass|null $shards = null,
-        protected array|null $suggestions = null,
-        protected array|null $aggregations = null,
+        protected ?int $total = null,
+        protected ?float $maxScore = null,
+        protected ?float $duration = null,
+        protected ?bool $timedOut = null,
+        protected ?string $scrollId = null,
+        protected ?stdClass $shards = null,
+        protected ?array $suggestions = null,
+        protected ?array $aggregations = null,
     ) {
         parent::__construct($items);
     }
 
     public static function fromResponse(
         array $response,
-        array|null $items = null,
+        ?array $items = null,
     ): self {
         $items = $items ?? $response['hits']['hits'] ?? [];
 
-        $maxScore = (float) $response['hits']['max_score'];
-        $duration = (float) $response['took'];
-        $timedOut = (bool) $response['timed_out'];
-        $scrollId = (string) ($response['_scroll_id'] ?? null);
+        $maxScore = (float) ($response['hits']['max_score'] ?? 0.0);
+        $duration = (float) ($response['took'] ?? 0);
+        $timedOut = (bool) ($response['timed_out'] ?? false);
+        $scrollId = (string) ($response['_scroll_id'] ?? '');
         /** @var stdClass $shards */
-        $shards = (object) $response['_shards'];
+        $shards = (object) ($response['_shards'] ?? []);
         $suggestions = $response['suggest'] ?? [];
         $aggregations = $response['aggregations'] ?? [];
         $total = (int) (
@@ -94,22 +94,42 @@ class Collection extends BaseCollection
             ->mapInto(BaseCollection::class);
     }
 
-    public function getDuration(): float|null
+    public function getDuration(): ?float
     {
         return $this->duration;
     }
 
-    public function getMaxScore(): float|null
+    /**
+     * Alias for getDuration() - returns the time in milliseconds that Elasticsearch took to execute the query.
+     *
+     * @return float|null
+     */
+    public function getTook(): ?float
+    {
+        return $this->duration;
+    }
+
+    /**
+     * Alias for isTimedOut() - returns whether the query timed out.
+     *
+     * @return bool|null
+     */
+    public function getTimedOut(): ?bool
+    {
+        return $this->timedOut;
+    }
+
+    public function getMaxScore(): ?float
     {
         return $this->maxScore;
     }
 
-    public function getScrollId(): string|null
+    public function getScrollId(): ?string
     {
         return $this->scrollId;
     }
 
-    public function getShards(): stdClass|null
+    public function getShards(): ?stdClass
     {
         return $this->shards;
     }
@@ -119,12 +139,12 @@ class Collection extends BaseCollection
         return new BaseCollection($this->suggestions[$name] ?? []);
     }
 
-    public function getTotal(): int|null
+    public function getTotal(): ?int
     {
         return $this->total;
     }
 
-    public function isTimedOut(): bool|null
+    public function isTimedOut(): ?bool
     {
         return $this->timedOut;
     }

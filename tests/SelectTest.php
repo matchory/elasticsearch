@@ -75,7 +75,7 @@ class SelectTest extends TestCase
         $query = $this->getQueryArray();
 
         $query['body']['_source']['includes'] = $fields;
-        $query['body']['_source']['excludes'] = [];
+        // Note: excludes is not included when empty due to array_filter in getBody()
 
         return $query;
     }

@@ -3,3 +3,12 @@
 .gitattributes
 .DS_Store
 .phpunit.result.cache
+
+# Test artifacts
+/build/coverage/*
+!/build/coverage/.gitkeep
+/build/logs/*
+!/build/logs/.gitkeep
+
+# PHPUnit cache
+/.phpunit.cache

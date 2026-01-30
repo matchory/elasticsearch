@@ -158,12 +158,10 @@ return [
             ],
 
             'mappings' => [
-                'posts' => [
-                    'properties' => [
-                        'title' => [
-                            'type' => 'text',
-                            'analyzer' => 'english',
-                        ],
+                'properties' => [
+                    'title' => [
+                        'type' => 'text',
+                        'analyzer' => 'english',
                     ],
                 ],
             ],

@@ -76,6 +76,18 @@ If you're interested in contributing, please submit a PR or open an issue!
     * [Replicating Models](#replicating-models)
     * [Mutators and Casting](#mutators-and-casting)
 - [Usage as a query builder](#usage-as-a-query-builder)
+    * [Fuzzy Search](#fuzzy-search)
+    * [Match Phrase](#match-phrase)
+    * [Match Phrase Prefix](#match-phrase-prefix)
+    * [Min Score Filtering](#min-score-filtering)
+    * [Search After (Deep Pagination)](#search-after-deep-pagination)
+    * [Track Total Hits](#track-total-hits)
+    * [Suggesters (Autocomplete)](#suggesters-autocomplete)
+    * [Aggregations](#aggregations)
+    * [Bulk Update By Query](#bulk-update-by-query)
+    * [Bulk Delete By Query](#bulk-delete-by-query)
+    * [Retry Logic](#retry-logic)
+    * [Query Profiling](#query-profiling)
 - [Releases](#releases)
 - [Authors](#authors)
 - [Bugs, Suggestions and Contributions](#bugs-suggestions-and-contributions)
@@ -2183,200 +2195,256 @@ To run a query, start by (optionally) selecting the connection and index.
 ```php
 $documents = ES::connection("default")
                 ->index("my_index")
-                ->type("my_type")
                 ->get();    # return a collection of results
 ```
 
 You can shorten the above query to:
 
 ```php
-$documents = ES::type("my_type")->get();    # return a collection of results
+$documents = ES::index("my_index")->get();    # return a collection of results
 ```
 
-Explicitly setting connection or index name in the query overrides configuration in `config/es.php`.
+Explicitly setting connection or index name in the query overrides configuration.
 
 ### Getting documents by id
 
 ```php
-ES::type("my_type")->id(3)->first();
-    
-# or
-    
-ES::type("my_type")->_id(3)->first();
+ES::index("my_index")->key(3)->first();
 ```
 
 ### Sorting
 
 ```php
-ES::type("my_type")->orderBy("created_at", "desc")->get();
+ES::index("my_index")->orderBy("created_at", "desc")->get();
     
 # Sorting with text search score
     
-ES::type("my_type")->orderBy("_score")->get();
+ES::index("my_index")->orderBy("_score")->get();
 ```
 
 ### Limit and offset
 
 ```php
-ES::type("my_type")->take(10)->skip(5)->get();
+ES::index("my_index")->take(10)->skip(5)->get();
+
+# or using the limit() alias
+
+ES::index("my_index")->limit(10)->skip(5)->get();
 ```
 
 ### Select only specific fields
 
 ```php
-ES::type("my_type")->select("title", "content")->take(10)->skip(5)->get();
+ES::index("my_index")->select("title", "content")->take(10)->skip(5)->get();
+```
+
+### Exclude specific fields
+
+```php
+ES::index("my_index")->except("password", "secret")->get();
+
+# Combine with select
+
+ES::index("my_index")->select("title", "content", "author")->except("author.email")->get();
 ```
 
 ### Where clause
 
 ```php
-ES::type("my_type")->where("status", "published")->get();
+ES::index("my_index")->where("status", "published")->get();
 
 # or
 
-ES::type("my_type")->where("status", "=", "published")->get();
+ES::index("my_index")->where("status", "=", "published")->get();
 ```
 
 ### Where greater than
 
 ```php
-ES::type("my_type")->where("views", ">", 150)->get();
+ES::index("my_index")->where("views", ">", 150)->get();
 ```
 
 ### Where greater than or equal
 
 ```php
-ES::type("my_type")->where("views", ">=", 150)->get();
+ES::index("my_index")->where("views", ">=", 150)->get();
 ```
 
 ### Where less than
 
 ```php
-ES::type("my_type")->where("views", "<", 150)->get();
+ES::index("my_index")->where("views", "<", 150)->get();
 ```
 
 ### Where less than or equal
 
 ```php
-ES::type("my_type")->where("views", "<=", 150)->get();
+ES::index("my_index")->where("views", "<=", 150)->get();
 ```
 
 ### Where like
 
 ```php
-ES::type("my_type")->where("title", "like", "foo")->get();
+ES::index("my_index")->where("title", "like", "foo")->get();
 ```
 
 ### Where field exists
 
 ```php
-ES::type("my_type")->where("hobbies", "exists", true)->get(); 
+ES::index("my_index")->where("hobbies", "exists", true)->get(); 
 
 # or 
 
-ES::type("my_type")->whereExists("hobbies", true)->get();
+ES::index("my_index")->whereExists("hobbies", true)->get();
 ```    
 
 ### Where in clause
 
 ```php
-ES::type("my_type")->whereIn("id", [100, 150])->get();
+ES::index("my_index")->whereIn("id", [100, 150])->get();
 ```
 
 ### Where between clause
 
 ```php
-ES::type("my_type")->whereBetween("id", 100, 150)->get();
+ES::index("my_index")->whereBetween("id", 100, 150)->get();
 
 # or 
 
-ES::type("my_type")->whereBetween("id", [100, 150])->get();
+ES::index("my_index")->whereBetween("id", [100, 150])->get();
 ```
 
 ### Where not clause
 
 ```php
-ES::type("my_type")->whereNot("status", "published")->get(); 
+ES::index("my_index")->whereNot("status", "published")->get(); 
 
 # or
 
-ES::type("my_type")->whereNot("status", "=", "published")->get();
+ES::index("my_index")->whereNot("status", "=", "published")->get();
 ```
 
 ### Where not greater than
 
 ```php
-ES::type("my_type")->whereNot("views", ">", 150)->get();
+ES::index("my_index")->whereNot("views", ">", 150)->get();
 ```
 
 ### Where not greater than or equal
 
 ```php
-ES::type("my_type")->whereNot("views", ">=", 150)->get();
+ES::index("my_index")->whereNot("views", ">=", 150)->get();
 ```
 
 ### Where not less than
 
 ```php
-ES::type("my_type")->whereNot("views", "<", 150)->get();
+ES::index("my_index")->whereNot("views", "<", 150)->get();
 ```
 
 ### Where not less than or equal
 
 ```php
-ES::type("my_type")->whereNot("views", "<=", 150)->get();
+ES::index("my_index")->whereNot("views", "<=", 150)->get();
 ```
 
 ### Where not like
 
 ```php
-ES::type("my_type")->whereNot("title", "like", "foo")->get();
+ES::index("my_index")->whereNot("title", "like", "foo")->get();
 ```
 
 ### Where not field exists
 
 ```php
-ES::type("my_type")->whereNot("hobbies", "exists", true)->get(); 
+ES::index("my_index")->whereNot("hobbies", "exists", true)->get(); 
 
 # or
 
-ES::type("my_type")->whereExists("hobbies", true)->get();
+ES::index("my_index")->whereExists("hobbies", true)->get();
 ```
 
 ### Where not in clause
 
 ```php
-ES::type("my_type")->whereNotIn("id", [100, 150])->get();
+ES::index("my_index")->whereNotIn("id", [100, 150])->get();
 ```
 
 ### Where not between clause
 
 ```php
-ES::type("my_type")->whereNotBetween("id", 100, 150)->get();
+ES::index("my_index")->whereNotBetween("id", 100, 150)->get();
 
 # or
 
-ES::type("my_type")->whereNotBetween("id", [100, 150])->get();
+ES::index("my_index")->whereNotBetween("id", [100, 150])->get();
+```
+
+### Or where clause (OR conditions)
+
+The `orWhere` method adds conditions using Elasticsearch's `should` clause, which acts as an OR operator.
+
+```php
+# Find documents where status is "published" OR "featured"
+ES::index("my_index")
+    ->orWhere("status", "published")
+    ->orWhere("status", "featured")
+    ->get();
+
+# Combine AND and OR conditions
+# This finds documents where (category = "tech") AND (status = "published" OR status = "featured")
+ES::index("my_index")
+    ->where("category", "tech")
+    ->orWhere("status", "published")
+    ->orWhere("status", "featured")
+    ->get();
+
+# orWhere supports all the same operators as where
+ES::index("my_index")->orWhere("views", ">", 1000)->get();
+ES::index("my_index")->orWhere("title", "like", "elasticsearch")->get();
+ES::index("my_index")->orWhere("featured", "exists", true)->get();
+```
+
+### Minimum should match
+
+When using `orWhere`, you can control how many conditions must match using `minimumShouldMatch`:
+
+```php
+# At least 2 of the OR conditions must match
+ES::index("my_index")
+    ->orWhere("tag", "php")
+    ->orWhere("tag", "laravel")
+    ->orWhere("tag", "elasticsearch")
+    ->minimumShouldMatch(2)
+    ->get();
+
+# Can also use percentages
+ES::index("my_index")
+    ->orWhere("tag", "php")
+    ->orWhere("tag", "laravel")
+    ->orWhere("tag", "elasticsearch")
+    ->minimumShouldMatch("75%")
+    ->get();
 ```
 
 ### Search by a distance from a geo point
 
 ```php
-ES::type("my_type")->distance("location", ["lat" => -33.8688197, "lon" => 151.20929550000005], "10km")->get();
+ES::index("my_index")->distance("location", ["lat" => -33.8688197, "lon" => 151.20929550000005], "10km")->get();
 
 # or
 
-ES::type("my_type")->distance("location", "-33.8688197,151.20929550000005", "10km")->get();
+ES::index("my_index")->distance("location", "-33.8688197,151.20929550000005", "10km")->get();
 
 # or
 
-ES::type("my_type")->distance("location", [151.20929550000005, -33.8688197], "10km")->get();  
+ES::index("my_index")->distance("location", [151.20929550000005, -33.8688197], "10km")->get();  
 ```
 
 ### Search using array queries
 
 ```php
-ES::type("my_type")->body([
+ES::index("my_index")->body([
     "query" => [
          "bool" => [
              "must" => [
@@ -2390,7 +2458,7 @@ ES::type("my_type")->body([
 # Note that you can mix between query builder and array queries.
 # The query builder will will be merged with the array query.
 
-ES::type("my_type")->body([
+ES::index("my_index")->body([
 	"_source" => ["content"]
 	
 	"query" => [
@@ -2460,15 +2528,15 @@ Array
 ### Search the entire document
 
 ```php
-ES::type("my_type")->search("hello")->get();
+ES::index("my_index")->search("hello")->get();
     
 # search with Boost = 2
     
-ES::type("my_type")->search("hello", 2)->get();
+ES::index("my_index")->search("hello", 2)->get();
 
 # search within specific fields with different weights
 
-ES::type("my_type")->search("hello", function($search){
+ES::index("my_index")->search("hello", function($search){
 	$search->boost(2)->fields(["title" => 2, "content" => 1])
 })->get();
 ```
@@ -2476,11 +2544,11 @@ ES::type("my_type")->search("hello", function($search){
 ### Search with highlight fields
 
 ```php
-$doc = ES::type("my_type")->highlight("title")->search("hello")->first();
+$doc = ES::index("my_index")->highlight("title")->search("hello")->first();
 
 # Multiple fields Highlighting is allowed.
 
-$doc = ES::type("my_type")->highlight("title", "content")->search("hello")->first();
+$doc = ES::index("my_index")->highlight("title", "content")->search("hello")->first();
 
 # Return all highlights as array using $doc->getHighlights() method.
 
@@ -2494,13 +2562,13 @@ $doc->getHighlights("title");
 ### Return only first document
 
 ```php
-ES::type("my_type")->search("hello")->first();
+ES::index("my_index")->search("hello")->first();
 ```
 
 ### Return only count
 
 ```php
-ES::type("my_type")->search("hello")->count();
+ES::index("my_index")->search("hello")->count();
 ```
 
 ### Scan-and-Scroll queries
@@ -2511,14 +2579,14 @@ ES::type("my_type")->search("hello")->count();
 # from Elasticsearch until there are no more results left.
 # It’s a bit like a cursor in a traditional database
     
-$documents = ES::type("my_type")->search("hello")
+$documents = ES::index("my_index")->search("hello")
                  ->scroll("2m")
                  ->take(1000)
                  ->get();
 
 # Response will contain a hashed code `scroll_id` will be used to get the next result by running
 
-$documents = ES::type("my_type")->search("hello")
+$documents = ES::index("my_index")->search("hello")
                  ->scroll("2m")
                  ->scrollID("DnF1ZXJ5VGhlbkZldGNoBQAAAAAAAAFMFlJQOEtTdnJIUklhcU1FX2VqS0EwZncAAAAAAAABSxZSUDhLU3ZySFJJYXFNRV9laktBMGZ3AAAAAAAAAU4WUlA4S1N2ckhSSWFxTUVfZWpLQTBmdwAAAAAAAAFPFlJQOEtTdnJIUklhcU1FX2VqS0EwZncAAAAAAAABTRZSUDhLU3ZySFJJYXFNRV9laktBMGZ3")
                  ->get();
@@ -2528,14 +2596,14 @@ $documents = ES::type("my_type")->search("hello")
     
 # To clear `scroll_id` 
   
-ES::type("my_type")->scrollID("DnF1ZXJ5VGhlbkZldGNoBQAAAAAAAAFMFlJQOEtTdnJIUklhcU1FX2VqS0EwZncAAAAAAAABSxZSUDhLU3ZySFJJYXFNRV9laktBMGZ3AAAAAAAAAU4WUlA4S1N2ckhSSWFxTUVfZWpLQTBmdwAAAAAAAAFPFlJQOEtTdnJIUklhcU1FX2VqS0EwZncAAAAAAAABTRZSUDhLU3ZySFJJYXFNRV9laktBMGZ3")
+ES::index("my_index")->scrollID("DnF1ZXJ5VGhlbkZldGNoBQAAAAAAAAFMFlJQOEtTdnJIUklhcU1FX2VqS0EwZncAAAAAAAABSxZSUDhLU3ZySFJJYXFNRV9laktBMGZ3AAAAAAAAAU4WUlA4S1N2ckhSSWFxTUVfZWpLQTBmdwAAAAAAAAFPFlJQOEtTdnJIUklhcU1FX2VqS0EwZncAAAAAAAABTRZSUDhLU3ZySFJJYXFNRV9laktBMGZ3")
         ->clear();
 ```
 
 ### Paginate results with 5 documents per page
 
 ```php
-$documents = ES::type("my_type")->search("hello")->paginate(5);
+$documents = ES::index("my_index")->search("hello")->paginate(5);
     
 # Getting pagination links
     
@@ -2573,19 +2641,19 @@ $documents->url($page)
 ### Getting the query array without execution
 
 ```php
-ES::type("my_type")->search("hello")->where("views", ">", 150)->toArray();
+ES::index("my_index")->search("hello")->where("views", ">", 150)->toArray();
 ```
 
 ### Getting the original elasticsearch response
 
 ```php
-ES::type("my_type")->search("hello")->where("views", ">", 150)->response();
+ES::index("my_index")->search("hello")->where("views", ">", 150)->response();
 ```
 
 ### Ignoring bad HTTP response
 
 ```php
-ES::type("my_type")->ignore(404, 500)->id(5)->first();
+ES::index("my_index")->ignore(404, 500)->key(5)->first();
 ```
 
 ### Query Caching (Laravel)
@@ -2593,16 +2661,301 @@ ES::type("my_type")->ignore(404, 500)->id(5)->first();
 Package comes with a built-in caching layer based on laravel cache.
 
 ```php
-ES::type("my_type")->search("hello")->remember(10)->get();
+ES::index("my_index")->search("hello")->remember(10)->get();
 
 # Specify a custom cache key
-ES::type("my_type")->search("hello")->remember(10, "last_documents")->get();
+ES::index("my_index")->search("hello")->remember(10, "last_documents")->get();
 
 # Caching using other available driver
-ES::type("my_type")->search("hello")->cacheDriver("redis")->remember(10, "last_documents")->get();
+ES::index("my_index")->search("hello")->cacheDriver("redis")->remember(10, "last_documents")->get();
 
 # Caching with cache key prefix
-ES::type("my_type")->search("hello")->cacheDriver("redis")->cachePrefix("docs")->remember(10, "last_documents")->get();
+ES::index("my_index")->search("hello")->cacheDriver("redis")->cachePrefix("docs")->remember(10, "last_documents")->get();
+```
+
+### Fuzzy Search
+
+Search for documents with typo-tolerant matching:
+
+```php
+# Basic fuzzy search
+ES::index("my_index")->fuzzy("name", "jonh")->get();
+
+# With fuzziness control (AUTO, 0, 1, 2)
+ES::index("my_index")->fuzzy("name", "jonh", "AUTO")->get();
+
+# With prefix length and max expansions
+ES::index("my_index")->fuzzy("name", "jonh", "AUTO", prefixLength: 2, maxExpansions: 50)->get();
+```
+
+### Match Phrase
+
+Search for exact phrase matches:
+
+```php
+# Exact phrase match
+ES::index("my_index")->matchPhrase("content", "quick brown fox")->get();
+
+# With slop (allows words between)
+ES::index("my_index")->matchPhrase("content", "quick fox", slop: 2)->get();
+```
+
+### Match Phrase Prefix
+
+Autocomplete-style searches that match the beginning of phrases:
+
+```php
+ES::index("my_index")->matchPhrasePrefix("title", "elastic sea")->get();
+
+# With max expansions
+ES::index("my_index")->matchPhrasePrefix("title", "elastic sea", maxExpansions: 10)->get();
+```
+
+### Min Score Filtering
+
+Filter out low-relevance results:
+
+```php
+ES::index("my_index")->search("hello")->minScore(0.5)->get();
+```
+
+### Search After (Deep Pagination)
+
+Efficient cursor-based pagination for large result sets:
+
+```php
+# First page
+$page1 = ES::index("my_index")
+    ->orderBy("created_at", "desc")
+    ->orderBy("_id")
+    ->take(10)
+    ->get();
+
+# Get sort values from last document
+$lastDoc = $page1->last();
+$sortValues = [$lastDoc->created_at, $lastDoc->_id];
+
+# Next page using search_after
+$page2 = ES::index("my_index")
+    ->orderBy("created_at", "desc")
+    ->orderBy("_id")
+    ->searchAfter($sortValues)
+    ->take(10)
+    ->get();
+```
+
+### Track Total Hits
+
+Control total hit counting for performance optimization:
+
+```php
+# Disable total hit counting (faster for large datasets)
+ES::index("my_index")->search("hello")->trackTotalHits(false)->get();
+
+# Track up to a specific number
+ES::index("my_index")->search("hello")->trackTotalHits(10000)->get();
+
+# Track all hits (default)
+ES::index("my_index")->search("hello")->trackTotalHits(true)->get();
+```
+
+### Suggesters (Autocomplete)
+
+#### Completion Suggester
+
+For autocomplete functionality:
+
+```php
+# Basic completion suggestion
+$results = ES::index("my_index")
+    ->suggest("title-suggest", "ela", "title.suggest")
+    ->get();
+
+# Get suggestions from results
+$suggestions = $results->getSuggestions();
+
+# With size limit
+ES::index("my_index")
+    ->suggest("title-suggest", "ela", "title.suggest", size: 10)
+    ->get();
+
+# With fuzzy matching
+ES::index("my_index")
+    ->suggest("title-suggest", "ela", "title.suggest", fuzzy: "AUTO")
+    ->get();
+
+# With context filtering
+ES::index("my_index")
+    ->suggest("title-suggest", "ela", "title.suggest", contexts: [
+        "category" => ["tech", "science"]
+    ])
+    ->get();
+
+# Skip duplicate suggestions
+ES::index("my_index")
+    ->suggest("title-suggest", "ela", "title.suggest", skipDuplicates: true)
+    ->get();
+```
+
+#### Term Suggester
+
+For spelling correction suggestions:
+
+```php
+$results = ES::index("my_index")
+    ->suggestTerm("spell-check", "helo wrld", "content")
+    ->get();
+
+$suggestions = $results->getSuggestions();
+```
+
+### Aggregations
+
+#### Metric Aggregations
+
+```php
+# Average
+ES::index("my_index")->avgAgg("avg_price", "price")->get();
+
+# Sum
+ES::index("my_index")->sumAgg("total_sales", "amount")->get();
+
+# Min
+ES::index("my_index")->minAgg("min_price", "price")->get();
+
+# Max
+ES::index("my_index")->maxAgg("max_price", "price")->get();
+
+# Cardinality (distinct count)
+ES::index("my_index")->cardinalityAgg("unique_users", "user_id")->get();
+
+# Value count
+ES::index("my_index")->valueCountAgg("doc_count", "status")->get();
+
+# Stats (min, max, sum, count, avg)
+ES::index("my_index")->statsAgg("price_stats", "price")->get();
+```
+
+#### Bucket Aggregations
+
+```php
+# Terms aggregation
+ES::index("my_index")->termsAgg("categories", "category", size: 20)->get();
+
+# Date histogram
+ES::index("my_index")
+    ->dateHistogramAgg("sales_over_time", "created_at", "month", format: "yyyy-MM")
+    ->get();
+
+# Numeric histogram
+ES::index("my_index")->histogramAgg("price_ranges", "price", interval: 50)->get();
+
+# Range aggregation
+ES::index("my_index")->rangeAgg("price_buckets", "price", [
+    ["to" => 50],
+    ["from" => 50, "to" => 100],
+    ["from" => 100]
+])->get();
+
+# Filter aggregation
+ES::index("my_index")->filterAgg("active_users", [
+    "term" => ["status" => "active"]
+])->get();
+```
+
+#### Sub-Aggregations
+
+```php
+# Add sub-aggregation before the parent
+ES::index("my_index")
+    ->subAgg("categories", "avg_price", ["avg" => ["field" => "price"]])
+    ->termsAgg("categories", "category")
+    ->get();
+
+# Multiple sub-aggregations
+ES::index("my_index")
+    ->subAgg("categories", "avg_price", ["avg" => ["field" => "price"]])
+    ->subAgg("categories", "max_price", ["max" => ["field" => "price"]])
+    ->termsAgg("categories", "category")
+    ->get();
+```
+
+### Bulk Update By Query
+
+Update all documents matching a query:
+
+```php
+# Update with script
+ES::index("my_index")
+    ->where("status", "old")
+    ->updateByQuery("ctx._source.status = 'archived'");
+
+# With parameters
+ES::index("my_index")
+    ->where("status", "pending")
+    ->updateByQuery("ctx._source.status = params.new_status", [
+        "new_status" => "processed"
+    ]);
+
+# Complex script
+ES::index("my_index")
+    ->where("views", ">", 1000)
+    ->updateByQuery([
+        "source" => "ctx._source.popular = true; ctx._source.views_bucket = 'high'",
+        "lang" => "painless"
+    ]);
+
+# Async execution (returns task ID)
+$task = ES::index("my_index")
+    ->where("status", "old")
+    ->updateByQuery("ctx._source.status = 'archived'", waitForCompletion: false);
+```
+
+### Bulk Delete By Query
+
+Delete all documents matching a query:
+
+```php
+# Delete matching documents
+ES::index("my_index")
+    ->where("status", "deleted")
+    ->deleteByQuery();
+
+# Async execution (returns task ID)
+$task = ES::index("my_index")
+    ->where("created_at", "<", "2020-01-01")
+    ->deleteByQuery(waitForCompletion: false);
+```
+
+### Retry Logic
+
+Automatically retry failed requests with exponential backoff:
+
+```php
+# Retry up to 3 times with 100ms initial delay
+ES::index("my_index")
+    ->retry(3, 100)
+    ->search("hello")
+    ->get();
+```
+
+### Query Profiling
+
+Enable Elasticsearch query profiling for debugging:
+
+```php
+$results = ES::index("my_index")
+    ->profile()
+    ->search("hello")
+    ->get();
+
+# Access profiling information from the raw response
+$response = ES::index("my_index")
+    ->profile()
+    ->search("hello")
+    ->response();
+
+$profileData = $response['profile'];
 ```
 
 ### Executing elasticsearch raw queries
@@ -2627,7 +2980,7 @@ ES::raw()->search([
 ### Insert a new document
 
 ```php
-ES::type("my_type")->id(3)->insert([
+ES::index("my_index")->key(3)->insert([
     "title" => "Test document",
     "content" => "Sample content"
 ]);
@@ -2640,31 +2993,27 @@ ES::type("my_type")->id(3)->insert([
 
 ```php
 # Main query
-ES::index("my_index")->type("my_type")->bulk(function ($bulk){
+ES::index("my_index")->bulk(function ($bulk){
 
     # Sub queries
-	$bulk->index("my_index_1")->type("my_type_1")->id(10)->insert(["title" => "Test document 1","content" => "Sample content 1"]);
-	$bulk->index("my_index_2")->id(11)->insert(["title" => "Test document 2","content" => "Sample content 2"]);
-	$bulk->id(12)->insert(["title" => "Test document 3", "content" => "Sample content 3"]);
-	
+	$bulk->index("my_index_1")->key(10)->insert(["title" => "Test document 1","content" => "Sample content 1"]);
+	$bulk->index("my_index_2")->key(11)->insert(["title" => "Test document 2","content" => "Sample content 2"]);
+	$bulk->key(12)->insert(["title" => "Test document 3", "content" => "Sample content 3"]);
+
 });
 
 # Notes from the above query:
 
-# As index and type names are required for insertion, Index and type names are extendable. This means that: 
+# Index names are extendable. This means that:
 
 # If index() is not specified in subquery:
 # -- The builder will get index name from the main query.
-# -- if index is not specified in main query, the builder will get index name from configuration file.
+# -- If index is not specified in main query, the builder will get index name from configuration file.
 
-# And
+# You can also use the array-based bulk code style using multidimensional array of [id => data] pairs
 
-# If type() is not specified in subquery:
-# -- The builder will get type name from the main query.
-# you can use old bulk code style using multidimensional array of [id => data] pairs
- 
-ES::type("my_type")->bulk([
- 
+ES::index("my_index")->bulk([
+
 	10 => [
 		"title" => "Test document 1",
 		"content" => "Sample content 1"
@@ -2674,16 +3023,16 @@ ES::type("my_type")->bulk([
 		"title" => "Test document 2",
 		"content" => "Sample content 2"
 	]
- 
+
 ]);
- 
+
 # The two given documents will be inserted with its associated ids
 ```
 
 ### Update an existing document
 
 ```php
-ES::type("my_type")->id(3)->update([
+ES::index("my_index")->key(3)->update([
    "title" => "Test document",
    "content" => "sample content"
 ]);
@@ -2696,20 +3045,20 @@ ES::type("my_type")->id(3)->update([
 ```php
 # Bulk update
 
-ES::type("my_type")->bulk(function ($bulk){
-    $bulk->id(10)->update(["title" => "Test document 1","content" => "Sample content 1"]);
-    $bulk->id(11)->update(["title" => "Test document 2","content" => "Sample content 2"]);
+ES::index("my_index")->bulk(function ($bulk){
+    $bulk->key(10)->update(["title" => "Test document 1","content" => "Sample content 1"]);
+    $bulk->key(11)->update(["title" => "Test document 2","content" => "Sample content 2"]);
 });
 ```
 
 ### Incrementing field
 
 ```php
-ES::type("my_type")->id(3)->increment("views");
+ES::index("my_index")->key(3)->increment("views");
     
 # Document has _id = 3 will be incremented by 1.
 
-ES::type("my_type")->id(3)->increment("views", 3);
+ES::index("my_index")->key(3)->increment("views", 3);
 
 # Document has _id = 3 will be incremented by 3.
 
@@ -2719,11 +3068,11 @@ ES::type("my_type")->id(3)->increment("views", 3);
 ### Decrementing field
 
 ```php
-ES::type("my_type")->id(3)->decrement("views");
+ES::index("my_index")->key(3)->decrement("views");
     
 # Document has _id = 3 will be decremented by 1.
     
-ES::type("my_type")->id(3)->decrement("views", 3);
+ES::index("my_index")->key(3)->decrement("views", 3);
     
 # Document has _id = 3 will be decremented by 3.
 
@@ -2734,19 +3083,19 @@ ES::type("my_type")->id(3)->decrement("views", 3);
 
 ```php
 # increment field by script
-ES::type("my_type")->id(3)->script(
+ES::index("my_index")->key(3)->script(
     "ctx._source.$field += params.count",
     ["count" => 1]
 );
     
 # add php tag to tags array list
-ES::type("my_type")->id(3)->script(
+ES::index("my_index")->key(3)->script(
     "ctx._source.tags.add(params.tag)",
     ["tag" => "php"]
 );
     
 # delete the doc if the tags field contain mongodb, otherwise it does nothing (noop)
-ES::type("my_type")->id(3)->script(
+ES::index("my_index")->key(3)->script(
     "if (ctx._source.tags.contains(params.tag)) { ctx.op = 'delete' } else { ctx.op = 'none' }",
     ["tag" => "mongodb"]
 );
@@ -2755,7 +3104,7 @@ ES::type("my_type")->id(3)->script(
 ### Delete a document
 
 ```php
-ES::type("my_type")->id(3)->delete();
+ES::index("my_index")->key(3)->delete();
 
 # Document has _id = 3 will be deleted.
 # [id is required]
@@ -2763,9 +3112,9 @@ ES::type("my_type")->id(3)->delete();
 
 ```php
 # Bulk delete
-ES::type("my_type")->bulk(function ($bulk){
-    $bulk->id(10)->delete();
-    $bulk->id(11)->delete();
+ES::index("my_index")->bulk(function ($bulk){
+    $bulk->key(10)->delete();
+    $bulk->key(11)->delete();
 });
 ```
 

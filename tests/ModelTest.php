@@ -108,21 +108,19 @@ class ModelTest extends TestCase
 
     public function testGetHighlights(): void {}
 
-    public function testGetId(): void
+    public function testGetKey(): void
     {
         $model = (new Model())->newInstance([], ['_id' => '42'], true);
 
-        self::assertSame('42', $model->getId());
+        self::assertSame('42', $model->getKey());
     }
 
-    public function testGetIdReturnsNullIfModelDoesNotExist(): void
+    public function testGetKeyReturnsNullIfModelDoesNotExist(): void
     {
         $model = (new Model())->newInstance([], [], false);
 
-        self::assertNull($model->getId());
+        self::assertNull($model->getKey());
     }
-
-    public function testGetKey(): void {}
 
     public function testGetMutatedAttributes(): void {}
 
@@ -377,34 +375,13 @@ class ModelTest extends TestCase
 
     public function testResolveChildRouteBinding(): void
     {
-        $this
-            ->mockClient()
-            ->expects(self::any())
-            ->method('search')
-            ->with([
-                'from' => 0,
-                'size' => 1,
-                'body' => [
-                    'query' => [
-                        'bool' => [
-                            'filter' => [
-                                [
-                                    'term' => [
-                                        '_id' => 42,
-                                    ],
-                                ],
-                            ],
-                        ],
-                    ],
-                ],
-            ])
-            ->willReturn([
+        $this->mockClient()->setResponse('search', [
+            'hits' => [
                 'hits' => [
-                    'hits' => [
-                        ['_id' => '42'],
-                    ],
+                    ['_id' => '42'],
                 ],
-            ]);
+            ],
+        ]);
 
         $model = (new Model())->newInstance([
             'foo' => 42,
@@ -419,111 +396,66 @@ class ModelTest extends TestCase
 
     public function testResolveRouteBinding(): void
     {
-        $this
-            ->mockClient()
-            ->expects(self::any())
-            ->method('search')
-            ->with([
-                'from' => 0,
-                'size' => 1,
-                'body' => [
-                    'query' => [
-                        'bool' => [
-                            'filter' => [
-                                [
-                                    'term' => [
-                                        '_id' => 42,
-                                    ],
-                                ],
-                            ],
-                        ],
-                    ],
-                ],
-            ])
-            ->willReturn([
+        $this->mockClient()->setResponse('search', [
+            'hits' => [
                 'hits' => [
-                    'hits' => [
-                        ['_id' => '42'],
-                    ],
+                    ['_id' => '42'],
                 ],
-            ]);
+            ],
+        ]);
 
         $model = (new Model())->resolveRouteBinding(42);
 
         self::assertSame($model->_id, '42');
+        self::assertTrue($this->mockClient()->wasMethodCalled('search'));
     }
 
     public function testResolveRouteBindingFromField(): void
     {
-        $this
-            ->mockClient()
-            ->expects(self::any())
-            ->method('search')
-            ->with([
-                'from' => 0,
-                'size' => 1,
-                'body' => [
-                    'query' => [
-                        'bool' => [
-                            'filter' => [
-                                [
-                                    'term' => [
-                                        'foo' => 42,
-                                    ],
-                                ],
-                            ],
-                        ],
-                    ],
-                ],
-            ])
-            ->willReturn([
+        $this->mockClient()->setResponse('search', [
+            'hits' => [
                 'hits' => [
-                    'hits' => [
-                        ['_id' => '42'],
-                    ],
+                    ['_id' => '42'],
                 ],
-            ]);
+            ],
+        ]);
 
         $model = (new Model())->resolveRouteBinding(42, 'foo');
 
         self::assertSame($model->_id, '42');
+        self::assertTrue($this->mockClient()->wasMethodCalled('search'));
     }
 
     public function testSaveCreatesNewModel(): void
     {
-        $this
-            ->mockClient()
-            ->expects(self::any())
-            ->method('index')
-            ->willReturn((object) [
-                '_id' => '42',
-            ]);
+        $this->mockClient()->setResponse('index', [
+            '_id' => '42',
+        ]);
 
         $model = new Model();
         $model->save();
 
-        self::assertSame('42', $model->getId());
+        self::assertSame('42', $model->getKey());
+        self::assertTrue($this->mockClient()->wasMethodCalled('index'));
     }
 
     public function testSaveUpdatesExistingModel(): void
     {
-        $this
-            ->mockClient()
-            ->expects(self::any())
-            ->method('update')
-            ->willReturn((object) [
-                '_id' => '42',
-                'foo' => 'bar',
-            ]);
+        $this->mockClient()->setResponse('update', [
+            '_id' => '42',
+            'foo' => 'bar',
+        ]);
 
         $model = (new Model())->newInstance(
             ['foo' => 'bar'],
             ['_id' => '42'],
             true,
         );
+        $model->foo = 'baz'; // Make a change to trigger update
         $model->save();
 
-        self::assertSame('42', $model->getId());
+        self::assertSame('42', $model->getKey());
+        self::assertTrue($this->mockClient()->wasMethodCalled('update'));
     }
 
     public function testSetAppends(): void {}

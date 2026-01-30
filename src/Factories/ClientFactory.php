@@ -4,42 +4,91 @@ declare(strict_types=1);
 
 namespace Matchory\Elasticsearch\Factories;
 
-use Elasticsearch\{Client, ClientBuilder};
-use Elasticsearch\Common\Exceptions\RuntimeException;
+use Elastic\Elasticsearch\Client;
+use Elastic\Elasticsearch\ClientBuilder;
 use Matchory\Elasticsearch\Interfaces\ClientFactoryInterface;
 use Psr\Log\LoggerInterface;
 
-use function trigger_error;
-
-use const E_USER_DEPRECATED;
+use function is_array;
+use function is_string;
 
 readonly class ClientFactory implements ClientFactoryInterface
 {
-    public function __construct(private LoggerInterface|null $logger = null) {}
+    public function __construct(private ?LoggerInterface $logger = null) {}
 
     /**
      * @inheritDoc
-     * @throws RuntimeException
      */
-    public function createClient(array $config): Client
+    public function createClient(array $config): object
     {
-        if (isset($config['servers'])) {
-            @trigger_error(
-                "Since matchory/elasticsearch 3.0.0: The 'servers' configuration key is deprecated. " .
-                "Use 'hosts' instead.",
-                E_USER_DEPRECATED,
-            );
+        $builder = ClientBuilder::create();
 
-            $config['hosts'] = $config['servers'];
-            unset($config['servers']);
+        // Set hosts
+        if (isset($config['hosts'])) {
+            $hosts = $config['hosts'];
+
+            if (is_string($hosts)) {
+                $hosts = [$hosts];
+            }
+
+            $builder->setHosts($hosts);
         }
 
+        // Set logger
         if ($this->logger !== null) {
-            $config['logger'] = $this->logger;
+            $builder->setLogger($this->logger);
         }
 
-        unset($config['index']);
+        // Basic authentication
+        if (isset($config['basicAuthentication'])) {
+            $builder->setBasicAuthentication(
+                $config['basicAuthentication']['username'],
+                $config['basicAuthentication']['password'],
+            );
+        }
 
-        return ClientBuilder::fromConfig($config);
+        // API key authentication
+        if (isset($config['apiKey'])) {
+            if (is_array($config['apiKey'])) {
+                $builder->setApiKey(
+                    $config['apiKey']['id'],
+                    $config['apiKey']['apiKey'],
+                );
+            } else {
+                $builder->setApiKey($config['apiKey']);
+            }
+        }
+
+        // Elastic Cloud ID
+        if (isset($config['elasticCloudId'])) {
+            $builder->setElasticCloudId($config['elasticCloudId']);
+        }
+
+        // SSL verification
+        if (isset($config['sslVerification'])) {
+            $builder->setSSLVerification($config['sslVerification']);
+        }
+
+        // CA bundle
+        if (isset($config['caBundle'])) {
+            $builder->setCABundle($config['caBundle']);
+        }
+
+        // Retries
+        if (isset($config['retries'])) {
+            $builder->setRetries($config['retries']);
+        }
+
+        // Elastic meta header
+        if (isset($config['elasticMetaHeader'])) {
+            $builder->setElasticMetaHeader($config['elasticMetaHeader']);
+        }
+
+        // HTTP client options
+        if (isset($config['httpClientOptions'])) {
+            $builder->setHttpClientOptions($config['httpClientOptions']);
+        }
+
+        return $builder->build();
     }
 }

@@ -1,0 +1,359 @@
+<?php
+
+declare(strict_types=1);
+
+namespace Matchory\Elasticsearch;
+
+use ArrayIterator;
+use BadMethodCallException;
+use Elastic\Elasticsearch\Client;
+use Illuminate\Contracts\Support\{Arrayable, Jsonable};
+use Illuminate\Support\Traits\ForwardsCalls;
+use IteratorAggregate;
+use JsonException;
+use JsonSerializable;
+use Matchory\Elasticsearch\Concerns\{AppliesScopes,
+    BuildsFluentQueries,
+    ExecutesQueries,
+    ExplainsQueries,
+    ManagesIndices};
+use Matchory\Elasticsearch\Interfaces\ConnectionInterface;
+
+use function json_encode;
+use function rtrim;
+
+use const JSON_THROW_ON_ERROR;
+
+/**
+ * Builder
+ * =======
+ * Query builder instance for Elasticsearch queries
+ *
+ * @package Matchory\Elasticsearch
+ * @template-covariant T of Model
+ */
+class Builder implements Arrayable, JsonSerializable, Jsonable, IteratorAggregate
+{
+    /** @use ExecutesQueries<T> */
+    use ExecutesQueries;
+    use AppliesScopes;
+    use BuildsFluentQueries;
+    use ForwardsCalls;
+    use ManagesIndices;
+    use ExplainsQueries;
+
+    public const DEFAULT_CACHE_PREFIX = 'elasticsearch';
+
+    public const DEFAULT_LIMIT = 10;
+
+    public const DEFAULT_OFFSET = 0;
+
+    public const EQ = self::OPERATOR_EQUAL;
+
+    public const EXISTS = self::OPERATOR_EXISTS;
+
+    public const FIELD_AGGS = 'aggs';
+
+    protected const FIELD_HIGHLIGHT = '_highlight';
+
+    protected const FIELD_HITS = 'hits';
+
+    protected const FIELD_ID = '_id';
+
+    protected const FIELD_INDEX = '_index';
+
+    protected const FIELD_NESTED_HITS = 'hits';
+
+    protected const FIELD_QUERY = 'query';
+
+    protected const FIELD_SCORE = '_score';
+
+    protected const FIELD_SORT = 'sort';
+
+    protected const FIELD_SOURCE = '_source';
+
+    public const GT = self::OPERATOR_GREATER_THAN;
+
+    public const GTE = self::OPERATOR_GREATER_THAN_OR_EQUAL;
+
+    public const LIKE = self::OPERATOR_LIKE;
+
+    public const LT = self::OPERATOR_LOWER_THAN;
+
+    public const LTE = self::OPERATOR_LOWER_THAN_OR_EQUAL;
+
+    public const NEQ = self::OPERATOR_NOT_EQUAL;
+
+    public const OPERATOR_EQUAL = '=';
+
+    public const OPERATOR_EXISTS = 'exists';
+
+    public const OPERATOR_GREATER_THAN = '>';
+
+    public const OPERATOR_GREATER_THAN_OR_EQUAL = '>=';
+
+    public const OPERATOR_LIKE = 'like';
+
+    public const OPERATOR_LOWER_THAN = '<';
+
+    public const OPERATOR_LOWER_THAN_OR_EQUAL = '<=';
+
+    public const OPERATOR_NOT_EQUAL = '!=';
+
+    public const PARAM_BODY = 'body';
+
+    public const PARAM_CLIENT = 'client';
+
+    public const PARAM_FROM = 'from';
+
+    public const PARAM_INDEX = 'index';
+
+    public const PARAM_SCROLL = 'scroll';
+
+    public const PARAM_SCROLL_ID = 'scroll_id';
+
+    public const PARAM_SEARCH_TYPE = 'search_type';
+
+    public const PARAM_SIZE = 'size';
+
+    public const REGEXP_FLAG_ALL = 1;
+
+    public const REGEXP_FLAG_ANYSTRING = 16;
+
+    public const REGEXP_FLAG_COMPLEMENT = 2;
+
+    public const REGEXP_FLAG_INTERSECTION = 8;
+
+    public const REGEXP_FLAG_INTERVAL = 4;
+
+    public const SOURCE_EXCLUDES = 'excludes';
+
+    public const SOURCE_INCLUDES = 'includes';
+
+    /**
+     * @var array{
+     *     includes: list<string>,
+     *     excludes: list<string>,
+     * }
+     */
+    protected static array $defaultSource = [
+        self::SOURCE_INCLUDES => [],
+        self::SOURCE_EXCLUDES => [],
+    ];
+
+    /**
+     * Elastic model instance.
+     *
+     * @psalm-var T
+     */
+    private Model $model;
+
+    /**
+     * Elasticsearch connection instance
+     * =================================
+     * This connection instance will receive any unresolved method calls from
+     * the query, effectively acting as a proxy: The connection itself proxies
+     * to the Elasticsearch client instance.
+     *
+     * @var ConnectionInterface
+     */
+    protected ConnectionInterface $connection;
+
+    /**
+     * Creates a new query builder instance.
+     *
+     * @param ConnectionInterface $connection Elasticsearch Connection the query
+     *                                        builder uses.
+     * @param T|null              $model      Model instance
+     */
+    public function __construct(
+        ConnectionInterface $connection,
+        ?Model $model = null,
+    ) {
+        $this->connection = $connection;
+
+        /**
+         * We set a plain model here so there's always a model instance set.
+         * This avoids errors in methods that rely on a model.
+         *
+         * @psalm-suppress PossiblyInvalidPropertyAssignmentValue
+         */
+        $this->model = $model ?? new Model();
+    }
+
+    /**
+     * Adds a ".keyword" suffix to the given field name. This is useful for
+     * sorting and aggregating on keyword fields.
+     *
+     * @param string $field
+     *
+     * @return string
+     */
+    public static function asKeyword(string $field): string
+    {
+        return rtrim($field, '.') . '.keyword';
+    }
+
+    /**
+     * Proxies to the collection iterator, allowing to iterate the query builder
+     * directly as though it were a result collection.
+     *
+     * @inheritDoc
+     */
+    final public function getIterator(): ArrayIterator
+    {
+        return $this->get()->getIterator();
+    }
+
+    /**
+     * Forwards calls to the model instance. If the called method is a scope,
+     * it will be applied to the query.
+     *
+     * @param string $method     Name of the called method.
+     * @param array  $parameters Parameters passed to the method.
+     *
+     * @return $this Query builder instance.
+     * @throws BadMethodCallException
+     */
+    public function __call(string $method, array $parameters): self
+    {
+        if ($this->hasNamedScope($method)) {
+            return $this->callNamedScope($method, $parameters);
+        }
+
+        if (!method_exists($this->getModel(), $method)) {
+            throw new BadMethodCallException(
+                "Method {$method} does not exist.",
+            );
+        }
+
+        return $this->forwardCallTo(
+            $this->getModel(),
+            $method,
+            $parameters,
+        );
+    }
+
+    /**
+     * Retrieves the instance of the model the query is scoped to. It is set to
+     * the model that initiated a query but defaults to the Model class itself
+     * if the query builder is used without models.
+     *
+     * @return T Model instance used for the current query.
+     */
+    public function getModel(): Model
+    {
+        return $this->model;
+    }
+
+    /**
+     * Sets the model the query is based on. Any results will be casted to this
+     * model. If no model is set, a plain model instance will be used.
+     *
+     * @template TModel of Model
+     *
+     * @param Model        $model Model to use for the current query.
+     *
+     * @psalm-param TModel $model
+     *
+     * @return static<TModel> Query builder instance for chaining.
+     */
+    public function setModel(Model $model): static
+    {
+        /** @var static<TModel> $query */
+        $query = clone $this;
+        $query->connection = $this->getConnection();
+        $query->model = $model;
+
+        return $query;
+    }
+
+    /**
+     * Retrieves the underlying Elasticsearch connection.
+     *
+     * @return ConnectionInterface Connection instance.
+     * @see ConnectionInterface
+     * @see Connection
+     */
+    public function getConnection(): ConnectionInterface
+    {
+        return $this->connection;
+    }
+
+    /**
+     * Retrieves the underlying Elasticsearch client instance. This can be used
+     * to work with the Elasticsearch library directly. You should check out its
+     * documentation for more information.
+     *
+     * @return Client Elasticsearch Client instance.
+     * @see https://www.elastic.co/guide/en/elasticsearch/client/php-api/current/overview.html
+     * @see Client
+     */
+    public function raw(): Client
+    {
+        return $this->getConnection()->getClient();
+    }
+
+    /**
+     * Converts the query to a JSON string.
+     *
+     * @inheritDoc
+     * @throws JsonException
+     */
+    public function toJson($options = 0): string
+    {
+        return json_encode(
+            $this->jsonSerialize(),
+            JSON_THROW_ON_ERROR | $options,
+        );
+    }
+
+    /**
+     * @inheritDoc
+     */
+    public function jsonSerialize(): array
+    {
+        return $this->toArray();
+    }
+
+    /**
+     * Converts the fluent query into an Elasticsearch query array that can be
+     * converted into JSON.
+     *
+     * @inheritDoc
+     */
+    final public function toArray(): array
+    {
+        return $this->buildQuery();
+    }
+
+    /**
+     * Converts the query into an Elasticsearch query array.
+     *
+     * @return array
+     */
+    protected function buildQuery(): array
+    {
+        $query = $this->applyScopes();
+
+        $params = [
+            self::PARAM_BODY => $query->getBody(),
+            self::PARAM_FROM => $query->getSkip(),
+            self::PARAM_SIZE => $query->getSize(),
+        ];
+
+        if ($searchType = $query->getSearchType()) {
+            $params[self::PARAM_SEARCH_TYPE] = $searchType;
+        }
+
+        if ($scroll = $query->getScroll()) {
+            $params[self::PARAM_SCROLL] = $scroll;
+        }
+
+        if ($index = $query->getIndex()) {
+            $params[self::PARAM_INDEX] = $index;
+        }
+
+        return $params;
+    }
+}

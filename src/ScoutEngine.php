@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace Matchory\Elasticsearch;
 
-use Elasticsearch\Client;
 use Illuminate\Database\Eloquent\{Collection, Model};
 use Illuminate\Support\LazyCollection;
 use InvalidArgumentException;
@@ -13,7 +12,9 @@ use Laravel\Scout\Engines\Engine;
 
 use function array_filter;
 use function array_merge;
+use function array_map;
 use function assert;
+use function ceil;
 use function collect;
 use function count;
 use function is_array;
@@ -21,7 +22,11 @@ use function is_callable;
 
 class ScoutEngine extends Engine
 {
-    public function __construct(protected Client $client, protected string $index) {}
+    /**
+     * @param object $client Elasticsearch client instance
+     * @param string $index Default index name
+     */
+    public function __construct(protected object $client, protected string $index) {}
 
     /**
      * Remove the given model from the index.
@@ -76,17 +81,37 @@ class ScoutEngine extends Engine
      */
     public function getTotalCount($results): int
     {
-        return $results['hits']['total'];
+        if (!is_array($results) || !isset($results['hits']['total'])) {
+            return 0;
+        }
+
+        $total = $results['hits']['total'];
+
+        // Handle both old format (numeric) and new format (object with value)
+        if (is_array($total) && isset($total['value'])) {
+            return (int) $total['value'];
+        }
+
+        return (int) $total;
     }
 
     /**
+     * Pluck and return the primary keys of the given results.
+     *
      * @param mixed $results
      *
      * @return Collection
      */
     public function mapIds($results): Collection
     {
-        return new Collection([]);
+        if (!is_array($results) || !isset($results['hits']['hits'])) {
+            return new Collection([]);
+        }
+
+        return new Collection(array_map(
+            static fn(array $hit): string => $hit['_id'],
+            $results['hits']['hits'],
+        ));
     }
 
     /**
@@ -108,7 +133,7 @@ class ScoutEngine extends Engine
 
         assert(is_array($result));
 
-        $result['nbPages'] = $result['hits']['total'] / $perPage;
+        $result['nbPages'] = (int) ceil($this->getTotalCount($result) / $perPage);
 
         return $result;
     }
@@ -132,7 +157,10 @@ class ScoutEngine extends Engine
                     'bool' => [
                         'must' => [
                             [
-                                'query_string' => [
+                                // Use simple_query_string instead of query_string
+                                // to safely handle user input without throwing
+                                // exceptions on special characters
+                                'simple_query_string' => [
                                     'query' => $builder->query,
                                 ],
                             ],
@@ -151,8 +179,8 @@ class ScoutEngine extends Engine
         }
 
         if (
-            isset($options['numericFilters']) &&
-            count($options['numericFilters'])
+            isset($options['numericFilters'])
+            && count($options['numericFilters'])
         ) {
             $params['body']['query']['bool']['must'] = array_merge(
                 $params['body']['query']['bool']['must'],
@@ -216,7 +244,7 @@ class ScoutEngine extends Engine
      */
     public function map(Builder $builder, $results, $model): Collection
     {
-        if ((int) $results['hits']['total'] === 0) {
+        if ($this->getTotalCount($results) === 0) {
             return Collection::make();
         }
 
@@ -276,7 +304,7 @@ class ScoutEngine extends Engine
      */
     public function lazyMap(Builder $builder, $results, $model): LazyCollection
     {
-        if ((int) $results['hits']['total'] === 0) {
+        if ($this->getTotalCount($results) === 0) {
             return LazyCollection::make();
         }
 

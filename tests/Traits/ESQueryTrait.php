@@ -4,9 +4,9 @@ declare(strict_types=1);
 
 namespace Matchory\Elasticsearch\Tests\Traits;
 
-use Elasticsearch\Client;
 use Matchory\Elasticsearch\Connection;
-use Matchory\Elasticsearch\Query;
+use Matchory\Elasticsearch\Builder;
+use Matchory\Elasticsearch\Tests\Support\Mocks\MockElasticsearchClient;
 use PHPUnit\Framework\InvalidArgumentException;
 use PHPUnit\Framework\MockObject\ClassAlreadyExistsException;
 use PHPUnit\Framework\MockObject\ClassIsFinalException;
@@ -20,6 +20,9 @@ use PHPUnit\Framework\MockObject\UnknownTypeException;
 
 /**
  * Class ESQueryTrait
+ *
+ * Provides helpers for tests that need to create Query and Connection objects.
+ * Uses MockElasticsearchClient since the real Client class is final in v9.
  */
 trait ESQueryTrait
 {
@@ -45,38 +48,20 @@ trait ESQueryTrait
     protected int $take = 10;
 
     /**
-     * @return Client
-     * @throws InvalidArgumentException
-     * @throws ClassAlreadyExistsException
-     * @throws ClassIsFinalException
-     * @throws ClassIsReadonlyException
-     * @throws DuplicateMethodException
-     * @throws InvalidMethodNameException
-     * @throws OriginalConstructorInvocationRequiredException
-     * @throws ReflectionException
-     * @throws RuntimeException
-     * @throws UnknownTypeException
+     * Get a mock Elasticsearch client
+     *
+     * Note: In Elasticsearch PHP client v9, the Client class is final and
+     * cannot be mocked with PHPUnit. We use MockElasticsearchClient instead.
+     *
+     * @return MockElasticsearchClient
      */
-    protected function getClient(): Client
+    protected function getClient(): MockElasticsearchClient
     {
-        return $this
-            ->getMockBuilder(Client::class)
-            ->disableOriginalConstructor()
-            ->getMock();
+        return new MockElasticsearchClient();
     }
 
     /**
      * @return Connection
-     * @throws ClassAlreadyExistsException
-     * @throws ClassIsFinalException
-     * @throws ClassIsReadonlyException
-     * @throws DuplicateMethodException
-     * @throws InvalidArgumentException
-     * @throws InvalidMethodNameException
-     * @throws OriginalConstructorInvocationRequiredException
-     * @throws ReflectionException
-     * @throws RuntimeException
-     * @throws UnknownTypeException
      */
     protected function getConnection(): Connection
     {
@@ -103,9 +88,9 @@ trait ESQueryTrait
     /**
      * ES query object
      *
-     * @param Query|null $query
+     * @param Builder|null $query
      *
-     * @return Query
+     * @return Builder
      * @throws ClassAlreadyExistsException
      * @throws ClassIsFinalException
      * @throws ClassIsReadonlyException
@@ -117,9 +102,9 @@ trait ESQueryTrait
      * @throws RuntimeException
      * @throws UnknownTypeException
      */
-    protected function getQueryObject(?Query $query = null): Query
+    protected function getQueryObject(?Builder $query = null): Builder
     {
-        return ($query ?? new Query($this->getConnection()))
+        return ($query ?? new Builder($this->getConnection()))
             ->index($this->index)
             ->take($this->take)
             ->skip($this->skip);

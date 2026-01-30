@@ -4,8 +4,9 @@ declare(strict_types=1);
 
 namespace Matchory\Elasticsearch\Interfaces;
 
-use Elasticsearch\Client;
-use Matchory\Elasticsearch\Query;
+use Elastic\Elasticsearch\Client;
+use Elastic\Elasticsearch\Exception\ClientResponseException;
+use Matchory\Elasticsearch\Builder;
 use Psr\SimpleCache\CacheInterface;
 
 /**
@@ -20,23 +21,28 @@ interface ConnectionInterface
      *
      * @return CacheInterface|null
      */
-    public function getCache(): CacheInterface|null;
+    public function getCache(): ?CacheInterface;
 
     /**
      * Retrieves the Elasticsearch client.
      *
-     * @return Client
+     * Note: Return type is `object` to allow for duck-typed mock clients in
+     * tests. The Elasticsearch PHP Client v9 makes the Client class final,
+     * preventing extension or mocking. The returned object will have all
+     * methods of the Elasticsearch Client.
+     *
+     * @return Client|object
      */
-    public function getClient(): Client;
+    public function getClient(): object;
 
     /**
      * Create a new query on the given index.
      *
      * @param string $index Name of the index to query.
      *
-     * @return Query Query builder instance.
+     * @return Builder Query builder instance.
      */
-    public function index(string $index): Query;
+    public function index(string $index): Builder;
 
     /**
      * Adds a document to the index using the specified parameters.
@@ -45,24 +51,20 @@ interface ConnectionInterface
      * @param string|null $index Index to insert the document into.
      *                                Defaults to the default index of the
      *                                connection.
-     * @param string|null $type Document type to create. Defaults to the
-     *                                type of the connection. Usage of this
-     *                                parameter is deprecated.
      *
      * @return object
      */
     public function insert(
         array $parameters,
         ?string $index = null,
-        ?string $type = null,
     ): object;
 
     /**
      * Creates a new Elasticsearch query
      *
-     * @return Query
+     * @return Builder
      */
-    public function newQuery(): Query;
+    public function newQuery(): Builder;
 
     /**
      * Executes a search query.
@@ -72,4 +74,15 @@ interface ConnectionInterface
      * @return array
      */
     public function search(array $parameters): array;
+
+    /**
+     * Execute a client operation with specific HTTP status codes ignored.
+     *
+     * @param callable(object): mixed $operation The operation to execute
+     * @param array<int> $ignores HTTP status codes to ignore
+     *
+     * @return mixed The operation result
+     * @throws ClientResponseException If the response has an error status not in $ignores
+     */
+    public function executeWithIgnoredErrors(callable $operation, array $ignores = []): mixed;
 }

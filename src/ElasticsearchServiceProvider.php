@@ -4,20 +4,19 @@ declare(strict_types=1);
 
 namespace Matchory\Elasticsearch;
 
-use Elasticsearch\ClientBuilder as ElasticBuilder;
 use Illuminate\Contracts\{Container\BindingResolutionException,
     Events\Dispatcher,
     Foundation\Application,
     Foundation\CachesConfiguration};
-use Illuminate\Support\{Facades\Config, ServiceProvider};
 use Illuminate\Log\LogManager;
+use Illuminate\Support\{Facades\Config, ServiceProvider};
 use Laravel\Scout\EngineManager;
 use LogicException;
-use Matchory\Elasticsearch\Commands\{CreateIndexCommand,
-    DropIndexCommand,
-    ListIndicesCommand,
-    ReindexCommand,
-    UpdateIndexCommand};
+use Matchory\Elasticsearch\Console\Commands\{ListIndicesCommand};
+use Matchory\Elasticsearch\Console\Commands\CreateIndexCommand;
+use Matchory\Elasticsearch\Console\Commands\DropIndexCommand;
+use Matchory\Elasticsearch\Console\Commands\ReindexCommand;
+use Matchory\Elasticsearch\Console\Commands\UpdateIndexCommand;
 use Matchory\Elasticsearch\Factories\ClientFactory;
 use Matchory\Elasticsearch\Interfaces\{ClientFactoryInterface, ConnectionInterface, ConnectionResolverInterface};
 use Psr\SimpleCache\CacheInterface;
@@ -25,10 +24,6 @@ use Psr\SimpleCache\CacheInterface;
 use function class_exists;
 use function config_path;
 use function dirname;
-use function file_exists;
-use function trigger_error;
-
-use const E_USER_DEPRECATED;
 
 /**
  * Class ElasticsearchServiceProvider
@@ -61,14 +56,6 @@ class ElasticsearchServiceProvider extends ServiceProvider
             ),
         );
 
-        // TODO: Remove in next major version
-        /** @noinspection PhpDeprecationInspection */
-        Connection::setConnectionResolver(
-            $this->app->make(
-                ConnectionResolverInterface::class,
-            ),
-        );
-
         // Register the Laravel Scout Engine
         $this->registerScoutEngine();
     }
@@ -79,24 +66,13 @@ class ElasticsearchServiceProvider extends ServiceProvider
      */
     protected function configure(): void
     {
-        if (file_exists($this->packageConfigPath('es.php'))) {
-            $configPath = $this->packageConfigPath('es.php');
-            @trigger_error(
-                "Since matchory/elasticsearch 3.0.0: The 'es.php' configuration file is deprecated. " .
-                "Use 'elasticsearch.php' instead.",
-                E_USER_DEPRECATED,
-            );
-        } else {
-            $configPath = $this->packageConfigPath('elasticsearch.php');
-        }
+        $configPath = $this->packageConfigPath('elasticsearch.php');
 
-        $configKey = basename($configPath, '.php');
-
-        $this->mergeConfigFrom($configPath, $configKey);
+        $this->mergeConfigFrom($configPath, 'elasticsearch');
         $this->mergeLoggingChannelsFrom($this->packageConfigPath('logging.php'));
         $this->publishes([
             $this->packageConfigPath() => config_path(),
-        ], "{$configKey}.config");
+        ], 'elasticsearch.config');
     }
 
     protected function registerScoutEngine(): void
@@ -111,12 +87,13 @@ class ElasticsearchServiceProvider extends ServiceProvider
                 ->make(EngineManager::class)
                 ->extend('elasticsearch', function () {
                     $connectionName = Config::get('scout.elasticsearch.connection');
-                    $config = Config::get("elasticsearch.connections.{$connectionName}");
-                    $elastic = ElasticBuilder::create()
-                        ->setHosts($config['servers'])
-                        ->build();
+                    $connection = $this->app
+                        ->make(ConnectionResolverInterface::class)
+                        ->connection($connectionName);
 
-                    return new ScoutEngine($elastic, $config['index']);
+                    $index = Config::get('scout.elasticsearch.index', 'scout');
+
+                    return new ScoutEngine($connection->getClient(), $index);
                 });
         } catch (BindingResolutionException) {
             // Class is not resolved.
@@ -205,7 +182,7 @@ class ElasticsearchServiceProvider extends ServiceProvider
         $this->app->singleton(
             ConnectionResolverInterface::class,
             function (Application $app) {
-                $configuration = Config::get('elasticsearch', Config::get('es', []));
+                $configuration = Config::get('elasticsearch', []);
                 $factory = $app->make(ClientFactoryInterface::class);
                 $cache = $app->bound(CacheInterface::class)
                     ? $app->make(CacheInterface::class)
@@ -228,19 +205,6 @@ class ElasticsearchServiceProvider extends ServiceProvider
             ConnectionResolverInterface::class,
             'elasticsearch',
         );
-
-        $this->app->alias(
-            ConnectionResolverInterface::class,
-            'es',
-        );
-
-        $this->app->beforeResolving('es', function () {
-            @trigger_error(
-                "Since matchory/elasticsearch 3.0.0: The 'es' alias is deprecated. " .
-                "Use 'elasticsearch' instead.",
-                E_USER_DEPRECATED,
-            );
-        });
     }
 
     /**
