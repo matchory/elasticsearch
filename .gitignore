@@ -12,3 +12,4 @@
 
 # PHPUnit cache
 /.phpunit.cache
+.claude/settings.local.json
