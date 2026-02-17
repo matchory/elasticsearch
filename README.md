@@ -88,6 +88,14 @@ If you're interested in contributing, please submit a PR or open an issue!
     * [Bulk Delete By Query](#bulk-delete-by-query)
     * [Retry Logic](#retry-logic)
     * [Query Profiling](#query-profiling)
+- [Testing](#testing)
+    * [Faking Elasticsearch](#faking-elasticsearch)
+    * [Response Builders](#response-builders)
+    * [Assertions](#assertions)
+    * [Response Sequences](#response-sequences)
+    * [Stubbed Responses](#stubbed-responses)
+    * [Dynamic Responses](#dynamic-responses)
+    * [PHPUnit Trait](#phpunit-trait)
 - [Releases](#releases)
 - [Authors](#authors)
 - [Bugs, Suggestions and Contributions](#bugs-suggestions-and-contributions)
@@ -3116,6 +3124,256 @@ ES::index("my_index")->bulk(function ($bulk){
     $bulk->key(10)->delete();
     $bulk->key(11)->delete();
 });
+```
+
+Testing
+-------
+The package ships with first-class testing support via `Elasticsearch::fake()`, similar to Laravel's `Http::fake()`. It
+replaces the Elasticsearch client with a fake that records all calls and returns configured responses, while your query
+building and connection code still executes normally.
+
+### Faking Elasticsearch
+
+Call `Elasticsearch::fake()` to swap the real client with a fake. Pass response arrays to queue them up:
+
+```php
+use Matchory\Elasticsearch\Facades\Elasticsearch;
+use Matchory\Elasticsearch\Testing\Responses\SearchResponse;
+
+$fake = Elasticsearch::fake(
+    SearchResponse::fromDocuments([
+        ['title' => 'Widget', 'price' => 9.99],
+        ['title' => 'Gadget', 'price' => 19.99],
+    ])->toArray(),
+);
+
+// Your application code runs normally:
+$results = Product::where('category', 'electronics')->get();
+
+$this->assertCount(2, $results);
+$this->assertSame('Widget', $results[0]->title);
+
+// When done, restore the real client:
+Elasticsearch::unfake();
+```
+
+Queued responses are consumed in FIFO order. Once the queue is empty, the fake falls back to sensible defaults (empty
+search results, `count` of 0, etc.).
+
+### Response Builders
+
+Response builders produce correctly structured Elasticsearch response arrays. All builders extend `FakeResponse` and
+provide a `toArray()` method.
+
+**`SearchResponse`** -- search results:
+
+```php
+use Matchory\Elasticsearch\Testing\Responses\SearchResponse;
+
+// From plain document arrays (most common):
+SearchResponse::fromDocuments([
+    ['title' => 'Post 1', 'status' => 'published'],
+    ['title' => 'Post 2', 'status' => 'draft'],
+])->toArray();
+
+// With a custom index name:
+SearchResponse::fromDocuments($docs, 'my_index')->toArray();
+
+// Empty results:
+SearchResponse::empty()->toArray();
+
+// From raw hit arrays (when you need control over _id, _score, etc.):
+SearchResponse::make([
+    ['_index' => 'posts', '_id' => 'abc', '_score' => 2.5, '_source' => ['title' => 'Post']],
+])->toArray();
+
+// Override total count (e.g., for pagination):
+SearchResponse::make($hits, total: 1000)->toArray();
+
+// With aggregations or suggestions:
+SearchResponse::fromDocuments($docs)
+    ->withAggregations(['status' => ['buckets' => [['key' => 'published', 'doc_count' => 10]]]])
+    ->withSuggestions(['title_suggest' => [['text' => 'test', 'options' => []]]])
+    ->toArray();
+```
+
+**`CountResponse`** -- count results:
+
+```php
+use Matchory\Elasticsearch\Testing\Responses\CountResponse;
+
+CountResponse::make(42)->toArray();
+```
+
+**`IndexResponse`** -- document index/update/delete results:
+
+```php
+use Matchory\Elasticsearch\Testing\Responses\IndexResponse;
+
+IndexResponse::created('doc-1', 'my_index')->toArray();
+IndexResponse::updated('doc-1', 'my_index')->toArray();
+IndexResponse::deleted('doc-1', 'my_index')->toArray();
+```
+
+**`BulkResponse`** -- bulk operation results:
+
+```php
+use Matchory\Elasticsearch\Testing\Responses\BulkResponse;
+
+BulkResponse::allSuccessful(count: 5, index: 'my_index')->toArray();
+BulkResponse::make(items: [...], errors: true)->toArray();
+```
+
+All response builders support `merge()` for overriding specific fields without rebuilding the entire response:
+
+```php
+$response = SearchResponse::empty()->merge(['took' => 500]);
+```
+
+### Assertions
+
+The fake instance returned by `Elasticsearch::fake()` provides assertion methods:
+
+```php
+$fake = Elasticsearch::fake(
+    SearchResponse::empty()->toArray(),
+);
+
+Product::where('status', 'active')->get();
+
+// Assert a method was called:
+$fake->assertSent('search');
+
+// Assert with parameter matching:
+$fake->assertSent('search', fn(array $params) =>
+    $params['index'] === 'products'
+);
+
+// Assert a method was NOT called:
+$fake->assertNotSent('index');
+
+// Assert nothing was sent at all:
+// $fake->assertNothingSent();
+
+// Assert exact call count:
+$fake->assertSentCount('search', 1);
+
+// Access raw recorded calls for custom inspection:
+$calls = $fake->recorded('search');    // array of param arrays
+$all   = $fake->recorded();            // all calls keyed by method
+```
+
+### Response Sequences
+
+Return different responses for successive calls using `ResponseSequence`:
+
+```php
+use Matchory\Elasticsearch\Testing\ResponseSequence;
+use Matchory\Elasticsearch\Testing\Responses\SearchResponse;
+
+$fake = Elasticsearch::fake(
+    new ResponseSequence(
+        SearchResponse::fromDocuments([['title' => 'First page']]),
+        SearchResponse::fromDocuments([['title' => 'Second page']]),
+        SearchResponse::empty(),
+    ),
+);
+
+Product::all();  // Returns "First page"
+Product::all();  // Returns "Second page"
+Product::all();  // Returns empty results
+```
+
+Set a fallback for when the sequence is exhausted:
+
+```php
+$sequence = new ResponseSequence(
+    SearchResponse::fromDocuments([['title' => 'Only first call']]),
+);
+$sequence->whenEmpty(SearchResponse::empty());
+```
+
+### Stubbed Responses
+
+Stubs are tied to a specific client method and are returned on every call (not consumed like queued responses):
+
+```php
+$fake = Elasticsearch::fake();
+
+$fake->getClient()->stubMethod('search',
+    SearchResponse::fromDocuments([['title' => 'Always this']])->toArray()
+);
+
+$fake->getClient()->stubMethod('count',
+    CountResponse::make(99)->toArray()
+);
+
+// Every search() call returns the same response
+Product::all();  // "Always this"
+Product::all();  // "Always this"
+```
+
+Queued responses take priority over stubs. Once the queue is empty, stubs are used.
+
+### Dynamic Responses
+
+Use closures for responses that depend on the request parameters:
+
+```php
+$fake = Elasticsearch::fake(
+    fn(string $method, array $params) => match ($method) {
+        'search' => SearchResponse::fromDocuments([
+            ['title' => 'Result for: ' . ($params['index'] ?? 'unknown')],
+        ])->toArray(),
+        'count' => CountResponse::make(42)->toArray(),
+        default => [],
+    },
+);
+```
+
+### PHPUnit Trait
+
+The `FakesElasticsearch` trait provides a convenience method and automatic cleanup via PHPUnit's `#[After]` hook:
+
+```php
+namespace Tests\Feature;
+
+use Matchory\Elasticsearch\Testing\FakesElasticsearch;
+use Matchory\Elasticsearch\Testing\Responses\SearchResponse;
+use Tests\TestCase;
+
+class ProductSearchTest extends TestCase
+{
+    use FakesElasticsearch;
+
+    public function test_search_returns_results(): void
+    {
+        $this->fakeElasticsearch(
+            SearchResponse::fromDocuments([
+                ['title' => 'Widget', 'price' => 9.99],
+            ])->toArray(),
+        );
+
+        $response = $this->get('/api/products?q=widget');
+
+        $response->assertOk();
+        $response->assertJsonCount(1, 'data');
+    }
+
+    public function test_empty_search(): void
+    {
+        $this->fakeElasticsearch(
+            SearchResponse::empty()->toArray(),
+        );
+
+        $response = $this->get('/api/products?q=nothing');
+
+        $response->assertOk();
+        $response->assertJsonCount(0, 'data');
+    }
+
+    // No manual cleanup needed -- unfake() is called automatically after each test
+}
 ```
 
 Releases

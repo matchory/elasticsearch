@@ -11,6 +11,7 @@ use Matchory\Elasticsearch\Collection;
 use Matchory\Elasticsearch\Interfaces\ConnectionInterface;
 use Matchory\Elasticsearch\Interfaces\ConnectionResolverInterface;
 use Matchory\Elasticsearch\Model;
+use Matchory\Elasticsearch\Testing\ElasticsearchFake;
 
 use function class_alias;
 
@@ -133,6 +134,41 @@ class_alias(Elasticsearch::class, 'Matchory\Elasticsearch\Facades\ES');
  */
 class Elasticsearch extends Facade
 {
+    private static ?ConnectionResolverInterface $originalResolver = null;
+
+    /**
+     * Replace the bound resolver with a fake for testing.
+     *
+     * @param mixed ...$responses Initial queued responses for the FakeClient.
+     */
+    public static function fake(mixed ...$responses): ElasticsearchFake
+    {
+        $fake = new ElasticsearchFake(...$responses);
+
+        // Stash the real resolver so we can restore it later
+        if (self::$originalResolver === null) {
+            self::$originalResolver = app(ConnectionResolverInterface::class);
+        }
+
+        self::swap($fake);
+        Model::setConnectionResolver($fake);
+
+        return $fake;
+    }
+
+    /**
+     * Restore the original resolver after testing.
+     */
+    public static function unfake(): void
+    {
+        if (self::$originalResolver !== null) {
+            app()->instance(ConnectionResolverInterface::class, self::$originalResolver);
+            self::swap(self::$originalResolver);
+            Model::setConnectionResolver(self::$originalResolver);
+            self::$originalResolver = null;
+        }
+    }
+
     /**
      * @inheritDoc
      */

@@ -1,20 +1,13 @@
 {
   "permissions": {
     "allow": [
-      "mcp__jetbrains__list_directory_tree",
-      "WebFetch(domain:github.com)",
-      "Bash(composer:*)",
+      "Bash(git add *)",
+      "Bash(git checkout *)",
+      "Bash(git pull *)",
+      "mcp__jetbrains",
       "Bash(./vendor/bin/phpunit:*)",
-      "Bash(./vendor/bin/phpstan:*)",
-      "Bash(find:*)",
-      "Bash(wc:*)",
-      "Bash(grep:*)",
-      "Bash(ls:*)",
-      "Bash(./vendor/bin/pint:*)",
-      "WebFetch(domain:www.elastic.co)",
-      "WebSearch",
-      "WebFetch(domain:raw.githubusercontent.com)",
-      "Bash(XDEBUG_MODE=coverage ./vendor/bin/phpunit:*)"
+      "Bash(./vendor/bin/phpstan analyse:*)",
+      "Bash(./vendor/bin/pint:*)"
     ]
   }
 }
