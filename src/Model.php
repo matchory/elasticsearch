@@ -336,6 +336,28 @@ class Model implements
     }
 
     /**
+     * Resolve a class-level PHP attribute value from the model.
+     *
+     * Laravel 13's {@see HasAttributes::initializeHasAttributes()} calls this to
+     * read attributes like {@see \Illuminate\Database\Eloquent\Attributes\DateFormat},
+     * {@see \Illuminate\Database\Eloquent\Attributes\Appends}, and
+     * {@see \Illuminate\Database\Eloquent\Attributes\Table}. Eloquent models get
+     * this method from {@see \Illuminate\Database\Eloquent\Model}, but our
+     * standalone ES model does not — without this override, the call falls
+     * through to {@see __call()} which creates a new Query and recurses.
+     *
+     * Elasticsearch models do not currently consume any of these attributes, so
+     * we always return null. If we add support in the future we can copy
+     * Laravel's reflection-based implementation.
+     *
+     * @param  class-string  $attributeClass
+     */
+    protected static function resolveClassAttribute(string $attributeClass, ?string $property = null, ?string $class = null): mixed
+    {
+        return null;
+    }
+
+    /**
      * Fill the model with an array of attributes. Force mass assignment.
      *
      * @param array<string, mixed> $attributes
