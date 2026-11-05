@@ -773,7 +773,7 @@ trait ExecutesQueries
             );
         }
 
-        $page = $page ?: Request::get($pageName, 1);
+        $page = $page ?: Request::input($pageName, 1);
 
         $this->skip(($page * $perPage) - $perPage);
 
