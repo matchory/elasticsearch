@@ -61,7 +61,7 @@
         "laravel/framework": "^12.49.0",
         "laravel/pint": "^v1.27.0",
         "laravel/scout": "^10.23.1",
-        "matchory/laravel-server-timing": "^1.3.2",
+        "matchory/laravel-server-timing": "^2.0.0",
         "orchestra/testbench": "*",
         "phpstan/phpstan": "^2.1.37",
         "phpunit/phpunit": "^11.5.50",
