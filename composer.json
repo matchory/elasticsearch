@@ -60,7 +60,7 @@
         "jetbrains/phpstorm-attributes": "^1.2.0",
         "laravel/framework": "^12.49.0",
         "laravel/pint": "^v1.27.0",
-        "laravel/scout": "^10.23.1",
+        "laravel/scout": "^11.9.0",
         "matchory/laravel-server-timing": "^1.3.2",
         "orchestra/testbench": "*",
         "phpstan/phpstan": "^2.1.37",
